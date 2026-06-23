@@ -17,6 +17,7 @@ function wsafRoot() {
 }
 
 function autoStartEnabled() {
+  if (process.env.VERCEL) return false;
   const v = (process.env.WSAF_AUTO_START ?? 'true').toLowerCase();
   return v !== 'false' && v !== '0';
 }

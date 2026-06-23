@@ -25,3 +25,27 @@ npm run dev
 - **FeedFlow engine** starts automatically with the API (no second terminal)
 
 Set `WSAF_AUTO_START=false` in `.env` only if you run WSAF manually.
+
+## Deploy to Vercel (web + API on one domain)
+
+1. Import repo [AMS-Dashboard](https://github.com/yzxotic23-commits/AMS-Dashboard) on [vercel.com](https://vercel.com)
+2. **Root Directory:** leave empty (repo root)
+3. Vercel reads `vercel.json` automatically — no extra build settings needed
+4. Add **Environment Variables** (Production + Preview):
+
+| Variable | Scope | Notes |
+|----------|-------|-------|
+| `SUPABASE_URL` | Server | Supabase project URL |
+| `SUPABASE_ANON_KEY` | Server | Anon key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server | Service role (API only) |
+| `VITE_SUPABASE_URL` | Build | Same as SUPABASE_URL |
+| `VITE_SUPABASE_ANON_KEY` | Build | Same as anon key |
+| `VITE_DEMO_MODE` | Build | `false` |
+| `WSAF_AUTO_START` | Server | `false` on Vercel |
+
+5. Deploy → open `https://<your-app>.vercel.app`
+6. Health check: `https://<your-app>.vercel.app/api/v1/health`
+
+**What works online:** login, Control Center, Register, Tickets, Governance, User management, all Supabase-backed CRUD.
+
+**What stays local:** WhatsApp QR / pairing (FeedFlow engine on operator PC, port 47821). Activation page opens but linking needs local FeedFlow.

@@ -7,8 +7,13 @@ import v1Router from './routes/v1/index.js';
 const app = express();
 
 app.use(helmet());
+const defaultOrigins = ['http://localhost:3000', 'http://localhost:5173'];
+const vercelOrigin = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null;
+const corsOrigins = process.env.CORS_ORIGIN?.split(',').map((s) => s.trim()).filter(Boolean)
+  || (vercelOrigin ? [...defaultOrigins, vercelOrigin] : defaultOrigins);
+
 app.use(cors({
-  origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000', 'http://localhost:5173'],
+  origin: corsOrigins,
   credentials: true,
 }));
 app.use(morgan('dev'));

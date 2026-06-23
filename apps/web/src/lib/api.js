@@ -1,8 +1,14 @@
 import axios from 'axios';
 import { getSupabase } from './supabase';
 
+function resolveApiOrigin() {
+  if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL.replace(/\/$/, '');
+  if (import.meta.env.DEV) return 'http://localhost:4000';
+  return ''; // Vercel: same-origin /api/v1
+}
+
 const api = axios.create({
-  baseURL: `${import.meta.env.VITE_API_URL || 'http://localhost:4000'}/api/v1`,
+  baseURL: `${resolveApiOrigin()}/api/v1`,
   headers: { 'Content-Type': 'application/json' },
 });
 

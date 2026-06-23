@@ -1,0 +1,31 @@
+{
+  "name": "ams-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Account Management System — unified AMS + FeedFlow command center",
+  "workspaces": [
+    "apps/api",
+    "apps/web"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,web -c blue,green \"npm run dev -w apps/api\" \"npm run dev -w apps/web\"",
+    "dev:api": "npm run dev -w apps/api",
+    "dev:web": "npm run dev -w apps/web",
+    "dev:all": "npm run dev",
+    "build": "npm run build -w apps/web",
+    "start:api": "npm run start -w apps/api",
+    "setup:supabase": "node scripts/setup-supabase.js",
+    "migrate:supabase": "node scripts/run-migration.js",
+    "migrate:screenshots": "node scripts/migrate-screenshot-bucket.js",
+    "migrate:username": "node scripts/run-username-migration.js",
+    "seed:sample": "node scripts/seed-sample-data.js",
+    "clear:data": "node scripts/clear-operational-data.js",
+    "seed:devices": "node scripts/seed-devices.js",
+    "create:admin": "node scripts/create-admin-user.js",
+    "seed:operators": "node scripts/seed-operator-users.js"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "pg": "^8.22.0"
+  }
+}

@@ -1,0 +1,8310 @@
+/* Dashboard */
+
+position: relative;
+width: 1440px;
+height: 1080px;
+
+background: #EBDFD7;
+
+
+/* Group 1171275866 */
+
+position: absolute;
+width: 400px;
+height: 291px;
+left: 1010px;
+top: 773px;
+
+
+
+/* Rectangle 41945 */
+
+position: absolute;
+width: 400px;
+height: 291px;
+left: 1010px;
+top: 773px;
+
+background: rgba(255, 255, 255, 0.34);
+border-radius: 14px;
+
+
+/* Ellipse 3240 */
+
+box-sizing: border-box;
+
+position: absolute;
+width: 30px;
+height: 30px;
+left: 1027px;
+top: 994px;
+
+border: 1px solid #060606;
+transform: matrix(-1, 0, 0, 1, 0, 0);
+
+
+/* Ellipse 3241 */
+
+box-sizing: border-box;
+
+position: absolute;
+width: 30px;
+height: 30px;
+left: 1027px;
+top: 964px;
+
+border: 1px solid #060606;
+transform: matrix(-1, 0, 0, 1, 0, 0);
+
+
+/* Ellipse 3242 */
+
+position: absolute;
+width: 30px;
+height: 30px;
+left: 1027px;
+top: 934px;
+
+background: #060606;
+transform: matrix(-1, 0, 0, 1, 0, 0);
+
+
+/* Ellipse 3240 */
+
+box-sizing: border-box;
+
+position: absolute;
+width: 30px;
+height: 30px;
+left: 1083px;
+top: 994px;
+
+border: 1px solid #060606;
+transform: matrix(-1, 0, 0, 1, 0, 0);
+
+
+/* Ellipse 3241 */
+
+box-sizing: border-box;
+
+position: absolute;
+width: 30px;
+height: 30px;
+left: 1083px;
+top: 964px;
+
+border: 1px solid #060606;
+transform: matrix(-1, 0, 0, 1, 0, 0);
+
+
+/* Ellipse 3242 */
+
+box-sizing: border-box;
+
+position: absolute;
+width: 30px;
+height: 30px;
+left: 1083px;
+top: 934px;
+
+border: 1px solid #060606;
+transform: matrix(-1, 0, 0, 1, 0, 0);
+
+
+/* Ellipse 3243 */
+
+position: absolute;
+width: 30px;
+height: 30px;
+left: 1083px;
+top: 904px;
+
+background: #060606;
+transform: matrix(-1, 0, 0, 1, 0, 0);
+
+
+/* Ellipse 3240 */
+
+position: absolute;
+width: 30px;
+height: 30px;
+left: 1139px;
+top: 994px;
+
+background: #060606;
+transform: matrix(-1, 0, 0, 1, 0, 0);
+
+
+/* Ellipse 3240 */
+
+box-sizing: border-box;
+
+position: absolute;
+width: 30px;
+height: 30px;
+left: 1195px;
+top: 994px;
+
+border: 1px solid #060606;
+transform: matrix(-1, 0, 0, 1, 0, 0);
+
+
+/* Ellipse 3241 */
+
+box-sizing: border-box;
+
+position: absolute;
+width: 30px;
+height: 30px;
+left: 1195px;
+top: 964px;
+
+border: 1px solid #060606;
+transform: matrix(-1, 0, 0, 1, 0, 0);
+
+
+/* Ellipse 3242 */
+
+box-sizing: border-box;
+
+position: absolute;
+width: 30px;
+height: 30px;
+left: 1195px;
+top: 934px;
+
+border: 1px solid #060606;
+transform: matrix(-1, 0, 0, 1, 0, 0);
+
+
+/* Ellipse 3243 */
+
+box-sizing: border-box;
+
+position: absolute;
+width: 30px;
+height: 30px;
+left: 1195px;
+top: 904px;
+
+border: 1px solid #060606;
+transform: matrix(-1, 0, 0, 1, 0, 0);
+
+
+/* Ellipse 3244 */
+
+box-sizing: border-box;
+
+position: absolute;
+width: 30px;
+height: 30px;
+left: 1195px;
+top: 874px;
+
+border: 1px solid #060606;
+transform: matrix(-1, 0, 0, 1, 0, 0);
+
+
+/* Ellipse 3245 */
+
+position: absolute;
+width: 30px;
+height: 30px;
+left: 1195px;
+top: 844px;
+
+background: #E65F2B;
+transform: matrix(-1, 0, 0, 1, 0, 0);
+
+
+/* Ellipse 3240 */
+
+box-sizing: border-box;
+
+position: absolute;
+width: 30px;
+height: 30px;
+left: 1251px;
+top: 994px;
+
+border: 1px solid #060606;
+transform: matrix(-1, 0, 0, 1, 0, 0);
+
+
+/* Ellipse 3241 */
+
+box-sizing: border-box;
+
+position: absolute;
+width: 30px;
+height: 30px;
+left: 1251px;
+top: 964px;
+
+border: 1px solid #060606;
+transform: matrix(-1, 0, 0, 1, 0, 0);
+
+
+/* Ellipse 3242 */
+
+box-sizing: border-box;
+
+position: absolute;
+width: 30px;
+height: 30px;
+left: 1251px;
+top: 934px;
+
+border: 1px solid #060606;
+transform: matrix(-1, 0, 0, 1, 0, 0);
+
+
+/* Ellipse 3243 */
+
+position: absolute;
+width: 30px;
+height: 30px;
+left: 1251px;
+top: 904px;
+
+background: #060606;
+transform: matrix(-1, 0, 0, 1, 0, 0);
+
+
+/* Ellipse 3240 */
+
+position: absolute;
+width: 30px;
+height: 30px;
+left: 1307px;
+top: 994px;
+
+background: #060606;
+transform: matrix(-1, 0, 0, 1, 0, 0);
+
+
+/* Ellipse 3240 */
+
+box-sizing: border-box;
+
+position: absolute;
+width: 30px;
+height: 30px;
+left: 1363px;
+top: 994px;
+
+border: 1px solid #060606;
+transform: matrix(-1, 0, 0, 1, 0, 0);
+
+
+/* Ellipse 3241 */
+
+position: absolute;
+width: 30px;
+height: 30px;
+left: 1363px;
+top: 964px;
+
+background: #060606;
+transform: matrix(-1, 0, 0, 1, 0, 0);
+
+
+/* Sam */
+
+position: absolute;
+width: 26px;
+height: 14px;
+left: 1029px;
+top: 1034px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 12px;
+line-height: 14px;
+/* identical to box height */
+display: flex;
+align-items: center;
+text-align: center;
+letter-spacing: 0.01em;
+
+color: #797979;
+
+
+
+/* Meldy */
+
+position: absolute;
+width: 34px;
+height: 14px;
+left: 1081px;
+top: 1034px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 12px;
+line-height: 14px;
+/* identical to box height */
+display: flex;
+align-items: center;
+text-align: center;
+letter-spacing: 0.01em;
+
+color: #797979;
+
+
+
+/* Ken */
+
+position: absolute;
+width: 22px;
+height: 14px;
+left: 1143px;
+top: 1034px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 12px;
+line-height: 14px;
+/* identical to box height */
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #797979;
+
+
+
+/* Dmitry */
+
+position: absolute;
+width: 36px;
+height: 14px;
+left: 1192px;
+top: 1034px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 12px;
+line-height: 14px;
+/* identical to box height */
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #797979;
+
+
+
+/* Vego */
+
+position: absolute;
+width: 30px;
+height: 14px;
+left: 1251px;
+top: 1034px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 12px;
+line-height: 14px;
+/* identical to box height */
+display: flex;
+align-items: center;
+text-align: center;
+letter-spacing: 0.01em;
+
+color: #797979;
+
+
+
+/* Kadin */
+
+position: absolute;
+width: 32px;
+height: 14px;
+left: 1306px;
+top: 1034px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 12px;
+line-height: 14px;
+/* identical to box height */
+display: flex;
+align-items: center;
+text-align: center;
+letter-spacing: 0.01em;
+
+color: #797979;
+
+
+
+/* Melm */
+
+position: absolute;
+width: 32px;
+height: 14px;
+left: 1362px;
+top: 1034px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 12px;
+line-height: 14px;
+/* identical to box height */
+display: flex;
+align-items: center;
+text-align: center;
+letter-spacing: 0.01em;
+
+color: #797979;
+
+
+
+/* 07 */
+
+position: absolute;
+width: 16px;
+height: 16px;
+left: 1034px;
+top: 941px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+display: flex;
+align-items: center;
+text-align: center;
+letter-spacing: 0.01em;
+
+color: #FFFFFF;
+
+
+
+/* 08 */
+
+position: absolute;
+width: 18px;
+height: 16px;
+left: 1088px;
+top: 911px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+display: flex;
+align-items: center;
+text-align: center;
+letter-spacing: 0.01em;
+
+color: #FFFFFF;
+
+
+
+/* 02 */
+
+position: absolute;
+width: 17px;
+height: 16px;
+left: 1145px;
+top: 1001px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+display: flex;
+align-items: center;
+text-align: center;
+letter-spacing: 0.01em;
+
+color: #FFFFFF;
+
+
+
+/* 08 */
+
+position: absolute;
+width: 18px;
+height: 16px;
+left: 1257px;
+top: 911px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+display: flex;
+align-items: center;
+text-align: center;
+letter-spacing: 0.01em;
+
+color: #FFFFFF;
+
+
+
+/* 02 */
+
+position: absolute;
+width: 17px;
+height: 16px;
+left: 1313px;
+top: 1001px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+display: flex;
+align-items: center;
+text-align: center;
+letter-spacing: 0.01em;
+
+color: #FFFFFF;
+
+
+
+/* 04 */
+
+position: absolute;
+width: 17px;
+height: 16px;
+left: 1369px;
+top: 971px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+display: flex;
+align-items: center;
+text-align: center;
+letter-spacing: 0.01em;
+
+color: #FFFFFF;
+
+
+
+/* Frame 1171275917 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 0px;
+gap: 88px;
+
+position: absolute;
+width: 364px;
+height: 34px;
+left: 1028px;
+top: 791px;
+
+
+
+/* Projects Workload */
+
+width: 133px;
+height: 18px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 16px;
+line-height: 18px;
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #060606;
+
+border: 0.5px solid #060606;
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Frame 1171275882 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 2px 14px;
+gap: 10px;
+
+width: 143px;
+height: 34px;
+
+background: #FFFFFF;
+border-radius: 17px;
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Frame 1171275878 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 0px;
+gap: 10px;
+
+width: 115px;
+height: 16px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Last 3 months */
+
+width: 91px;
+height: 16px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #060606;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* icons */
+
+width: 14px;
+height: 14px;
+
+transform: rotate(-90deg);
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Icon (Stroke) */
+
+position: absolute;
+left: 18.18%;
+right: 45.45%;
+top: 31.82%;
+bottom: 4.55%;
+
+background: #292D32;
+transform: matrix(0, 1, 1, 0, 0, 0);
+
+
+/* 10 */
+
+position: absolute;
+width: 14px;
+height: 16px;
+left: 1203px;
+top: 851px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+display: flex;
+align-items: center;
+text-align: center;
+letter-spacing: 0.01em;
+
+color: #FFFFFF;
+
+
+
+/* menu */
+
+/* Auto layout */
+display: flex;
+flex-direction: column;
+align-items: center;
+padding: 140px 46px 0px 30px;
+gap: 60px;
+isolation: isolate;
+
+position: absolute;
+width: 260px;
+height: 1080px;
+right: 1180px;
+top: 0px;
+
+background: #060606;
+
+
+/* button */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 5px 20px 5px 7px;
+gap: 10px;
+
+width: 184px;
+height: 48px;
+
+background: #FFFFFF;
+border-radius: 24px;
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+z-index: 0;
+
+
+/* Frame 1171275840 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+justify-content: center;
+align-items: center;
+padding: 5px;
+gap: 16px;
+
+width: 34px;
+height: 34px;
+
+background: #E65F2B;
+border-radius: 24px;
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* icons */
+
+width: 24px;
+height: 24px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Icon (Stroke) */
+
+position: absolute;
+left: 12.5%;
+right: 12.5%;
+top: 12.5%;
+bottom: 12.5%;
+
+background: #FFFFFF;
+
+
+/* Create new project */
+
+width: 76px;
+height: 32px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+display: flex;
+align-items: center;
+
+color: #171717;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Frame 1171275841 */
+
+/* Auto layout */
+display: flex;
+flex-direction: column;
+align-items: flex-start;
+padding: 0px;
+gap: 10px;
+
+width: 184px;
+height: 512px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+z-index: 1;
+
+
+/* expand tab */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 13px 26px 13px 16px;
+gap: 16px;
+
+width: 184px;
+height: 48px;
+
+background: #FFFFFF;
+border-radius: 24px;
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* icons */
+
+width: 22px;
+height: 22px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* vuesax/linear/category-2 */
+
+position: absolute;
+width: 19.71px;
+height: 19.71px;
+left: 1.15px;
+top: 1.15px;
+
+
+
+/* category-2 */
+
+position: absolute;
+width: 19.71px;
+height: 19.71px;
+left: 1.15px;
+top: 1.15px;
+
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 55.21%;
+right: 5.21%;
+top: 5.21%;
+bottom: 55.21%;
+
+background: #E65F2B;
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 5.21%;
+right: 55.21%;
+top: 55.21%;
+bottom: 5.21%;
+
+background: #E65F2B;
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 5.21%;
+right: 55.21%;
+top: 5.21%;
+bottom: 55.21%;
+
+background: #E65F2B;
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 55.21%;
+right: 5.21%;
+top: 55.21%;
+bottom: 5.21%;
+
+background: #E65F2B;
+
+
+/* Dashboard */
+
+width: 69px;
+height: 16px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+
+color: #E65F2B;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* expand tab */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 13px 26px 13px 16px;
+gap: 16px;
+
+width: 160px;
+height: 48px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* icons */
+
+width: 22px;
+height: 22px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* vuesax/linear/briefcase */
+
+position: absolute;
+width: 19.25px;
+height: 19.71px;
+left: 1.37px;
+top: 1.15px;
+
+
+
+/* briefcase */
+
+position: absolute;
+width: 19.25px;
+height: 19.71px;
+left: 1.37px;
+top: 1.15px;
+
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 6.25%;
+right: 6.25%;
+top: 21.88%;
+bottom: 5.21%;
+
+background: #F1F1F1;
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 30.21%;
+right: 30.21%;
+top: 5.21%;
+bottom: 71.88%;
+
+background: #F1F1F1;
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 38.54%;
+right: 38.54%;
+top: 46.88%;
+bottom: 30.21%;
+
+background: #F1F1F1;
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 55.21%;
+right: 6.67%;
+top: 42.71%;
+bottom: 38.46%;
+
+background: #F1F1F1;
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 7.79%;
+right: 55.21%;
+top: 43.83%;
+bottom: 38.42%;
+
+background: #F1F1F1;
+
+
+/* Dashboard */
+
+width: 51px;
+height: 16px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+
+color: #F1F1F1;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* expand tab */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 13px 26px 13px 16px;
+gap: 16px;
+
+width: 160px;
+height: 48px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 2;
+flex-grow: 0;
+
+
+/* icons */
+
+width: 22px;
+height: 22px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* vuesax/linear/task */
+
+position: absolute;
+width: 17.88px;
+height: 16.96px;
+left: 2.06px;
+top: 2.52px;
+
+
+
+/* task */
+
+position: absolute;
+width: 17.88px;
+height: 16.96px;
+left: 2.06px;
+top: 2.52px;
+
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 42.71%;
+right: 9.38%;
+top: 78.12%;
+bottom: 15.62%;
+
+background: #F1F1F1;
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 42.71%;
+right: 9.38%;
+top: 48.96%;
+bottom: 44.79%;
+
+background: #F1F1F1;
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 42.71%;
+right: 9.38%;
+top: 19.79%;
+bottom: 73.96%;
+
+background: #F1F1F1;
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 9.38%;
+right: 67.71%;
+top: 11.46%;
+bottom: 69.79%;
+
+background: #F1F1F1;
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 9.38%;
+right: 67.71%;
+top: 40.62%;
+bottom: 40.62%;
+
+background: #F1F1F1;
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 9.38%;
+right: 67.71%;
+top: 69.79%;
+bottom: 11.46%;
+
+background: #F1F1F1;
+
+
+/* Dashboard */
+
+width: 36px;
+height: 16px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+
+color: #F1F1F1;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* expand tab */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 13px 26px 13px 16px;
+gap: 16px;
+
+width: 160px;
+height: 48px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 3;
+flex-grow: 0;
+
+
+/* icons */
+
+width: 22px;
+height: 22px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* vuesax/linear/cpu-setting */
+
+position: absolute;
+width: 19.71px;
+height: 19.71px;
+left: 1.15px;
+top: 1.15px;
+
+
+
+/* cpu-setting */
+
+position: absolute;
+width: 19.71px;
+height: 19.71px;
+left: 1.15px;
+top: 1.15px;
+
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 13.54%;
+right: 13.54%;
+top: 13.54%;
+bottom: 13.54%;
+
+background: #F1F1F1;
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 26.04%;
+right: 28.75%;
+top: 26.04%;
+bottom: 28.75%;
+
+background: #F1F1F1;
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 30.25%;
+right: 63.5%;
+top: 5.21%;
+bottom: 80.21%;
+
+background: #F1F1F1;
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 46.88%;
+right: 46.88%;
+top: 5.21%;
+bottom: 80.21%;
+
+background: #F1F1F1;
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 63.54%;
+right: 30.21%;
+top: 5.21%;
+bottom: 80.21%;
+
+background: #F1F1F1;
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 80.21%;
+right: 5.21%;
+top: 30.21%;
+bottom: 63.54%;
+
+background: #F1F1F1;
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 30.25%;
+right: 63.5%;
+top: 80.21%;
+bottom: 5.21%;
+
+background: #F1F1F1;
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 5.21%;
+right: 80.21%;
+top: 30.21%;
+bottom: 63.54%;
+
+background: #F1F1F1;
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 5.21%;
+right: 80.21%;
+top: 46.88%;
+bottom: 46.88%;
+
+background: #F1F1F1;
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 5.21%;
+right: 80.21%;
+top: 63.54%;
+bottom: 30.21%;
+
+background: #F1F1F1;
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 59.87%;
+right: 20.63%;
+top: 61.08%;
+bottom: 19.42%;
+
+background: #F1F1F1;
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 44.42%;
+right: 5.25%;
+top: 46.87%;
+bottom: 5.24%;
+
+background: #F1F1F1;
+
+
+/* Dashboard */
+
+width: 69px;
+height: 16px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+
+color: #F1F1F1;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* expand tab */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 13px 26px 13px 16px;
+gap: 16px;
+
+width: 160px;
+height: 48px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 4;
+flex-grow: 0;
+
+
+/* icons */
+
+width: 22px;
+height: 22px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* vuesax/linear/clock */
+
+position: absolute;
+width: 19.71px;
+height: 19.71px;
+left: 1.15px;
+top: 1.15px;
+
+
+
+/* clock */
+
+position: absolute;
+width: 19.71px;
+height: 19.71px;
+left: 1.15px;
+top: 1.15px;
+
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 5.21%;
+right: 5.21%;
+top: 5.21%;
+bottom: 5.21%;
+
+background: #F1F1F1;
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 45.33%;
+right: 31.42%;
+top: 28.17%;
+bottom: 33.63%;
+
+background: #F1F1F1;
+
+
+/* Dashboard */
+
+width: 54px;
+height: 16px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+
+color: #F1F1F1;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* expand tab */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 13px 26px 13px 16px;
+gap: 16px;
+
+width: 160px;
+height: 48px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 5;
+flex-grow: 0;
+
+
+/* icons */
+
+width: 22px;
+height: 22px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* vuesax/linear/data */
+
+position: absolute;
+width: 19.71px;
+height: 19.71px;
+left: 1.14px;
+top: 1.15px;
+
+transform: rotate(90deg);
+
+
+/* data */
+
+position: absolute;
+left: 5.2%;
+right: 5.22%;
+top: 5.21%;
+bottom: 5.21%;
+
+transform: rotate(90deg);
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 38.54%;
+right: 38.55%;
+top: 71.88%;
+bottom: 5.21%;
+
+background: #F1F1F1;
+transform: rotate(90deg);
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 71.87%;
+right: 5.22%;
+top: 71.88%;
+bottom: 5.21%;
+
+background: #F1F1F1;
+transform: rotate(90deg);
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 5.2%;
+right: 71.88%;
+top: 71.88%;
+bottom: 5.21%;
+
+background: #F1F1F1;
+transform: rotate(90deg);
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 38.54%;
+right: 38.55%;
+top: 5.21%;
+bottom: 71.87%;
+
+background: #F1F1F1;
+transform: rotate(90deg);
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 46.87%;
+right: -3.12%;
+top: 21.88%;
+bottom: 71.87%;
+
+background: #F1F1F1;
+transform: rotate(90deg);
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 13.54%;
+right: 51.05%;
+top: 42.71%;
+bottom: -15.63%;
+
+background: #F1F1F1;
+transform: rotate(90deg);
+
+
+/* Dashboard */
+
+width: 96px;
+height: 16px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+
+color: #F1F1F1;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* expand tab */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 13px 26px 13px 16px;
+gap: 16px;
+
+width: 160px;
+height: 48px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 6;
+flex-grow: 0;
+
+
+/* icons */
+
+width: 22px;
+height: 22px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* vuesax/linear/people */
+
+position: absolute;
+width: 19.68px;
+height: 19.71px;
+left: 1.15px;
+top: 1.15px;
+
+
+
+/* people */
+
+position: absolute;
+left: 5.22%;
+right: 5.34%;
+top: 5.21%;
+bottom: 5.2%;
+
+
+
+/* Group */
+
+position: absolute;
+left: 60.75%;
+right: 5.34%;
+top: 5.21%;
+bottom: 36.36%;
+
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 60.75%;
+right: 11.5%;
+top: 5.21%;
+bottom: 67.04%;
+
+background: #F1F1F1;
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 67.46%;
+right: 5.34%;
+top: 36.46%;
+bottom: 36.36%;
+
+background: #F1F1F1;
+
+
+/* Group */
+
+position: absolute;
+left: 5.22%;
+right: 60.87%;
+top: 5.21%;
+bottom: 36.36%;
+
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 11.38%;
+right: 60.87%;
+top: 5.21%;
+bottom: 67.04%;
+
+background: #F1F1F1;
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 5.22%;
+right: 67.58%;
+top: 36.46%;
+bottom: 36.36%;
+
+background: #F1F1F1;
+
+
+/* Group */
+
+position: absolute;
+left: 30.34%;
+right: 30.34%;
+top: 36.33%;
+bottom: 5.2%;
+
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 35.75%;
+right: 36.5%;
+top: 36.33%;
+bottom: 35.92%;
+
+background: #F1F1F1;
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 30.34%;
+right: 30.34%;
+top: 67.64%;
+bottom: 5.2%;
+
+background: #F1F1F1;
+
+
+/* Dashboard */
+
+width: 36px;
+height: 16px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+
+color: #F1F1F1;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* expand tab */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 13px 26px 13px 16px;
+gap: 16px;
+
+width: 160px;
+height: 48px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 7;
+flex-grow: 0;
+
+
+/* icons */
+
+width: 22px;
+height: 22px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* vuesax/linear/layer */
+
+position: absolute;
+width: 17.88px;
+height: 18.47px;
+left: 2.06px;
+top: 1.78px;
+
+
+
+/* layer */
+
+position: absolute;
+width: 17.88px;
+height: 18.47px;
+left: 2.06px;
+top: 1.78px;
+
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 11.02%;
+right: 12.77%;
+top: 8.1%;
+bottom: 50.52%;
+
+background: #F1F1F1;
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 9.38%;
+right: 9.38%;
+top: 42.71%;
+bottom: 28.78%;
+
+background: #F1F1F1;
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 9.38%;
+right: 9.38%;
+top: 63.54%;
+bottom: 7.95%;
+
+background: #F1F1F1;
+
+
+/* Dashboard */
+
+width: 103px;
+height: 16px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+
+color: #F1F1F1;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* expand tab */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 13px 26px 13px 16px;
+gap: 16px;
+
+width: 160px;
+height: 48px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 8;
+flex-grow: 0;
+
+
+/* icons */
+
+width: 22px;
+height: 22px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* vuesax/linear/setting-2 */
+
+position: absolute;
+width: 19.72px;
+height: 18.68px;
+left: 1.15px;
+top: 1.66px;
+
+
+
+/* setting-2 */
+
+position: absolute;
+width: 19.72px;
+height: 18.68px;
+left: 1.15px;
+top: 1.66px;
+
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 34.38%;
+right: 34.38%;
+top: 34.38%;
+bottom: 34.38%;
+
+background: #F1F1F1;
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 5.21%;
+right: 5.17%;
+top: 7.54%;
+bottom: 7.54%;
+
+background: #F1F1F1;
+
+
+/* Dashboard */
+
+width: 89px;
+height: 16px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+
+color: #F1F1F1;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Frame 1171275843 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: flex-start;
+padding: 8px;
+gap: 10px;
+
+position: absolute;
+width: 30px;
+height: 30px;
+left: 245px;
+top: 30px;
+
+background: #FFFFFF;
+box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.1);
+border-radius: 17px;
+
+/* Inside auto layout */
+flex: none;
+order: 2;
+flex-grow: 0;
+z-index: 2;
+
+
+/* icons */
+
+width: 14px;
+height: 14px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Icon (Stroke) */
+
+position: absolute;
+left: 31.82%;
+right: 31.82%;
+top: 18.18%;
+bottom: 18.18%;
+
+background: #000000;
+transform: matrix(-1, 0, 0, 1, 0, 0);
+
+
+/* Vector 914 */
+
+position: absolute;
+width: 1180px;
+height: 0px;
+right: 0px;
+top: 94px;
+
+border: 1px solid rgba(0, 0, 0, 0.08);
+
+
+/* Frame 1171275854 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 0px;
+
+position: absolute;
+width: 1120px;
+height: 48px;
+right: 30px;
+top: 23px;
+
+
+
+/* Dashboard */
+
+width: 521px;
+height: 36px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 32px;
+line-height: 36px;
+display: flex;
+align-items: center;
+letter-spacing: 0.005em;
+
+color: #000606;
+
+border: 0.5px solid #060606;
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Frame 1171275852 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: flex-start;
+padding: 0px;
+gap: 10px;
+
+width: 599px;
+height: 48px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 1;
+
+
+/* Frame 1171275846 */
+
+/* Auto layout */
+display: flex;
+flex-direction: column;
+justify-content: center;
+align-items: flex-start;
+padding: 13px 10px 13px 13px;
+gap: 10px;
+
+width: 336px;
+height: 48px;
+
+background: #FFFFFF;
+box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.02);
+border-radius: 55px;
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 1;
+
+
+/* Frame 1171275845 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 0px;
+gap: 14px;
+
+width: 313px;
+height: 22px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+align-self: stretch;
+flex-grow: 0;
+
+
+/* icons */
+
+width: 22px;
+height: 22px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* vuesax/linear/search-normal */
+
+position: absolute;
+width: 19.71px;
+height: 19.71px;
+left: 1.15px;
+top: 1.15px;
+
+
+
+/* search-normal */
+
+position: absolute;
+width: 19.71px;
+height: 19.71px;
+left: 1.15px;
+top: 1.15px;
+
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 5.21%;
+right: 9.37%;
+top: 5.21%;
+bottom: 9.38%;
+
+background: #FFFFFF;
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 80.21%;
+right: 5.21%;
+top: 80.21%;
+bottom: 5.21%;
+
+background: #FFFFFF;
+
+
+/* Search for anything... */
+
+width: 277px;
+height: 16px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+
+color: rgba(6, 6, 6, 0.4);
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 1;
+
+
+/* Frame 1171275847 */
+
+/* Auto layout */
+display: flex;
+flex-direction: column;
+justify-content: center;
+align-items: flex-start;
+padding: 13px;
+gap: 10px;
+
+width: 48px;
+height: 48px;
+
+background: #FFFFFF;
+box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.02);
+border-radius: 55px;
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Frame 1171275845 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 0px;
+gap: 14px;
+
+width: 22px;
+height: 22px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+align-self: stretch;
+flex-grow: 0;
+
+
+/* icons */
+
+width: 22px;
+height: 22px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* vuesax/linear/notification */
+
+position: absolute;
+width: 16.08px;
+height: 19.82px;
+left: 2.96px;
+top: 1.09px;
+
+
+
+/* notification */
+
+position: absolute;
+width: 16.08px;
+height: 19.82px;
+left: 2.96px;
+top: 1.09px;
+
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 13.43%;
+right: 13.47%;
+top: 9%;
+bottom: 14.46%;
+
+background: #FFFFFF;
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 39.25%;
+right: 39.08%;
+top: 4.96%;
+bottom: 83.54%;
+
+background: #FFFFFF;
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 34.46%;
+right: 34.29%;
+top: 79.42%;
+bottom: 4.96%;
+
+background: #FFFFFF;
+
+
+/* Frame 1171275851 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 5px 20px 5px 5px;
+gap: 10px;
+
+width: 195px;
+height: 48px;
+
+background: #FFFFFF;
+border-radius: 24px;
+
+/* Inside auto layout */
+flex: none;
+order: 2;
+flex-grow: 0;
+
+
+/* Ellipse 3226 */
+
+width: 38px;
+height: 38px;
+
+background: url(image);
+filter: drop-shadow(0px 4px 6px rgba(0, 0, 0, 0.02));
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Frame 1171275855 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 0px;
+gap: 14px;
+
+width: 122px;
+height: 34px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Frame 1171275849 */
+
+/* Auto layout */
+display: flex;
+flex-direction: column;
+justify-content: center;
+align-items: flex-start;
+padding: 0px;
+gap: 4px;
+
+width: 94px;
+height: 34px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Alex meian */
+
+width: 69px;
+height: 16px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+
+color: #292D32;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Prodcut manager */
+
+width: 94px;
+height: 14px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 12px;
+line-height: 14px;
+/* identical to box height */
+
+color: rgba(41, 45, 50, 0.44);
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* icons */
+
+width: 14px;
+height: 14px;
+
+transform: rotate(-90deg);
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Icon (Stroke) */
+
+position: absolute;
+left: 18.18%;
+right: 45.45%;
+top: 31.82%;
+bottom: 4.55%;
+
+background: #292D32;
+transform: matrix(0, 1, 1, 0, 0, 0);
+
+
+/* Frame 1171275880 */
+
+/* Auto layout */
+display: flex;
+flex-direction: column;
+align-items: flex-start;
+padding: 0px;
+gap: 20px;
+
+position: absolute;
+width: 1120px;
+height: 250px;
+right: 30px;
+top: 114px;
+
+
+
+/* Frame 1171275879 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+justify-content: space-between;
+align-items: center;
+padding: 0px;
+gap: 45px;
+
+width: 1120px;
+height: 34px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Overview */
+
+margin: 0 auto;
+width: 93px;
+height: 25px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 22px;
+line-height: 25px;
+/* identical to box height */
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #060606;
+
+border: 0.5px solid #060606;
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Frame 1171275877 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 2px 14px;
+gap: 10px;
+
+margin: 0 auto;
+width: 135px;
+height: 34px;
+
+background: #FFFFFF;
+border-radius: 17px;
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Frame 1171275878 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 0px;
+gap: 12px;
+
+width: 107px;
+height: 16px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Last 30 days */
+
+width: 81px;
+height: 16px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #060606;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* icons */
+
+width: 14px;
+height: 14px;
+
+transform: rotate(-90deg);
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Icon (Stroke) */
+
+position: absolute;
+left: 18.18%;
+right: 45.45%;
+top: 31.82%;
+bottom: 4.55%;
+
+background: #292D32;
+transform: matrix(0, 1, 1, 0, 0, 0);
+
+
+/* Frame 1171275876 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: flex-start;
+padding: 0px;
+gap: 16px;
+
+width: 1120px;
+height: 196px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Frame 1171275872 */
+
+/* Auto layout */
+display: flex;
+flex-direction: column;
+align-items: flex-start;
+padding: 18px 43px 24px 18px;
+gap: 10px;
+
+width: 268px;
+height: 196px;
+
+background: rgba(255, 255, 255, 0.34);
+border-radius: 14px;
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Frame 1171275868 */
+
+/* Auto layout */
+display: flex;
+flex-direction: column;
+justify-content: center;
+align-items: flex-start;
+padding: 0px;
+gap: 10px;
+
+width: 174px;
+height: 148px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Frame 1171275862 */
+
+/* Auto layout */
+display: flex;
+flex-direction: column;
+justify-content: center;
+align-items: flex-start;
+padding: 0px;
+gap: 20px;
+
+width: 139px;
+height: 124px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Frame 1171275857 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 12px;
+gap: 10px;
+
+width: 46px;
+height: 46px;
+
+background: #D398E7;
+border-radius: 26px;
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* icons */
+
+width: 22px;
+height: 22px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* vuesax/linear/chart */
+
+position: absolute;
+width: 19.5px;
+height: 21.5px;
+left: 1px;
+top: 0px;
+
+
+
+/* chart */
+
+position: absolute;
+left: 4.55%;
+right: 6.82%;
+top: 0%;
+bottom: 2.27%;
+
+
+
+/* Group */
+
+position: absolute;
+left: 4.55%;
+right: 6.82%;
+top: 0%;
+bottom: 2.27%;
+
+
+
+/* Component 5 */
+
+position: absolute;
+width: 19.5px;
+height: 21.5px;
+left: 1px;
+top: 0px;
+
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 0%;
+right: 0%;
+top: 93.02%;
+bottom: 0%;
+
+background: #FFFFFF;
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 0%;
+right: 73.85%;
+top: 29.68%;
+bottom: 13.95%;
+
+background: #FFFFFF;
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 36.92%;
+right: 36.93%;
+top: 14.83%;
+bottom: 13.96%;
+
+background: #FFFFFF;
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 73.84%;
+right: 0.01%;
+top: 0%;
+bottom: 13.95%;
+
+background: #FFFFFF;
+
+
+/* Frame 1171275860 */
+
+/* Auto layout */
+display: flex;
+flex-direction: column;
+align-items: flex-start;
+padding: 0px;
+gap: 10px;
+
+width: 139px;
+height: 58px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Total revenue */
+
+width: 83px;
+height: 16px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+
+color: #797979;
+
+border: 0.2px solid #797979;
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* $53,00989 */
+
+width: 139px;
+height: 32px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 28px;
+line-height: 32px;
+/* identical to box height */
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #060606;
+
+border: 0.5px solid #060606;
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Frame 1171275866 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 0px;
+gap: 4px;
+
+width: 174px;
+height: 14px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Frame 1171275867 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: flex-start;
+padding: 0px;
+gap: 10px;
+
+width: 14px;
+height: 14px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* icons */
+
+width: 14px;
+height: 14px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* vuesax/linear/arrow-right */
+
+position: absolute;
+width: 10.79px;
+height: 7.96px;
+left: 0.37px;
+top: 0.37px;
+
+transform: rotate(-45deg);
+
+
+/* arrow-right */
+
+position: absolute;
+width: 10.79px;
+height: 7.96px;
+left: 0.37px;
+top: 0.37px;
+
+transform: rotate(-45deg);
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 34.86%;
+right: 33.6%;
+top: 2.65%;
+bottom: 40.51%;
+
+background: #1A932E;
+transform: rotate(-45deg);
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 20.54%;
+right: 3.09%;
+top: 21.04%;
+bottom: 72.71%;
+
+background: #1A932E;
+transform: rotate(-45deg);
+
+
+/* 12% increase from last month */
+
+width: 156px;
+height: 12px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 10px;
+line-height: 12px;
+/* identical to box height, or 120% */
+display: flex;
+align-items: center;
+letter-spacing: 0.02em;
+
+color: #060606;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Frame 1171275873 */
+
+/* Auto layout */
+display: flex;
+flex-direction: column;
+align-items: flex-start;
+padding: 18px 43px 24px 18px;
+gap: 10px;
+
+width: 268px;
+height: 196px;
+
+background: rgba(255, 255, 255, 0.34);
+border-radius: 14px;
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Frame 1171275862 */
+
+/* Auto layout */
+display: flex;
+flex-direction: column;
+justify-content: center;
+align-items: flex-start;
+padding: 0px;
+gap: 20px;
+
+width: 74px;
+height: 124px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Frame 1171275856 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 12px;
+gap: 10px;
+
+width: 46px;
+height: 46px;
+
+background: #E89271;
+border-radius: 26px;
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* icons */
+
+width: 22px;
+height: 22px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* vuesax/linear/briefcase */
+
+position: absolute;
+width: 19.25px;
+height: 19.71px;
+left: 1.37px;
+top: 1.15px;
+
+
+
+/* briefcase */
+
+position: absolute;
+width: 19.25px;
+height: 19.71px;
+left: 1.37px;
+top: 1.15px;
+
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 6.25%;
+right: 6.25%;
+top: 21.88%;
+bottom: 5.21%;
+
+background: #FFFFFF;
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 30.21%;
+right: 30.21%;
+top: 5.21%;
+bottom: 71.88%;
+
+background: #FFFFFF;
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 38.54%;
+right: 38.54%;
+top: 46.88%;
+bottom: 30.21%;
+
+background: #FFFFFF;
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 55.21%;
+right: 6.67%;
+top: 42.71%;
+bottom: 38.46%;
+
+background: #FFFFFF;
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 7.79%;
+right: 55.21%;
+top: 43.83%;
+bottom: 38.42%;
+
+background: #FFFFFF;
+
+
+/* Frame 1171275860 */
+
+/* Auto layout */
+display: flex;
+flex-direction: column;
+align-items: flex-start;
+padding: 0px;
+gap: 10px;
+
+width: 74px;
+height: 58px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Frame 1171275860 */
+
+/* Auto layout */
+display: flex;
+flex-direction: column;
+align-items: flex-start;
+padding: 0px;
+gap: 10px;
+
+width: 74px;
+height: 58px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Projects */
+
+width: 51px;
+height: 16px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+
+color: #797979;
+
+border: 0.2px solid #797979;
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* 95 /100 */
+
+width: 74px;
+height: 32px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 28px;
+line-height: 32px;
+/* identical to box height */
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #060606;
+
+border: 0.5px solid #060606;
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Frame 1171275867 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 0px;
+gap: 4px;
+
+width: 181px;
+height: 14px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Frame 1171275867 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: flex-start;
+padding: 0px;
+gap: 10px;
+
+width: 14px;
+height: 14px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* icons */
+
+width: 14px;
+height: 14px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* vuesax/linear/arrow-right */
+
+position: absolute;
+width: 10.79px;
+height: 7.96px;
+left: 0.37px;
+top: 0.37px;
+
+transform: rotate(45deg);
+
+
+/* arrow-right */
+
+position: absolute;
+width: 10.79px;
+height: 7.96px;
+left: 0.37px;
+top: 0.37px;
+
+transform: rotate(45deg);
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 34.86%;
+right: 33.6%;
+top: 34.86%;
+bottom: 8.31%;
+
+background: #EE201C;
+transform: rotate(45deg);
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 20.54%;
+right: 3.09%;
+top: 20.54%;
+bottom: 73.21%;
+
+background: #EE201C;
+transform: rotate(45deg);
+
+
+/* 10% decrease from last month */
+
+width: 163px;
+height: 12px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 10px;
+line-height: 12px;
+/* identical to box height, or 120% */
+display: flex;
+align-items: center;
+letter-spacing: 0.02em;
+
+color: #060606;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Frame 1171275874 */
+
+/* Auto layout */
+display: flex;
+flex-direction: column;
+align-items: flex-start;
+padding: 18px 43px 24px 18px;
+gap: 10px;
+
+width: 268px;
+height: 196px;
+
+background: rgba(255, 255, 255, 0.34);
+border-radius: 14px;
+
+/* Inside auto layout */
+flex: none;
+order: 2;
+flex-grow: 0;
+
+
+/* Frame 1171275864 */
+
+/* Auto layout */
+display: flex;
+flex-direction: column;
+justify-content: center;
+align-items: flex-start;
+padding: 0px;
+gap: 20px;
+
+width: 138px;
+height: 124px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Frame 1171275859 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 12px;
+gap: 10px;
+
+width: 46px;
+height: 46px;
+
+background: #70A1E6;
+border-radius: 26px;
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* icons */
+
+width: 22px;
+height: 22px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* vuesax/linear/clock */
+
+position: absolute;
+width: 19.71px;
+height: 19.71px;
+left: 1.15px;
+top: 1.15px;
+
+
+
+/* clock */
+
+position: absolute;
+width: 19.71px;
+height: 19.71px;
+left: 1.15px;
+top: 1.15px;
+
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 5.21%;
+right: 5.21%;
+top: 5.21%;
+bottom: 5.21%;
+
+background: #F1F1F1;
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 45.33%;
+right: 31.41%;
+top: 28.17%;
+bottom: 33.63%;
+
+background: #F1F1F1;
+
+
+/* Frame 1171275860 */
+
+/* Auto layout */
+display: flex;
+flex-direction: column;
+align-items: flex-start;
+padding: 0px;
+gap: 10px;
+
+width: 138px;
+height: 58px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Time spent */
+
+width: 70px;
+height: 16px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+
+color: #797979;
+
+border: 0.2px solid #797979;
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* 1022 /1300 Hrs */
+
+width: 138px;
+height: 32px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 28px;
+line-height: 32px;
+/* identical to box height */
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #060606;
+
+border: 0.5px solid #060606;
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Frame 1171275866 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 0px;
+gap: 4px;
+
+width: 169px;
+height: 14px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Frame 1171275867 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: flex-start;
+padding: 0px;
+gap: 10px;
+
+width: 14px;
+height: 14px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* icons */
+
+width: 14px;
+height: 14px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* vuesax/linear/arrow-right */
+
+position: absolute;
+width: 10.79px;
+height: 7.96px;
+left: 0.37px;
+top: 0.37px;
+
+transform: rotate(-45deg);
+
+
+/* arrow-right */
+
+position: absolute;
+width: 10.79px;
+height: 7.96px;
+left: 0.37px;
+top: 0.37px;
+
+transform: rotate(-45deg);
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 34.85%;
+right: 33.61%;
+top: 2.65%;
+bottom: 40.51%;
+
+background: #1A932E;
+transform: rotate(-45deg);
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 20.53%;
+right: 3.09%;
+top: 21.04%;
+bottom: 72.71%;
+
+background: #1A932E;
+transform: rotate(-45deg);
+
+
+/* 8% increase from last month */
+
+width: 151px;
+height: 12px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 10px;
+line-height: 12px;
+/* identical to box height, or 120% */
+display: flex;
+align-items: center;
+letter-spacing: 0.02em;
+
+color: #060606;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Frame 1171275875 */
+
+/* Auto layout */
+display: flex;
+flex-direction: column;
+align-items: flex-start;
+padding: 18px 43px 24px 18px;
+gap: 10px;
+
+width: 268px;
+height: 196px;
+
+background: rgba(255, 255, 255, 0.34);
+border-radius: 14px;
+
+/* Inside auto layout */
+flex: none;
+order: 3;
+flex-grow: 0;
+
+
+/* Frame 1171275865 */
+
+/* Auto layout */
+display: flex;
+flex-direction: column;
+justify-content: center;
+align-items: flex-start;
+padding: 0px;
+gap: 20px;
+
+width: 75px;
+height: 124px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Frame 1171275858 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 12px;
+gap: 10px;
+
+width: 46px;
+height: 46px;
+
+background: #F0C274;
+border-radius: 26px;
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* icons */
+
+width: 22px;
+height: 22px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* vuesax/linear/user */
+
+position: absolute;
+width: 17.12px;
+height: 19.71px;
+left: 2.44px;
+top: 1.15px;
+
+
+
+/* user */
+
+position: absolute;
+left: 11.08%;
+right: 11.08%;
+top: 5.21%;
+bottom: 5.21%;
+
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 26.04%;
+right: 26.04%;
+top: 5.21%;
+bottom: 46.88%;
+
+background: #FFFFFF;
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 11.08%;
+right: 11.08%;
+top: 59.38%;
+bottom: 5.21%;
+
+background: #FFFFFF;
+
+
+/* Frame 1171275860 */
+
+/* Auto layout */
+display: flex;
+flex-direction: column;
+align-items: flex-start;
+padding: 0px;
+gap: 10px;
+
+width: 75px;
+height: 58px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Resources */
+
+width: 66px;
+height: 16px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+
+color: #797979;
+
+border: 0.2px solid #797979;
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* 101 /120 */
+
+width: 75px;
+height: 32px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 28px;
+line-height: 32px;
+/* identical to box height */
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #060606;
+
+border: 0.5px solid #060606;
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Frame 1171275866 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 0px;
+gap: 4px;
+
+width: 169px;
+height: 14px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Frame 1171275867 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: flex-start;
+padding: 0px;
+gap: 10px;
+
+width: 14px;
+height: 14px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* icons */
+
+width: 14px;
+height: 14px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* vuesax/linear/arrow-right */
+
+position: absolute;
+width: 10.79px;
+height: 7.96px;
+left: 0.37px;
+top: 0.37px;
+
+transform: rotate(-45deg);
+
+
+/* arrow-right */
+
+position: absolute;
+width: 10.79px;
+height: 7.96px;
+left: 0.37px;
+top: 0.37px;
+
+transform: rotate(-45deg);
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 34.85%;
+right: 33.61%;
+top: 2.65%;
+bottom: 40.51%;
+
+background: #1A932E;
+transform: rotate(-45deg);
+
+
+/* Vector (Stroke) */
+
+position: absolute;
+left: 20.53%;
+right: 3.09%;
+top: 21.04%;
+bottom: 72.71%;
+
+background: #1A932E;
+transform: rotate(-45deg);
+
+
+/* 2% increase from last month */
+
+width: 151px;
+height: 12px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 10px;
+line-height: 12px;
+/* identical to box height, or 120% */
+display: flex;
+align-items: center;
+letter-spacing: 0.02em;
+
+color: #060606;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Frame 1171275901 */
+
+/* Auto layout */
+display: flex;
+flex-direction: column;
+align-items: flex-start;
+padding: 18px 18px 10px;
+gap: 10px;
+
+position: absolute;
+width: 690px;
+height: 349px;
+right: 460px;
+top: 394px;
+
+background: rgba(255, 255, 255, 0.34);
+border-radius: 14px;
+
+
+/* Frame 1171275900 */
+
+/* Auto layout */
+display: flex;
+flex-direction: column;
+align-items: flex-start;
+padding: 0px;
+gap: 24px;
+
+width: 654px;
+height: 302px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Frame 1171275884 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+justify-content: space-between;
+align-items: center;
+padding: 0px;
+gap: 127px;
+
+width: 654px;
+height: 34px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Project summary */
+
+margin: 0 auto;
+width: 123px;
+height: 18px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 16px;
+line-height: 18px;
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #060606;
+
+border: 0.5px solid #060606;
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Frame 1171275883 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 0px;
+gap: 8px;
+
+margin: 0 auto;
+width: 364px;
+height: 34px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Frame 1171275878 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 2px 14px;
+gap: 10px;
+
+width: 97px;
+height: 34px;
+
+background: #FFFFFF;
+border-radius: 17px;
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Frame 1171275878 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 0px;
+gap: 10px;
+
+width: 69px;
+height: 16px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Project */
+
+width: 45px;
+height: 16px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #060606;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* icons */
+
+width: 14px;
+height: 14px;
+
+transform: rotate(-90deg);
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Icon (Stroke) */
+
+position: absolute;
+left: 18.18%;
+right: 45.45%;
+top: 31.82%;
+bottom: 4.55%;
+
+background: #292D32;
+transform: matrix(0, 1, 1, 0, 0, 0);
+
+
+/* Frame 1171275881 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 2px 14px;
+gap: 10px;
+
+width: 158px;
+height: 34px;
+
+background: #FFFFFF;
+border-radius: 17px;
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Frame 1171275878 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 0px;
+gap: 10px;
+
+width: 130px;
+height: 16px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Project manager */
+
+width: 106px;
+height: 16px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #060606;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* icons */
+
+width: 14px;
+height: 14px;
+
+transform: rotate(-90deg);
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Icon (Stroke) */
+
+position: absolute;
+left: 18.18%;
+right: 45.45%;
+top: 31.82%;
+bottom: 4.55%;
+
+background: #292D32;
+transform: matrix(0, 1, 1, 0, 0, 0);
+
+
+/* Frame 1171275882 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 2px 14px;
+gap: 10px;
+
+width: 93px;
+height: 34px;
+
+background: #FFFFFF;
+border-radius: 17px;
+
+/* Inside auto layout */
+flex: none;
+order: 2;
+flex-grow: 0;
+
+
+/* Frame 1171275878 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 0px;
+gap: 10px;
+
+width: 65px;
+height: 16px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Status */
+
+width: 41px;
+height: 16px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #060606;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* icons */
+
+width: 14px;
+height: 14px;
+
+transform: rotate(-90deg);
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Icon (Stroke) */
+
+position: absolute;
+left: 18.18%;
+right: 45.45%;
+top: 31.82%;
+bottom: 4.55%;
+
+background: #292D32;
+transform: matrix(0, 1, 1, 0, 0, 0);
+
+
+/* Frame 1171275891 */
+
+/* Auto layout */
+display: flex;
+flex-direction: column;
+align-items: flex-start;
+padding: 0px;
+gap: 10px;
+
+width: 654px;
+height: 244px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Frame 1171275890 */
+
+/* Auto layout */
+display: flex;
+flex-direction: column;
+align-items: flex-start;
+padding: 0px;
+gap: 10px;
+
+width: 654px;
+height: 26px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Group 1171275854 */
+
+width: 654px;
+height: 16px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Name */
+
+position: absolute;
+width: 38px;
+height: 16px;
+left: 0px;
+top: 0px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #060606;
+
+border: 0.5px solid #060606;
+
+
+/* Project manager */
+
+position: absolute;
+width: 106px;
+height: 16px;
+left: 241px;
+top: 0px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #060606;
+
+border: 0.5px solid #060606;
+
+
+/* Due date */
+
+position: absolute;
+width: 58px;
+height: 16px;
+left: 387px;
+top: 0px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #060606;
+
+border: 0.5px solid #060606;
+
+
+/* Status */
+
+position: absolute;
+width: 41px;
+height: 16px;
+left: 491px;
+top: 0px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #060606;
+
+border: 0.5px solid #060606;
+
+
+/* Progress */
+
+position: absolute;
+width: 56px;
+height: 16px;
+left: 598px;
+top: 0px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #060606;
+
+border: 0.5px solid #060606;
+
+
+/* Vector 915 */
+
+width: 654px;
+height: 0px;
+
+border: 1px solid rgba(0, 0, 0, 0.1);
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Group 1171275853 */
+
+width: 642px;
+height: 208px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Group 1171275848 */
+
+position: absolute;
+width: 642px;
+height: 32px;
+left: 0px;
+top: 36px;
+
+
+
+/* Nelsa web developement */
+
+position: absolute;
+width: 159px;
+height: 16px;
+left: 0px;
+top: 44px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+display: flex;
+align-items: center;
+
+color: #060606;
+
+
+
+/* Om prakash sao */
+
+position: absolute;
+width: 103px;
+height: 16px;
+left: 241px;
+top: 44px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+display: flex;
+align-items: center;
+
+color: #060606;
+
+
+
+/* May 25, 2023 */
+
+position: absolute;
+width: 84px;
+height: 16px;
+left: 387px;
+top: 44px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+display: flex;
+align-items: center;
+
+color: #060606;
+
+
+
+/* Frame 1171275885 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: flex-start;
+padding: 5px 8px;
+gap: 10px;
+
+position: absolute;
+width: 77px;
+height: 24px;
+left: 491px;
+top: 40px;
+
+background: rgba(26, 147, 46, 0.18);
+border-radius: 20px;
+
+
+/* Completed */
+
+width: 61px;
+height: 14px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 12px;
+line-height: 14px;
+/* identical to box height */
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #1A932E;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Group 1171275843 */
+
+position: absolute;
+width: 32px;
+height: 32px;
+left: 610px;
+top: 36px;
+
+
+
+/* Group 1171275838 */
+
+position: absolute;
+width: 32px;
+height: 32px;
+left: 610px;
+top: 36px;
+
+
+
+/* Ellipse 3227 */
+
+position: absolute;
+width: 32px;
+height: 32px;
+left: 610px;
+top: 36px;
+
+background: rgba(0, 0, 0, 0.08);
+
+
+/* Ellipse 3228 */
+
+position: absolute;
+width: 32px;
+height: 32px;
+left: 610px;
+top: 36px;
+
+background: #1A932E;
+box-shadow: inset 0px 3px 1px rgba(255, 255, 255, 0.25);
+
+
+/* 100% */
+
+position: absolute;
+width: 22px;
+height: 10px;
+left: 615px;
+top: 47px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 9px;
+line-height: 10px;
+/* identical to box height, or 111% */
+display: flex;
+align-items: center;
+text-align: center;
+letter-spacing: -0.02em;
+
+color: #060606;
+
+border: 0.2px solid #060606;
+
+
+/* Group 1171275849 */
+
+position: absolute;
+width: 642px;
+height: 32px;
+left: 0px;
+top: 80px;
+
+
+
+/* Datascale AI app */
+
+position: absolute;
+width: 106px;
+height: 16px;
+left: 0px;
+top: 88px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+display: flex;
+align-items: center;
+
+color: #060606;
+
+
+
+/* Neilsan mando */
+
+position: absolute;
+width: 93px;
+height: 16px;
+left: 241px;
+top: 88px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+display: flex;
+align-items: center;
+
+color: #060606;
+
+
+
+/* Jun 20, 2023 */
+
+position: absolute;
+width: 78px;
+height: 16px;
+left: 387px;
+top: 88px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+display: flex;
+align-items: center;
+
+color: #060606;
+
+
+
+/* Frame 1171275886 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: flex-start;
+padding: 5px 8px;
+gap: 10px;
+
+position: absolute;
+width: 60px;
+height: 24px;
+left: 491px;
+top: 84px;
+
+background: rgba(226, 177, 51, 0.18);
+border-radius: 20px;
+
+
+/* Delayed */
+
+width: 44px;
+height: 14px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 12px;
+line-height: 14px;
+/* identical to box height */
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #DFA510;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Group 1171275844 */
+
+position: absolute;
+width: 32px;
+height: 32px;
+left: 610px;
+top: 80px;
+
+
+
+/* Group 1171275831 */
+
+position: absolute;
+width: 32px;
+height: 32px;
+left: 610px;
+top: 80px;
+
+
+
+/* Ellipse 3229 */
+
+position: absolute;
+width: 32px;
+height: 32px;
+left: 610px;
+top: 80px;
+
+background: rgba(0, 0, 0, 0.08);
+
+
+/* Ellipse 3230 */
+
+position: absolute;
+width: 32px;
+height: 32px;
+left: 610px;
+top: 80px;
+
+background: #E5AE21;
+box-shadow: inset 0px 3px 1px rgba(255, 255, 255, 0.25);
+border-radius: 15px;
+
+
+/* 35% */
+
+position: absolute;
+width: 18px;
+height: 10px;
+left: 617px;
+top: 91px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 9px;
+line-height: 10px;
+/* identical to box height, or 111% */
+display: flex;
+align-items: center;
+text-align: center;
+letter-spacing: -0.02em;
+
+color: #060606;
+
+border: 0.2px solid #060606;
+
+
+/* Group 1171275850 */
+
+position: absolute;
+width: 642px;
+height: 32px;
+left: 0px;
+top: 124px;
+
+
+
+/* Frame 1171275887 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: flex-start;
+padding: 5px 8px;
+gap: 10px;
+
+position: absolute;
+width: 50px;
+height: 24px;
+left: 491px;
+top: 128px;
+
+background: rgba(238, 32, 28, 0.18);
+border-radius: 20px;
+
+
+/* At risk */
+
+width: 34px;
+height: 14px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 12px;
+line-height: 14px;
+/* identical to box height */
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #EE201C;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* July 13, 2023 */
+
+position: absolute;
+width: 77px;
+height: 16px;
+left: 387px;
+top: 132px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+display: flex;
+align-items: center;
+
+color: #060606;
+
+
+
+/* Tiruvelly priya */
+
+position: absolute;
+width: 84px;
+height: 16px;
+left: 241px;
+top: 132px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+display: flex;
+align-items: center;
+
+color: #060606;
+
+
+
+/* Media channel branding */
+
+position: absolute;
+width: 151px;
+height: 16px;
+left: 0px;
+top: 132px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+display: flex;
+align-items: center;
+
+color: #060606;
+
+
+
+/* Group 1171275845 */
+
+position: absolute;
+width: 32px;
+height: 32px;
+left: 610px;
+top: 124px;
+
+
+
+/* Group 1171275832 */
+
+position: absolute;
+width: 32px;
+height: 32px;
+left: 610px;
+top: 124px;
+
+
+
+/* Ellipse 3231 */
+
+position: absolute;
+width: 32px;
+height: 32px;
+left: 610px;
+top: 124px;
+
+background: rgba(0, 0, 0, 0.08);
+
+
+/* Ellipse 3232 */
+
+position: absolute;
+width: 32px;
+height: 32px;
+left: 610px;
+top: 124px;
+
+background: #EE201C;
+box-shadow: inset 0px 3px 1px rgba(255, 255, 255, 0.25);
+border-radius: 35px;
+
+
+/* 68% */
+
+position: absolute;
+width: 20px;
+height: 10px;
+left: 616px;
+top: 135px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 9px;
+line-height: 10px;
+/* identical to box height, or 111% */
+display: flex;
+align-items: center;
+text-align: center;
+letter-spacing: -0.02em;
+
+color: #060606;
+
+border: 0.2px solid #060606;
+
+
+/* Group 1171275851 */
+
+position: absolute;
+width: 642px;
+height: 32px;
+left: 0px;
+top: 168px;
+
+
+
+/* Dec 20, 2023 */
+
+position: absolute;
+width: 83px;
+height: 16px;
+left: 387px;
+top: 176px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+display: flex;
+align-items: center;
+
+color: #060606;
+
+
+
+/* Matte hannery */
+
+position: absolute;
+width: 91px;
+height: 16px;
+left: 241px;
+top: 176px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+display: flex;
+align-items: center;
+
+color: #060606;
+
+
+
+/* Corlax iOS app develpoement */
+
+position: absolute;
+width: 187px;
+height: 16px;
+left: 0px;
+top: 176px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+display: flex;
+align-items: center;
+
+color: #060606;
+
+
+
+/* Frame 1171275889 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: flex-start;
+padding: 5px 8px;
+gap: 10px;
+
+position: absolute;
+width: 77px;
+height: 24px;
+left: 491px;
+top: 172px;
+
+background: rgba(26, 147, 46, 0.18);
+border-radius: 20px;
+
+
+/* Completed */
+
+width: 61px;
+height: 14px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 12px;
+line-height: 14px;
+/* identical to box height */
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #1A932E;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Group 1171275846 */
+
+position: absolute;
+width: 32px;
+height: 32px;
+left: 610px;
+top: 168px;
+
+
+
+/* Ellipse 3229 */
+
+position: absolute;
+width: 32px;
+height: 32px;
+left: 610px;
+top: 168px;
+
+background: #1A932E;
+box-shadow: inset 0px 3px 1px rgba(255, 255, 255, 0.25);
+
+
+/* 100% */
+
+position: absolute;
+width: 22px;
+height: 10px;
+left: 615px;
+top: 179px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 9px;
+line-height: 10px;
+/* identical to box height, or 111% */
+display: flex;
+align-items: center;
+text-align: center;
+letter-spacing: -0.02em;
+
+color: #060606;
+
+border: 0.2px solid #060606;
+
+
+/* Group 1171275852 */
+
+position: absolute;
+width: 642px;
+height: 32px;
+left: 0px;
+top: 212px;
+
+
+
+/* Frame 1171275888 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: flex-start;
+padding: 5px 8px;
+gap: 10px;
+
+position: absolute;
+width: 67px;
+height: 24px;
+left: 491px;
+top: 216px;
+
+background: rgba(230, 95, 43, 0.18);
+border-radius: 20px;
+
+
+/* On going */
+
+width: 51px;
+height: 14px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 12px;
+line-height: 14px;
+/* identical to box height */
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #E65F2B;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Mar 15, 2024 */
+
+position: absolute;
+width: 78px;
+height: 16px;
+left: 387px;
+top: 220px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+display: flex;
+align-items: center;
+
+color: #060606;
+
+
+
+/* Sukumar rao */
+
+position: absolute;
+width: 79px;
+height: 16px;
+left: 241px;
+top: 220px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+display: flex;
+align-items: center;
+
+color: #060606;
+
+
+
+/* Website builder developement */
+
+position: absolute;
+width: 191px;
+height: 16px;
+left: 0px;
+top: 220px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+display: flex;
+align-items: center;
+
+color: #060606;
+
+
+
+/* Group 1171275847 */
+
+position: absolute;
+width: 32px;
+height: 32px;
+left: 610px;
+top: 212px;
+
+
+
+/* Group 1171275833 */
+
+position: absolute;
+width: 32px;
+height: 32px;
+left: 610px;
+top: 212px;
+
+
+
+/* Ellipse 3233 */
+
+position: absolute;
+width: 32px;
+height: 32px;
+left: 610px;
+top: 212px;
+
+background: rgba(0, 0, 0, 0.08);
+
+
+/* Ellipse 3234 */
+
+position: absolute;
+width: 32px;
+height: 32px;
+left: 610px;
+top: 212px;
+
+background: #E65F2B;
+box-shadow: inset 0px 3px 1px rgba(255, 255, 255, 0.25);
+border-radius: 23px;
+
+
+/* 50% */
+
+position: absolute;
+width: 20px;
+height: 10px;
+left: 616px;
+top: 223px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 9px;
+line-height: 10px;
+/* identical to box height, or 111% */
+display: flex;
+align-items: center;
+text-align: center;
+letter-spacing: -0.02em;
+
+color: #060606;
+
+border: 0.2px solid #060606;
+
+
+/* Frame 1171275903 */
+
+/* Auto layout */
+display: flex;
+flex-direction: column;
+align-items: flex-start;
+padding: 18px;
+gap: 10px;
+
+position: absolute;
+width: 400px;
+height: 349px;
+right: 30px;
+top: 394px;
+
+background: rgba(255, 255, 255, 0.34);
+border-radius: 14px;
+
+
+/* Frame 1171275902 */
+
+/* Auto layout */
+display: flex;
+flex-direction: column;
+align-items: center;
+padding: 0px;
+gap: 30px;
+
+width: 364px;
+height: 313px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Frame 1171275919 */
+
+/* Auto layout */
+display: flex;
+flex-direction: column;
+align-items: flex-start;
+padding: 0px;
+gap: 24px;
+
+width: 364px;
+height: 313px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Frame 1171275892 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+justify-content: space-between;
+align-items: center;
+padding: 0px;
+gap: 109px;
+
+width: 364px;
+height: 34px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Overall Progress */
+
+margin: 0 auto;
+width: 118px;
+height: 18px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 16px;
+line-height: 18px;
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #060606;
+
+border: 0.5px solid #060606;
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Frame 1171275882 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 2px 14px;
+gap: 10px;
+
+margin: 0 auto;
+width: 67px;
+height: 34px;
+
+background: #FFFFFF;
+border-radius: 17px;
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Frame 1171275878 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 0px;
+gap: 10px;
+
+width: 39px;
+height: 16px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* All */
+
+width: 15px;
+height: 16px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #060606;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* icons */
+
+width: 14px;
+height: 14px;
+
+transform: rotate(-90deg);
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Icon (Stroke) */
+
+position: absolute;
+left: 18.18%;
+right: 45.45%;
+top: 31.82%;
+bottom: 4.55%;
+
+background: #292D32;
+transform: matrix(0, 1, 1, 0, 0, 0);
+
+
+/* Frame 1171275918 */
+
+/* Auto layout */
+display: flex;
+flex-direction: column;
+align-items: center;
+padding: 0px;
+gap: 30px;
+
+width: 364px;
+height: 255px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Frame 1171275893 */
+
+width: 347px;
+height: 178px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Group 1171275855 */
+
+position: absolute;
+width: 347px;
+height: 322.93px;
+left: 0px;
+top: 0.07px;
+
+
+
+/* Ellipse 3235 */
+
+position: absolute;
+width: 298px;
+height: 298px;
+right: 25px;
+top: 25px;
+
+background: rgba(0, 0, 0, 0.08);
+border-radius: 12px;
+
+
+/* Ellipse 3236 */
+
+position: absolute;
+width: 298px;
+height: 298px;
+right: 25px;
+top: 25px;
+
+background: #1A932E;
+box-shadow: inset 0px 3px 4px rgba(255, 255, 255, 0.45);
+border-radius: 11px;
+
+
+/* Layer_1-2 */
+
+position: absolute;
+left: 0.08%;
+right: 0.96%;
+top: 0.04%;
+bottom: 8.35%;
+
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 13.79px;
+height: 0.83px;
+right: 332.94px;
+top: 162.29px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 13.73px;
+height: 1.53px;
+right: 332.18px;
+top: 153.56px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 13.63px;
+height: 2.22px;
+right: 331.02px;
+top: 144.88px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 13.5px;
+height: 2.92px;
+right: 329.46px;
+top: 136.28px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 13.34px;
+height: 3.59px;
+right: 327.48px;
+top: 127.79px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 13.15px;
+height: 4.27px;
+right: 325.11px;
+top: 119.4px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 12.89px;
+height: 4.94px;
+right: 322.37px;
+top: 111.16px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 12.64px;
+height: 5.59px;
+right: 319.22px;
+top: 103.08px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 12.33px;
+height: 6.23px;
+right: 315.72px;
+top: 95.19px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 11.99px;
+height: 6.85px;
+right: 311.84px;
+top: 87.5px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 11.64px;
+height: 7.45px;
+right: 307.61px;
+top: 80.04px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 11.25px;
+height: 8.03px;
+right: 303.03px;
+top: 72.82px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 10.82px;
+height: 8.59px;
+right: 298.13px;
+top: 65.87px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 10.36px;
+height: 9.13px;
+right: 292.9px;
+top: 59.19px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 9.89px;
+height: 9.65px;
+right: 287.37px;
+top: 52.81px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 9.38px;
+height: 10.14px;
+right: 281.55px;
+top: 46.75px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 8.85px;
+height: 10.6px;
+right: 275.44px;
+top: 41.02px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 8.3px;
+height: 11.04px;
+right: 269.08px;
+top: 35.63px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 6.53px;
+height: 12.18px;
+right: 248.59px;
+top: 21.68px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 5.89px;
+height: 12.49px;
+right: 241.36px;
+top: 17.8px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 5.25px;
+height: 12.78px;
+right: 233.96px;
+top: 14.34px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 4.59px;
+height: 13.03px;
+right: 226.39px;
+top: 11.28px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 3.93px;
+height: 13.24px;
+right: 218.7px;
+top: 8.65px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 3.25px;
+height: 13.42px;
+right: 210.9px;
+top: 6.45px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 2.56px;
+height: 13.57px;
+right: 203px;
+top: 4.68px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 1.85px;
+height: 13.69px;
+right: 195.04px;
+top: 3.35px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 1.16px;
+height: 13.77px;
+right: 187px;
+top: 2.47px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 0.46px;
+height: 13.8px;
+right: 178.95px;
+top: 2.03px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 0.25px;
+height: 13.81px;
+right: 170.64px;
+top: 2.03px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 0.96px;
+height: 13.78px;
+right: 161.89px;
+top: 2.48px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 1.65px;
+height: 13.71px;
+right: 153.17px;
+top: 3.38px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 2.34px;
+height: 13.62px;
+right: 144.5px;
+top: 4.71px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 3.04px;
+height: 13.48px;
+right: 135.91px;
+top: 6.48px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 3.72px;
+height: 13.29px;
+right: 127.43px;
+top: 8.7px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 4.4px;
+height: 13.1px;
+right: 119.06px;
+top: 11.33px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 5.05px;
+height: 12.86px;
+right: 110.85px;
+top: 14.4px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 5.71px;
+height: 12.58px;
+right: 102.8px;
+top: 17.87px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 6.33px;
+height: 12.27px;
+right: 94.94px;
+top: 21.76px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 6.95px;
+height: 11.94px;
+right: 87.29px;
+top: 26.03px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 8.69px;
+height: 10.74px;
+right: 65.77px;
+top: 41.12px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 9.22px;
+height: 10.28px;
+right: 59.14px;
+top: 46.85px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 9.73px;
+height: 9.8px;
+right: 52.81px;
+top: 52.93px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 10.22px;
+height: 9.29px;
+right: 46.8px;
+top: 59.31px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 10.68px;
+height: 8.76px;
+right: 41.11px;
+top: 65.99px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 11.11px;
+height: 8.2px;
+right: 35.78px;
+top: 72.95px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 11.51px;
+height: 7.62px;
+right: 30.82px;
+top: 80.17px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 11.89px;
+height: 7.03px;
+right: 26.22px;
+top: 87.64px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 12.24px;
+height: 6.41px;
+right: 22.01px;
+top: 95.33px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 12.55px;
+height: 5.79px;
+right: 18.2px;
+top: 103.23px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 12.82px;
+height: 5.13px;
+right: 14.8px;
+top: 111.31px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 13.06px;
+height: 4.47px;
+right: 11.81px;
+top: 119.56px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 13.28px;
+height: 3.8px;
+right: 9.24px;
+top: 127.94px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 13.46px;
+height: 3.13px;
+right: 7.1px;
+top: 136.43px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 13.59px;
+height: 2.44px;
+right: 5.41px;
+top: 145.04px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 13.7px;
+height: 1.74px;
+right: 4.15px;
+top: 153.72px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* Vector */
+
+position: absolute;
+width: 13.78px;
+height: 1.05px;
+right: 3.33px;
+top: 162.44px;
+
+border: 1px solid rgba(6, 6, 6, 0.3);
+transform: rotate(-179.35deg);
+
+
+/* 0 */
+
+position: absolute;
+width: 8px;
+height: 14px;
+right: 339px;
+top: 167px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 12px;
+line-height: 14px;
+/* identical to box height */
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #000000;
+
+transform: rotate(-90deg);
+
+
+/* 100 */
+
+position: absolute;
+width: 19px;
+height: 14px;
+right: 0px;
+top: 164px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 12px;
+line-height: 14px;
+/* identical to box height */
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #000000;
+
+
+
+/* 25 */
+
+position: absolute;
+width: 14px;
+height: 14px;
+right: 258px;
+top: 23.79px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 12px;
+line-height: 14px;
+/* identical to box height */
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #000000;
+
+transform: rotate(-31.01deg);
+
+
+/* 50 */
+
+position: absolute;
+width: 15px;
+height: 14px;
+right: 73px;
+top: 29px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 12px;
+line-height: 14px;
+/* identical to box height */
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #000000;
+
+transform: rotate(31deg);
+
+
+/* Ellipse 3237 */
+
+position: absolute;
+width: 298px;
+height: 298px;
+right: 25px;
+top: 25px;
+
+background: #E5AE21;
+box-shadow: -2px 0px 4px rgba(255, 255, 255, 0.13), inset 0px 3px 4px rgba(255, 255, 255, 0.25);
+border-radius: 25px;
+
+
+/* Ellipse 3238 */
+
+position: absolute;
+width: 298px;
+height: 298px;
+right: 25px;
+top: 25px;
+
+background: #E65F2B;
+box-shadow: -2px 0px 4px rgba(255, 255, 255, 0.13), inset 0px 3px 4px rgba(255, 255, 255, 0.25);
+border-radius: 23px;
+
+
+/* Frame 1171275894 */
+
+/* Auto layout */
+display: flex;
+flex-direction: column;
+justify-content: center;
+align-items: center;
+padding: 0px;
+gap: 4px;
+
+position: absolute;
+width: 72px;
+height: 52px;
+left: calc(50% - 72px/2 - 0.5px);
+top: calc(50% - 52px/2 + 37px);
+
+
+
+/* 72% */
+
+width: 54px;
+height: 32px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 28px;
+line-height: 32px;
+/* identical to box height */
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #060606;
+
+border: 0.5px solid #060606;
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Completed */
+
+width: 72px;
+height: 16px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+display: flex;
+align-items: center;
+text-align: center;
+letter-spacing: 0.01em;
+
+color: #9A9A9A;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Frame 1171275899 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+justify-content: space-between;
+align-items: flex-start;
+padding: 0px;
+gap: 31px;
+
+width: 364px;
+height: 47px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Frame 1171275895 */
+
+/* Auto layout */
+display: flex;
+flex-direction: column;
+align-items: flex-start;
+padding: 0px;
+gap: 6px;
+
+margin: 0 auto;
+width: 85px;
+height: 47px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* 95 */
+
+width: 26px;
+height: 25px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 22px;
+line-height: 25px;
+/* identical to box height */
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #060606;
+
+border: 0.5px solid #060606;
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Total projects */
+
+width: 85px;
+height: 16px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+
+color: #797979;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Frame 1171275896 */
+
+/* Auto layout */
+display: flex;
+flex-direction: column;
+align-items: flex-start;
+padding: 0px;
+gap: 6px;
+
+margin: 0 auto;
+width: 70px;
+height: 47px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* 26 */
+
+width: 26px;
+height: 25px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 22px;
+line-height: 25px;
+/* identical to box height */
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #1A932E;
+
+border: 0.5px solid #1A932E;
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Completed */
+
+width: 70px;
+height: 16px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+
+color: #797979;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Frame 1171275897 */
+
+/* Auto layout */
+display: flex;
+flex-direction: column;
+align-items: flex-start;
+padding: 0px;
+gap: 6px;
+
+margin: 0 auto;
+width: 51px;
+height: 47px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 2;
+flex-grow: 0;
+
+
+/* 35 */
+
+width: 26px;
+height: 25px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 22px;
+line-height: 25px;
+/* identical to box height */
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #DFA510;
+
+border: 0.5px solid #DFA510;
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Delayed */
+
+width: 51px;
+height: 16px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+
+color: #797979;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Frame 1171275898 */
+
+/* Auto layout */
+display: flex;
+flex-direction: column;
+align-items: flex-start;
+padding: 0px;
+gap: 6px;
+
+margin: 0 auto;
+width: 58px;
+height: 47px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 3;
+flex-grow: 0;
+
+
+/* 35 */
+
+width: 26px;
+height: 25px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 22px;
+line-height: 25px;
+/* identical to box height */
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #E65F2B;
+
+border: 0.5px solid #E65F2B;
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* On going */
+
+width: 58px;
+height: 16px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+
+color: #797979;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Frame 1171275853 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+justify-content: center;
+align-items: center;
+padding: 12px;
+gap: 10px;
+
+position: absolute;
+width: 48px;
+height: 48px;
+left: 30px;
+top: 1002px;
+
+background: #E65F2B;
+box-shadow: 0px 8px 15px rgba(19, 15, 57, 0.12);
+border-radius: 48px;
+
+
+/* icons */
+
+width: 30px;
+height: 30px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Icon */
+
+position: absolute;
+left: 12.5%;
+right: 12.5%;
+top: 12.5%;
+bottom: 12.5%;
+
+border: 1.5px solid #FFFFFF;
+
+
+/* Group 1171275865 */
+
+position: absolute;
+width: 690px;
+height: 291px;
+left: 290px;
+top: 773px;
+
+
+
+/* Rectangle 41945 */
+
+position: absolute;
+width: 690px;
+height: 291px;
+left: 290px;
+top: 773px;
+
+background: rgba(255, 255, 255, 0.34);
+border-radius: 14px;
+
+
+/* Today task */
+
+position: absolute;
+width: 79px;
+height: 18px;
+left: 308px;
+top: 791px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 16px;
+line-height: 18px;
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #060606;
+
+border: 0.5px solid #060606;
+
+
+/* Group 1171275857 */
+
+position: absolute;
+width: 654px;
+height: 28px;
+left: 308px;
+top: 833px;
+
+
+
+/* Group 1171275856 */
+
+position: absolute;
+width: 654px;
+height: 0px;
+left: 308px;
+top: 861px;
+
+
+
+/* Vector 916 */
+
+position: absolute;
+width: 654px;
+height: 0px;
+left: 308px;
+top: 861px;
+
+border: 1px solid rgba(0, 0, 0, 0.1);
+
+
+/* Vector 917 */
+
+position: absolute;
+width: 86px;
+height: 0px;
+left: 384px;
+top: 861px;
+
+border: 2px solid #2B5CE6;
+
+
+/* Frame 1171275907 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 0px;
+gap: 36px;
+
+position: absolute;
+width: 335px;
+height: 18px;
+left: 318px;
+top: 833px;
+
+
+
+/* Frame 1171275904 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 0px;
+gap: 8px;
+
+width: 41px;
+height: 18px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Frame 1171275878 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 0px;
+gap: 10px;
+
+width: 15px;
+height: 16px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* All */
+
+width: 15px;
+height: 16px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #060606;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Frame 1171275878 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+justify-content: center;
+align-items: center;
+padding: 4px;
+gap: 10px;
+
+width: 18px;
+height: 18px;
+
+background: rgba(43, 92, 230, 0.1);
+border-radius: 17px;
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Frame 1171275878 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 0px;
+gap: 10px;
+
+width: 10px;
+height: 11px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* 10 */
+
+width: 10px;
+height: 11px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 10px;
+line-height: 11px;
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #2B5CE6;
+
+border: 0.2px solid #2B5CE6;
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Frame 1171275878 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 0px;
+gap: 10px;
+
+width: 64px;
+height: 16px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Important */
+
+width: 64px;
+height: 16px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+display: flex;
+align-items: center;
+text-align: center;
+letter-spacing: 0.01em;
+
+color: #060606;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Frame 1171275905 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 0px;
+gap: 8px;
+
+width: 64px;
+height: 18px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 2;
+flex-grow: 0;
+
+
+/* Frame 1171275878 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 0px;
+gap: 10px;
+
+width: 38px;
+height: 16px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Notes */
+
+width: 38px;
+height: 16px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #060606;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Frame 1171275878 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+justify-content: center;
+align-items: center;
+padding: 4px;
+gap: 10px;
+
+width: 18px;
+height: 18px;
+
+background: rgba(43, 92, 230, 0.1);
+border-radius: 17px;
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Frame 1171275878 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 0px;
+gap: 10px;
+
+width: 12px;
+height: 11px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* 05 */
+
+width: 12px;
+height: 11px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 10px;
+line-height: 11px;
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #2B5CE6;
+
+border: 0.2px solid #2B5CE6;
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Frame 1171275906 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 0px;
+gap: 8px;
+
+width: 58px;
+height: 18px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 3;
+flex-grow: 0;
+
+
+/* Frame 1171275878 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 0px;
+gap: 10px;
+
+width: 32px;
+height: 16px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Links */
+
+width: 32px;
+height: 16px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #060606;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Frame 1171275878 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+justify-content: center;
+align-items: center;
+padding: 4px;
+gap: 10px;
+
+width: 18px;
+height: 18px;
+
+background: rgba(43, 92, 230, 0.1);
+border-radius: 17px;
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Frame 1171275878 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 0px;
+gap: 10px;
+
+width: 10px;
+height: 11px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* 10 */
+
+width: 10px;
+height: 11px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 10px;
+line-height: 11px;
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #2B5CE6;
+
+border: 0.2px solid #2B5CE6;
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Group 1171275864 */
+
+position: absolute;
+width: 557px;
+height: 160px;
+left: 308px;
+top: 875px;
+
+
+
+/* Group 1171275863 */
+
+position: absolute;
+width: 557px;
+height: 24px;
+left: 308px;
+top: 1011px;
+
+
+
+/* Frame 1171275914 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 0px;
+gap: 10px;
+
+position: absolute;
+width: 388px;
+height: 18px;
+left: 308px;
+top: 1014px;
+
+
+
+/* Group 1171275858 */
+
+width: 18px;
+height: 18px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Ellipse 3239 */
+
+position: absolute;
+width: 18px;
+height: 18px;
+left: 0px;
+top: 0px;
+
+background: #E65F2B;
+
+
+/* Vector 918 */
+
+position: absolute;
+width: 6px;
+height: 4px;
+left: 6px;
+top: 7px;
+
+border: 1px solid #FFFFFF;
+
+
+/* Interactive prototype for app screens of deltamine project */
+
+width: 360px;
+height: 16px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+display: flex;
+align-items: center;
+
+color: #060606;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Frame 1171275885 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: flex-start;
+padding: 5px 8px;
+gap: 10px;
+
+position: absolute;
+width: 69px;
+height: 24px;
+left: 796px;
+top: 1011px;
+
+background: rgba(26, 147, 46, 0.18);
+border-radius: 20px;
+
+
+/* Approved */
+
+width: 53px;
+height: 14px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 12px;
+line-height: 14px;
+/* identical to box height */
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #1A932E;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Group 1171275859 */
+
+position: absolute;
+width: 557px;
+height: 24px;
+left: 308px;
+top: 875px;
+
+
+
+/* Frame 1171275910 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 0px;
+gap: 10px;
+
+position: absolute;
+width: 315px;
+height: 18px;
+left: 308px;
+top: 878px;
+
+
+
+/* Group 1171275858 */
+
+width: 18px;
+height: 18px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Ellipse 3239 */
+
+position: absolute;
+width: 18px;
+height: 18px;
+left: 0px;
+top: 0px;
+
+background: #E65F2B;
+
+
+/* Vector 918 */
+
+position: absolute;
+width: 6px;
+height: 4px;
+left: 6px;
+top: 7px;
+
+border: 1px solid #FFFFFF;
+
+
+/* Create a user flow of social application design */
+
+width: 287px;
+height: 16px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+display: flex;
+align-items: center;
+
+color: #060606;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Frame 1171275885 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: flex-start;
+padding: 5px 8px;
+gap: 10px;
+
+position: absolute;
+width: 69px;
+height: 24px;
+left: 796px;
+top: 875px;
+
+background: rgba(26, 147, 46, 0.18);
+border-radius: 20px;
+
+
+/* Approved */
+
+width: 53px;
+height: 14px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 12px;
+line-height: 14px;
+/* identical to box height */
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #1A932E;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Group 1171275860 */
+
+position: absolute;
+width: 554px;
+height: 24px;
+left: 308px;
+top: 909px;
+
+
+
+/* Frame 1171275911 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 0px;
+gap: 10px;
+
+position: absolute;
+width: 315px;
+height: 18px;
+left: 308px;
+top: 912px;
+
+
+
+/* Group 1171275858 */
+
+width: 18px;
+height: 18px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Ellipse 3239 */
+
+position: absolute;
+width: 18px;
+height: 18px;
+left: 0px;
+top: 0px;
+
+background: #E65F2B;
+
+
+/* Vector 918 */
+
+position: absolute;
+width: 6px;
+height: 4px;
+left: 6px;
+top: 7px;
+
+border: 1px solid #FFFFFF;
+
+
+/* Create a user flow of social application design */
+
+width: 287px;
+height: 16px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+display: flex;
+align-items: center;
+
+color: #060606;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Frame 1171275887 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: flex-start;
+padding: 5px 8px;
+gap: 10px;
+
+position: absolute;
+width: 64px;
+height: 24px;
+left: 798px;
+top: 909px;
+
+background: rgba(238, 32, 28, 0.18);
+border-radius: 20px;
+
+
+/* In review */
+
+width: 48px;
+height: 14px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 12px;
+line-height: 14px;
+/* identical to box height */
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #EE201C;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Group 1171275861 */
+
+position: absolute;
+width: 554px;
+height: 24px;
+left: 308px;
+top: 943px;
+
+
+
+/* Frame 1171275916 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 0px;
+gap: 10px;
+
+position: absolute;
+width: 359px;
+height: 18px;
+left: 308px;
+top: 946px;
+
+
+
+/* Group 1171275858 */
+
+width: 18px;
+height: 18px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Ellipse 3239 */
+
+position: absolute;
+width: 18px;
+height: 18px;
+left: 0px;
+top: 0px;
+
+background: #E65F2B;
+
+
+/* Vector 918 */
+
+position: absolute;
+width: 6px;
+height: 4px;
+left: 6px;
+top: 7px;
+
+border: 1px solid #FFFFFF;
+
+
+/* Landing page design for Fintech project of singapore */
+
+width: 331px;
+height: 16px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+display: flex;
+align-items: center;
+
+color: #060606;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Frame 1171275915 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: flex-start;
+padding: 5px 8px;
+gap: 10px;
+
+position: absolute;
+width: 64px;
+height: 24px;
+left: 798px;
+top: 943px;
+
+background: rgba(238, 32, 28, 0.18);
+border-radius: 20px;
+
+
+/* In review */
+
+width: 48px;
+height: 14px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 12px;
+line-height: 14px;
+/* identical to box height */
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #EE201C;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Group 1171275862 */
+
+position: absolute;
+width: 556px;
+height: 24px;
+left: 308px;
+top: 977px;
+
+
+
+/* Frame 1171275913 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 0px;
+gap: 10px;
+
+position: absolute;
+width: 388px;
+height: 18px;
+left: 308px;
+top: 980px;
+
+
+
+/* Group 1171275858 */
+
+width: 18px;
+height: 18px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Ellipse 3239 */
+
+position: absolute;
+width: 18px;
+height: 18px;
+left: 0px;
+top: 0px;
+
+border: 1px solid rgba(6, 6, 6, 0.64);
+
+
+/* Interactive prototype for app screens of deltamine project */
+
+width: 360px;
+height: 16px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 16px;
+/* identical to box height */
+display: flex;
+align-items: center;
+
+color: #060606;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Frame 1171275888 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: flex-start;
+padding: 5px 8px;
+gap: 10px;
+
+position: absolute;
+width: 67px;
+height: 24px;
+left: 797px;
+top: 977px;
+
+background: rgba(230, 95, 43, 0.18);
+border-radius: 20px;
+
+
+/* On going */
+
+width: 51px;
+height: 14px;
+
+font-family: 'Aeonik Pro TRIAL';
+font-style: normal;
+font-weight: 400;
+font-size: 12px;
+line-height: 14px;
+/* identical to box height */
+display: flex;
+align-items: center;
+letter-spacing: 0.01em;
+
+color: #E65F2B;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Group 1171275867 */
+
+position: absolute;
+width: 140.18px;
+height: 30.94px;
+left: 30px;
+top: 32px;
+
+
+
+/* Group 1171275830 */
+
+position: absolute;
+width: 31.18px;
+height: 30.94px;
+left: 30px;
+top: 32px;
+
+
+
+/* Vector */
+
+position: absolute;
+left: 3.62%;
+right: 95.83%;
+top: 3.5%;
+bottom: 95.61%;
+
+background: #E65F2B;
+box-shadow: 0px 0px 2px rgba(255, 255, 255, 0.25);
+
+
+/* Vector */
+
+position: absolute;
+left: 3.26%;
+right: 96.09%;
+top: 3.12%;
+bottom: 95.98%;
+
+background: #E65F2B;
+box-shadow: 0px 0px 2px rgba(255, 255, 255, 0.25);
+
+
+/* Vector */
+
+position: absolute;
+left: 2.86%;
+right: 96.46%;
+top: 2.96%;
+bottom: 96.17%;
+
+background: #E65F2B;
+box-shadow: 0px 0px 2px rgba(255, 255, 255, 0.25);
+
+
+/* Vector */
+
+position: absolute;
+left: 2.49%;
+right: 96.83%;
+top: 3.07%;
+bottom: 96.21%;
+
+background: #E65F2B;
+box-shadow: 0px 0px 2px rgba(255, 255, 255, 0.25);
+
+
+/* Vector */
+
+position: absolute;
+left: 2.2%;
+right: 97.12%;
+top: 3.41%;
+bottom: 95.72%;
+
+background: #E65F2B;
+box-shadow: 0px 0px 2px rgba(255, 255, 255, 0.25);
+
+
+/* Vector */
+
+position: absolute;
+left: 2.08%;
+right: 97.26%;
+top: 3.9%;
+bottom: 95.21%;
+
+background: #E65F2B;
+box-shadow: 0px 0px 2px rgba(255, 255, 255, 0.25);
+
+
+/* Vector */
+
+position: absolute;
+left: 2.16%;
+right: 97.29%;
+top: 4.4%;
+bottom: 94.71%;
+
+background: #E65F2B;
+box-shadow: 0px 0px 2px rgba(255, 255, 255, 0.25);
+
+
+/* Vector */
+
+position: absolute;
+left: 2.42%;
+right: 96.92%;
+top: 4.77%;
+bottom: 94.33%;
+
+background: #E65F2B;
+box-shadow: 0px 0px 2px rgba(255, 255, 255, 0.25);
+
+
+/* Vector */
+
+position: absolute;
+left: 2.79%;
+right: 96.53%;
+top: 4.96%;
+bottom: 94.17%;
+
+background: #E65F2B;
+box-shadow: 0px 0px 2px rgba(255, 255, 255, 0.25);
+
+
+/* Vector */
+
+position: absolute;
+left: 3.17%;
+right: 96.16%;
+top: 5%;
+bottom: 94.28%;
+
+background: #E65F2B;
+box-shadow: 0px 0px 2px rgba(255, 255, 255, 0.25);
+
+
+/* Vector */
+
+position: absolute;
+left: 3.45%;
+right: 95.87%;
+top: 4.52%;
+bottom: 94.62%;
+
+background: #E65F2B;
+box-shadow: 0px 0px 2px rgba(255, 255, 255, 0.25);
+
+
+/* Vector */
+
+position: absolute;
+left: 3.6%;
+right: 95.75%;
+top: 4.12%;
+bottom: 95.11%;
+
+background: #E65F2B;
+box-shadow: 0px 0px 2px rgba(255, 255, 255, 0.25);
+
+
+/* Promage */
+
+position: absolute;
+width: 99px;
+height: 22px;
+left: 71.18px;
+top: 38.47px;
+
+background: #FFFFFF;

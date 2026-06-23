@@ -1,0 +1,73 @@
+const FEEDING_STATUS = {
+  ACTIVE: 'Active',
+  SUCCESS: 'Success',
+  RESTRICT: 'Restrict',
+  BANNED: 'Banned',
+};
+
+import { SITES } from './sites';
+
+/** Body for POST /bridge/slots/:slot/display-label from an AMS account row. */
+export function feedflowSlotLabelBody(account) {
+  const siteKey = account?.siteKey || 'my';
+  return {
+    accountName: account?.account_name,
+    phone: account?.phone_number || null,
+    siteKey,
+    location: SITES[siteKey]?.name || null,
+    ipAddress: account?.ip || null,
+  };
+}
+
+/** Map audit row location string → site id (my | pp), or null if unknown. */
+export function feedingEntrySiteKey(location) {
+  const l = String(location || '').trim().toLowerCase();
+  if (!l || l === '-') return null;
+  if (l.includes('malaysia') || l === 'my') return 'my';
+  if (l.includes('poipet') || l === 'pp') return 'pp';
+  return null;
+}
+
+export function filterFeedingAuditBySite(entries, site) {
+  if (!Array.isArray(entries)) return [];
+  if (site === 'all') return entries;
+  return entries.filter((e) => {
+    const key = feedingEntrySiteKey(e.location);
+    return key === site || key == null;
+  });
+}
+
+function pct(n, total) {
+  return total > 0 ? Math.round((n / total) * 1000) / 10 : 0;
+}
+
+/** Recompute summary from a (possibly filtered) entry list. */
+export function computeFeedingAuditSummary(entries) {
+  const list = Array.isArray(entries) ? entries : [];
+  const total = list.length;
+  const count = (status) => list.filter((e) => e.feedingStatus === status).length;
+  const banned = count(FEEDING_STATUS.BANNED);
+  const restrict = count(FEEDING_STATUS.RESTRICT);
+  const success = count(FEEDING_STATUS.SUCCESS);
+
+  const ipMap = new Map();
+  for (const e of list) {
+    const ip = e.ipAddress || 'direct';
+    if (!ipMap.has(ip)) ipMap.set(ip, { banned: 0 });
+    if (e.feedingStatus === FEEDING_STATUS.BANNED) {
+      ipMap.get(ip).banned += 1;
+    }
+  }
+  const uniqueIpsWithBan = [...ipMap.values()].filter((r) => r.banned > 0).length;
+
+  return {
+    totalFeedingVolume: total,
+    bannedVolume: banned,
+    bannedRate: pct(banned, total),
+    restrictVolume: restrict,
+    restrictRate: pct(restrict, total),
+    successVolume: success,
+    successRate: pct(success, total),
+    uniqueIpsWithBan,
+  };
+}

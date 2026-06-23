@@ -13,6 +13,7 @@ import {
   channelSlotIndex,
 } from '../lib/device-location';
 import { nurturingDay, nurturingProgress } from '../lib/nurturing-day';
+import { getBridgeSummary } from '../lib/bridge-client';
 import api from '../lib/api';
 
 const LEDGER_PAGE_SIZE = 5;
@@ -77,7 +78,7 @@ function AccountDetail({ accountId, onBack }) {
   const { data: account, isLoading } = useAccountDetail(accountId);
   const { data: bridge } = useQuery({
     queryKey: ['bridge', 'summary'],
-    queryFn: async () => (await api.get('/bridge/summary')).data,
+    queryFn: getBridgeSummary,
     staleTime: 20_000,
   });
 

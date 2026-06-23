@@ -7,6 +7,7 @@ import { useWsafSocket } from '../lib/wsafSocket';
 import { useBridgeConnect, startBridgeEngine } from '../hooks/useBridgeConnect';
 import { normalizePairingPhone } from '../lib/pairing-phone';
 import { feedflowSlotLabelBody } from '../lib/feeding-audit';
+import { getBridgeStatus } from '../lib/bridge-client';
 import api from '../lib/api';
 
 function formatPairingCodeDisplay(code) {
@@ -162,7 +163,7 @@ export default function LinkWhatsAppDrawer({
 
     async function pollStatus() {
       try {
-        const { data } = await api.get('/bridge/status');
+        const data = await getBridgeStatus();
         if (cancelled || !data?.reachable) return;
         const acc = (data.accounts || []).find((a) => slotMatches(a.slot, slot));
         if (acc?.connected) {

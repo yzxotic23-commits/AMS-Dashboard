@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { getBridgeSummary } from '../lib/bridge-client';
 import api from '../lib/api';
 import { accountToOperatorRow } from '../lib/account-operator-meta';
 
@@ -10,10 +11,7 @@ export function useEngineHealthSync() {
 
   const { data: bridge } = useQuery({
     queryKey: ['bridge', 'summary'],
-    queryFn: async () => {
-      const { data } = await api.get('/bridge/summary');
-      return data;
-    },
+    queryFn: getBridgeSummary,
     refetchInterval: 20_000,
     retry: 1,
   });

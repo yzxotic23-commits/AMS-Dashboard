@@ -123,7 +123,9 @@ export default function EngineStatusPanel() {
             <div className="text-xs text-ams-muted">
               {bootFailed
                 ? 'Check that WSAF is installed next to AMS Project and run npm install inside WSAF/.'
-                : (data?.error || 'Restart AMS — FeedFlow should start with the API automatically.')}
+                : (data?.source === 'local'
+                  ? 'Start FeedFlow on this PC: npm run dev in AMS Project (engine port 47821).'
+                  : (data?.error || 'Restart AMS — FeedFlow should start with the API automatically.'))}
             </div>
           </div>
         </div>

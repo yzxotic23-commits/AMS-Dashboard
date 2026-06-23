@@ -1,37 +1,22 @@
 import { useCallback, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import api from '../lib/api';
+import {
+  connectBridgeSlot,
+  disconnectBridgeSlot as disconnectSlot,
+  getBridgeStatus,
+  startBridgeEngine,
+} from '../lib/bridge-client';
 
 export function useEngineBridgeStatus() {
   return useQuery({
     queryKey: ['bridge', 'status'],
-    queryFn: async () => {
-      try {
-        const { data } = await api.get('/bridge/status');
-        return data;
-      } catch (e) {
-        return {
-          ok: false,
-          reachable: false,
-          accounts: [],
-          error: e.message || 'Engine offline',
-        };
-      }
-    },
+    queryFn: getBridgeStatus,
     refetchInterval: 8_000,
     staleTime: 4_000,
   });
 }
 
-export async function startBridgeEngine() {
-  const { data } = await api.post('/bridge/engine/start');
-  return data;
-}
-
-export async function disconnectBridgeSlot(slot) {
-  const { data } = await api.post(`/bridge/disconnect/${slot}`);
-  return data;
-}
+export { startBridgeEngine };
 
 export function useBridgeConnect() {
   const [loading, setLoading] = useState(false);
@@ -41,8 +26,7 @@ export function useBridgeConnect() {
     setLoading(true);
     setError(null);
     try {
-      const { data } = await api.post(`/bridge/connect/${slot}`, body);
-      return data;
+      return await connectBridgeSlot(slot, body);
     } catch (e) {
       const msg = e.message || 'Connect failed';
       setError(msg);
@@ -70,7 +54,7 @@ export function useBridgeConnect() {
     setLoading(true);
     setError(null);
     try {
-      return await disconnectBridgeSlot(slot);
+      return await disconnectSlot(slot);
     } catch (e) {
       const msg = e.message || 'Disconnect failed';
       setError(msg);

@@ -53,7 +53,9 @@ export default function FeedFlowPage() {
 
       {!live && (
         <p className="mt-4 text-center text-xs text-ams-faint">
-          Start AMS with <code className="font-mono">npm run dev</code> — the engine launches automatically.
+          FeedFlow runs on <strong>this computer</strong>. Start{' '}
+          <code className="font-mono">npm run dev</code> in AMS Project, then refresh.
+          {' '}Works from Vercel URL too if the engine is on the same PC.
         </p>
       )}
     </div>

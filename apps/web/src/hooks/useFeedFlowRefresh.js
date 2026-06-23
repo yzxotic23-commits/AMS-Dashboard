@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { feedflowSlotLabelBody } from '../lib/feeding-audit';
+import { refreshBridgeState } from '../lib/bridge-client';
 import api from '../lib/api';
 
 /** Pull latest engine status + audit and re-push AMS account labels to slots. */
@@ -20,8 +21,7 @@ export function useFeedFlowRefresh() {
         ).catch(() => {}));
 
       await Promise.all([
-        api.post('/bridge/refresh').catch(() => api.get('/bridge/summary')),
-        api.post('/bridge/audit/sync').catch(() => {}),
+        refreshBridgeState(),
         ...labelSync,
       ]);
 

@@ -7,10 +7,17 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import IconTooltip from '../components/IconTooltip';
 import Toast from '../components/Toast';
 import { useSite } from '../context/SiteContext';
+import { useAuth } from '../context/AuthContext';
 import { SITES, getSiteChipClass } from '../lib/sites';
 import { serializeAccountNotes } from '../lib/account-operator-meta';
 import { inferBrandFromDevice } from '../lib/account-status-labels';
 import { useOperatorRoster, operatorDisplayName } from '../hooks/useOperatorRoster';
+import {
+  filterRosterForProfile,
+  isAdminProfile,
+  operatorDisplayLabel,
+  operatorSiteKey,
+} from '../lib/operator-scope';
 import { useAccountMutations } from '../hooks/useOperatorAccounts';
 import { useRegistrationStats, useRegistrationLog } from '../hooks/useRegistrationStats';
 import { useFreeIps, useDeviceOptions, useSimOptions } from '../hooks/useResourceOptions';
@@ -38,6 +45,7 @@ function NeedBadge({ need }) {
 
 export default function RegisterPage() {
   const { site } = useSite();
+  const { profile } = useAuth();
   const qc = useQueryClient();
   const { data: rows = { my: [], pp: [] }, isLoading: queueLoading } = usePreparedQueue(site);
   const [drawer, setDrawer] = useState(null);
@@ -53,8 +61,13 @@ export default function RegisterPage() {
   const [form, setForm] = useState({
     deviceId: '', slot: DEVICE_CHANNEL_SLOTS[0], ipId: '', accountName: '', owner: '', result: 'ok', failReason: FAIL_REASONS[0],
   });
-  const { data: operators = [] } = useOperatorRoster();
-  const defaultOperator = operators[0] ? operatorDisplayName(operators[0]) : '';
+  const { data: operatorsRaw = [] } = useOperatorRoster();
+  const operators = useMemo(
+    () => filterRosterForProfile(operatorsRaw, profile),
+    [operatorsRaw, profile],
+  );
+  const defaultOperator = operatorDisplayLabel(profile)
+    || (operators[0] ? operatorDisplayName(operators[0]) : '');
   const { data: ledgerAccounts = [] } = useAllAccounts();
   const [toast, setToast] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -94,7 +107,7 @@ export default function RegisterPage() {
     setAddForm({
       phone: '',
       telco: TELCO_OPTIONS[0],
-      site_key: site === 'all' ? 'my' : site,
+      site_key: operatorSiteKey(profile),
       note: '',
       need: true,
     });
@@ -509,6 +522,7 @@ export default function RegisterPage() {
                   value={form.owner}
                   onChange={(e) => setForm((f) => ({ ...f, owner: e.target.value }))}
                   required
+                  disabled={!isAdminProfile(profile)}
                 >
                   {operators.length === 0 ? (
                     <option value="">No operators — add in User management</option>

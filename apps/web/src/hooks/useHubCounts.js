@@ -1,7 +1,9 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '../lib/api';
+import { useAuth } from '../context/AuthContext';
 import { accountToOperatorRow } from '../lib/account-operator-meta';
+import { filterRosterForProfile } from '../lib/operator-scope';
 import { countRegNeededFromQueue } from '../lib/register-queue';
 import { usePreparedQueue } from './usePreparedQueue';
 import { useOperatorRoster, operatorDisplayName } from './useOperatorRoster';
@@ -154,6 +156,7 @@ export function useHubCounts(site = 'all') {
 }
 
 export function useHubOperators(site = 'all') {
+  const { profile } = useAuth();
   const { data: accounts = [] } = useQuery({
     queryKey: ['accounts', 'hub'],
     queryFn: async () => {
@@ -198,9 +201,14 @@ export function useHubOperators(site = 'all') {
     return map;
   }, [regLog]);
 
+  const scopedRoster = useMemo(
+    () => filterRosterForProfile(roster, profile),
+    [roster, profile],
+  );
+
   const rows = useMemo(
-    () => buildOperatorHubRows(accounts, tickets, preparedQueue, site, regOwnerByAccountId, roster),
-    [accounts, tickets, preparedQueue, site, regOwnerByAccountId, roster],
+    () => buildOperatorHubRows(accounts, tickets, preparedQueue, site, regOwnerByAccountId, scopedRoster),
+    [accounts, tickets, preparedQueue, site, regOwnerByAccountId, scopedRoster],
   );
 
   return { rows, rosterLoading, rosterError };

@@ -3,6 +3,7 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSite } from '../context/SiteContext';
 import { getSiteStripMessage, SITE_STRIP_PATHS } from '../lib/sites';
+import { operatorSiteKey } from '../lib/operator-scope';
 import { readSidebarOpenMap, writeSidebarOpenMap } from '../lib/sidebar-prefs';
 import { useScrollRevealScrollbar } from '../hooks/useScrollRevealScrollbar';
 import { pathInGroup } from './SidebarNavGroup';
@@ -46,9 +47,9 @@ export default function Layout({ authBooting = false }) {
   }, []);
 
   useEffect(() => {
-    const sk = profile?.site_key;
-    if (sk === 'my' || sk === 'pp' || sk === 'all') setSite(sk);
-  }, [profile?.id, profile?.site_key, setSite]);
+    if (!profile) return;
+    setSite(operatorSiteKey(profile));
+  }, [profile?.id, profile?.role, profile?.site_key, setSite]);
 
   useEffect(() => {
     NAV_SECTIONS.forEach((group) => {

@@ -6,7 +6,7 @@ import { writeAudit } from '../../lib/audit.js';
 import { assertTransition, ACCOUNT_STATUSES } from '../../lib/stateMachine.js';
 import { parsePagination, paginatedResponse, pick } from '../../lib/pagination.js';
 import {
-  syncResourceBindings, recordInitialAssignments, bumpIpRisk,
+  syncResourceBindings, recordInitialAssignments, bumpIpRisk, promoteSimToLedger,
 } from '../../lib/resourceBindings.js';
 import { serializeRecoveryNotes, recoveryOnBanDefaults } from '../../lib/accountRecovery.js';
 import {
@@ -15,6 +15,8 @@ import {
   ACCOUNT_SELECT_WITH_SIM_LOCATION,
 } from '../../lib/accountSelect.js';
 import { enrichAccountsIpEmbed } from '../../lib/accountEnrich.js';
+import { parseOperatorMeta } from '../../lib/accountMeta.js';
+import { assertDeviceSlotAvailable, DeviceSlotError } from '../../lib/deviceSlots.js';
 
 const router = Router();
 router.use(authenticate);
@@ -136,6 +138,11 @@ router.get('/:id', async (req, res, next) => {
 router.post('/', async (req, res, next) => {
   try {
     const body = createSchema.parse(req.body);
+    await assertDeviceSlotAvailable(supabaseAdmin, {
+      device_id: body.device_id,
+      notes: body.notes,
+      channel: parseOperatorMeta({ notes: body.notes }).channel,
+    });
     const { data, error } = await supabaseAdmin
       .from('accounts')
       .insert({ ...body, created_by: req.profile.id })
@@ -162,6 +169,11 @@ router.post('/', async (req, res, next) => {
       sim_id: data.sim_id,
       ip_id: data.ip_id,
     }, {});
+
+    if (data.sim_id) {
+      const siteKey = parseOperatorMeta(data).site_key;
+      await promoteSimToLedger(data.sim_id, { site_key: siteKey });
+    }
 
     await writeAudit({
       entityType: 'account',
@@ -193,6 +205,17 @@ router.patch('/:id', async (req, res, next) => {
       assertTransition(current.status, body.status);
     }
 
+    const nextDeviceId = body.device_id !== undefined ? body.device_id : current.device_id;
+    const nextNotes = body.notes !== undefined ? body.notes : current.notes;
+    if (nextDeviceId) {
+      await assertDeviceSlotAvailable(supabaseAdmin, {
+        device_id: nextDeviceId,
+        notes: nextNotes,
+        channel: parseOperatorMeta({ notes: nextNotes }).channel,
+        account_id: req.params.id,
+      });
+    }
+
     const updates = pick(body, [
       'account_name', 'phone_number', 'device_id', 'sim_id', 'ip_id',
       'wsaf_slot', 'notes', 'last_active',
@@ -220,6 +243,10 @@ router.patch('/:id', async (req, res, next) => {
         sim_id: data.sim_id,
         ip_id: data.ip_id,
       }, current);
+    }
+
+    if (body.sim_id && body.sim_id !== current.sim_id) {
+      await promoteSimToLedger(body.sim_id, { site_key: parseOperatorMeta(data).site_key });
     }
 
     if (body.status && body.status !== current.status) {

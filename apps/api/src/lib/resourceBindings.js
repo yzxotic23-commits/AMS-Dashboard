@@ -1,4 +1,5 @@
 import { supabaseAdmin } from './supabase.js';
+import { promoteSimToLedgerNotes } from './simMeta.js';
 
 /** Keep device / sim / ip reverse FKs in sync when an account is assigned. */
 export async function syncResourceBindings(accountId, { device_id, sim_id, ip_id }, prev = {}) {
@@ -73,4 +74,20 @@ export async function bumpIpRisk(ipId) {
   const patch = { risk_count: next };
   if (next >= 8) patch.status = 'FLAGGED';
   await supabaseAdmin.from('ips').update(patch).eq('id', ipId);
+}
+
+/** After successful registration — move SIM from prep queue into SIM Card Ledger. */
+export async function promoteSimToLedger(simId, { site_key } = {}) {
+  if (!simId) return;
+  const { data: sim, error } = await supabaseAdmin
+    .from('sims')
+    .select('id, notes')
+    .eq('id', simId)
+    .single();
+  if (error || !sim) return;
+  const notes = promoteSimToLedgerNotes(sim.notes, { site_key });
+  await supabaseAdmin
+    .from('sims')
+    .update({ notes, updated_at: new Date().toISOString() })
+    .eq('id', simId);
 }

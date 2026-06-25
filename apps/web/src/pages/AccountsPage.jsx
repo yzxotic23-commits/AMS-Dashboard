@@ -11,6 +11,8 @@ import {
   compareDeviceNames,
   displayDeviceChannel,
   channelSlotIndex,
+  groupAccountsByDeviceSlots,
+  DEVICE_MAX_SLOTS,
 } from '../lib/device-location';
 import { nurturingDay, nurturingProgress } from '../lib/nurturing-day';
 import { getBridgeSummary } from '../lib/bridge-client';
@@ -28,7 +30,23 @@ function StatusPill({ status }) {
   return <span className={`badge ${meta.pill}`}>{meta.label}</span>;
 }
 
-function AcctRow({ account, onOpen, showSiteBubble = false }) {
+function EmptySlotRow({ slotLabel }) {
+  return (
+    <div className="rl-acct-row empty">
+      <div className="rl-col-acct">
+        <span className="rl-slot-label">{slotLabel}</span>
+        <span className="text-[12px] text-ams-faint">Empty slot</span>
+      </div>
+      <div className="text-[12px] text-ams-faint">—</div>
+      <div className="font-mono text-[12px] text-ams-faint">—</div>
+      <div className="font-mono text-[12px] text-ams-faint">—</div>
+      <div className="text-[12.5px] text-ams-faint">—</div>
+      <div className="text-[12.5px] text-ams-faint">—</div>
+    </div>
+  );
+}
+
+function AcctRow({ account, onOpen, showSiteBubble = false, slotLabel, extra = false }) {
   const day = account.status === 'NURTURING'
     ? nurturingDay(account.nurturing_started_at, account.nurturing_phase)
     : null;
@@ -38,10 +56,15 @@ function AcctRow({ account, onOpen, showSiteBubble = false }) {
     : null;
 
   return (
-    <div className={`rl-acct-row${siteTag ? ` rl-acct-row--site-${siteTag}` : ''}`}>
+    <div className={`rl-acct-row${siteTag ? ` rl-acct-row--site-${siteTag}` : ''}${extra ? ' rl-acct-row--extra' : ''}`}>
       <div className="rl-col-acct">
-        {account.channel && (
-          <span className="rl-slot-label">{displayDeviceChannel(account.channel)}</span>
+        <span className="rl-slot-label">
+          {slotLabel || displayDeviceChannel(account.channel) || '—'}
+        </span>
+        {extra && (
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-ams-warn">
+            Extra · perlu dipindah
+          </span>
         )}
         {siteTag ? (
           <div className="rl-acct-name-row">
@@ -254,7 +277,7 @@ export default function AccountsPage() {
       devCount += 1;
       acctCount += matched.length;
 
-      cards.push({ device, siteKey, accounts: matched });
+      cards.push({ device, siteKey, accounts: matched, allAccounts: deviceAccounts });
     });
 
     const orphanAccounts = accounts.filter((a) => {
@@ -317,26 +340,65 @@ export default function AccountsPage() {
     ['banned', 'Banned'],
   ];
 
-  function renderDevCard({ device, siteKey, accounts: deviceAccts, unassigned = false }) {
+  function renderDevCard({ device, siteKey, accounts: deviceAccts, allAccounts: deviceAllAccts, unassigned = false }) {
+    const displayAccounts = deviceAccts;
+    const { slots, overflow } = groupAccountsByDeviceSlots(displayAccounts);
+    const allGrouped = unassigned ? null : groupAccountsByDeviceSlots(deviceAllAccts || displayAccounts);
+    const occupied = allGrouped
+      ? allGrouped.slots.filter((s) => s.account).length
+      : displayAccounts.length;
+    const extraCount = allGrouped?.overflow.length || 0;
+
     return (
       <div key={device.id} className="rl-dev-card">
         <div className="rl-dev-head">
           <span className="font-mono text-sm font-bold text-ams-ink">{device.device_name}</span>
           {device.id !== 'orphan' && (
             <div className="rl-dev-meta">
+              <span className="text-[11px] font-medium text-ams-faint">
+                {occupied}/{DEVICE_MAX_SLOTS} slots
+                {extraCount > 0 && (
+                  <span className="ml-1 text-ams-warn">· {extraCount} extra</span>
+                )}
+              </span>
               <span className={getSiteChipClass(siteKey)}>{siteChipLabel(siteKey)}</span>
               <span className="chip-site">{deviceShelf(device)}</span>
             </div>
           )}
         </div>
-        {deviceAccts.map((a) => (
-          <AcctRow
-            key={a.id}
-            account={a}
-            onOpen={(row) => setDetailId(row.id)}
-            showSiteBubble={unassigned && site === 'all'}
-          />
-        ))}
+        {unassigned ? (
+          displayAccounts.map((a) => (
+            <AcctRow
+              key={a.id}
+              account={a}
+              onOpen={(row) => setDetailId(row.id)}
+              showSiteBubble={site === 'all'}
+            />
+          ))
+        ) : (
+          <>
+            {slots.map(({ slotLabel, account }) => (
+              account ? (
+                <AcctRow
+                  key={account.id}
+                  account={account}
+                  slotLabel={slotLabel}
+                  onOpen={(row) => setDetailId(row.id)}
+                />
+              ) : (
+                <EmptySlotRow key={slotLabel} slotLabel={slotLabel} />
+              )
+            ))}
+            {overflow.map((a) => (
+              <AcctRow
+                key={a.id}
+                account={a}
+                extra
+                onOpen={(row) => setDetailId(row.id)}
+              />
+            ))}
+          </>
+        )}
       </div>
     );
   }
@@ -347,7 +409,7 @@ export default function AccountsPage() {
     <div>
       <PageHead
         title="Resource Ledger"
-        description="Read-only lookup: find a device, account, or phone number and see its status, ownership, and history. For actions, use Registration / Nurturing / Recovery pages."
+        description="Read-only lookup by device (max 2 WA slots: WS Normal + WS Business per device), account, or phone. For actions, use Register / Activation & Nurturing / Recovery."
       />
 
       <div className="page-filter-bar">

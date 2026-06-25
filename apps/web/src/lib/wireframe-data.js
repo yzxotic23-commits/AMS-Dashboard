@@ -13,8 +13,8 @@ export const HUB_STAFF = [
 export const HUB_COLS = [
   { key: 'reg', label: 'To Register', route: '/register', tone: 'reg' },
   { key: 'link', label: 'To Link', route: '/link', tone: 'link' },
-  { key: 'man', label: 'Device Farm', route: '/nurturing', tone: 'man' },
-  { key: 'scan', label: 'To Scan In', route: '/nurturing', tone: 'scan' },
+  { key: 'man', label: 'Device Farm', route: '/link?tab=nurturing', tone: 'man' },
+  { key: 'scan', label: 'To Scan In', route: '/link?tab=nurturing', tone: 'scan' },
   { key: 'rec', label: 'To Recover', route: '/recovery', tone: 'rec' },
   { key: 'tk', label: 'Tickets', route: '/tickets', tone: 'htk' },
 ];
@@ -148,7 +148,7 @@ export const GOVERNANCE_DATA = {
     supply: [
       { name: 'Registering', cur: 38, healthy: 50 },
       { name: 'Nurturing Pool', cur: 213, healthy: 240 },
-      { name: 'Standby Pool', cur: 486, healthy: 600 },
+      { name: 'Standby Pool', cur: 486, countOnly: true },
       { name: 'In Business Use', cur: 512, healthy: 512 },
     ],
     ban: [
@@ -182,7 +182,7 @@ export const GOVERNANCE_DATA = {
     supply: [
       { name: 'Registering', cur: 26, healthy: 32 },
       { name: 'Nurturing Pool', cur: 140, healthy: 155 },
-      { name: 'Standby Pool', cur: 310, healthy: 380 },
+      { name: 'Standby Pool', cur: 310, countOnly: true },
       { name: 'In Business Use', cur: 330, healthy: 330 },
     ],
     ban: [
@@ -216,7 +216,7 @@ export const GOVERNANCE_DATA = {
     supply: [
       { name: 'Registering', cur: 12, healthy: 18 },
       { name: 'Nurturing Pool', cur: 73, healthy: 85 },
-      { name: 'Standby Pool', cur: 176, healthy: 220 },
+      { name: 'Standby Pool', cur: 176, countOnly: true },
       { name: 'In Business Use', cur: 182, healthy: 182 },
     ],
     ban: [
@@ -256,8 +256,8 @@ export function hubTaskTotal() {
 export const REG_QUEUE = {
   my: [
     { id: 'r1', phone: '+60 11-2204 5570', telco: 'Outsource', need: true, note: 'Recovery failed — slot freed' },
-    { id: 'r2', phone: '+60 11-2204 5571', telco: 'Tunetalk', need: true, note: 'Supply calc: standby pool below target' },
-    { id: 'r3', phone: '+60 11-2204 5572', telco: 'Tunetalk', need: true, note: 'Supply calc: standby pool below target' },
+    { id: 'r2', phone: '+60 11-2204 5571', telco: 'Tunetalk', need: true, note: 'Supply: registration pipeline below target' },
+    { id: 'r3', phone: '+60 11-2204 5572', telco: 'Tunetalk', need: true, note: 'Supply: registration pipeline below target' },
     { id: 'r4', phone: '+60 11-2204 5573', telco: 'Outsource', need: false, note: '' },
     { id: 'r5', phone: '+60 11-2204 5574', telco: 'Tunetalk', need: false, note: '' },
     { id: 'r6', phone: '+60 11-2204 5575', telco: 'Digi', need: true, note: 'Replacement batch MY-06' },

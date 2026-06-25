@@ -11,7 +11,6 @@ import SimsPage from './pages/SimsPage';
 import AuditLogPage from './pages/AuditLogPage';
 import DevicesPage from './pages/DevicesPage';
 import ActivationDeskPage from './pages/ActivationDeskPage';
-import NurturingPage from './pages/NurturingPage';
 import RecoveryPage from './pages/RecoveryPage';
 import FeedFlowPage from './pages/FeedFlowPage';
 import TicketsPage from './pages/TicketsPage';
@@ -37,13 +36,15 @@ export default function App() {
         <Route path="register" element={<RegisterPage />} />
         <Route path="activation" element={<Navigate to="/register" replace />} />
         <Route path="link" element={<ActivationDeskPage />} />
-        <Route path="nurturing" element={<NurturingPage />} />
+        <Route path="nurturing" element={<Navigate to="/link?tab=nurturing" replace />} />
         <Route path="recovery" element={<RecoveryPage />} />
         <Route path="feedflow" element={<FeedFlowPage />} />
         <Route path="devices" element={<DevicesPage />} />
         <Route path="sims" element={<SimsPage />} />
         <Route path="ips" element={<IpsPage />} />
         <Route path="tickets" element={<TicketsPage />} />
+        <Route path="supply" element={<Navigate to="/governance" replace />} />
+        <Route path="phone-sync" element={<Navigate to="/sims" replace />} />
         <Route path="ip-gate" element={<Navigate to="/ips" replace />} />
         <Route path="audit" element={<AuditLogPage />} />
         <Route

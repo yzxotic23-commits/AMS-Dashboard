@@ -19,10 +19,16 @@
     "migrate:screenshots": "node scripts/migrate-screenshot-bucket.js",
     "migrate:username": "node scripts/run-username-migration.js",
     "seed:sample": "node scripts/seed-sample-data.js",
+    "prune:device-slots": "node scripts/prune-device-slot-overflow.js",
+    "prune:device-slots:apply": "node scripts/prune-device-slot-overflow.js --apply",
+    "fix:device-channels": "node scripts/fix-device-slot-channels.js",
+    "fix:device-channels:apply": "node scripts/fix-device-slot-channels.js --apply",
+    "seed:align-demo": "node scripts/seed-align-demo.js",
     "clear:data": "node scripts/clear-operational-data.js",
     "seed:devices": "node scripts/seed-devices.js",
     "create:admin": "node scripts/create-admin-user.js",
-    "seed:operators": "node scripts/seed-operator-users.js"
+    "seed:operators": "node scripts/seed-operator-users.js",
+    "test:activation": "node scripts/test-activation-flow.js"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",

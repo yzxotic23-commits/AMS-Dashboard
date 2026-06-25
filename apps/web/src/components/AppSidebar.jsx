@@ -1,7 +1,7 @@
 import { memo, useEffect, useRef } from 'react';
 import { LogOut } from 'lucide-react';
 import {
-  LayoutGrid, Plus, Clock, RotateCcw, Globe, CreditCard, Table2,
+  LayoutGrid, Plus, RotateCcw, Globe, CreditCard, Table2,
   Ticket, LineChart, ScrollText, Zap, MessageSquare, Users,
 } from 'lucide-react';
 import { readSidebarScrollTop, writeSidebarScrollTop } from '../lib/sidebar-prefs';
@@ -14,8 +14,7 @@ const NAV = [
   { section: 'OPERATOR ACTIONS', collapsible: true, items: [
     { to: '/', icon: LayoutGrid, label: 'Control Center', end: true, badge: 'hub' },
     { to: '/register', icon: Plus, label: 'Register' },
-    { to: '/link', icon: Zap, label: 'Activation' },
-    { to: '/nurturing', icon: Clock, label: 'Nurturing' },
+    { to: '/link', icon: Zap, label: 'Activation & Nurturing' },
     { to: '/recovery', icon: RotateCcw, label: 'Account Recovery' },
   ]},
   { section: 'RESOURCE MGMT', collapsible: true, items: [

@@ -583,6 +583,9 @@
   .rl-dev-meta {
     @apply ml-auto flex flex-wrap items-center justify-end gap-2;
   }
+  .rl-acct-row--extra {
+    background-color: rgb(255 243 205 / 0.35);
+  }
   .rl-acct-row.empty {
     color: var(--ams-faint);
   }
@@ -1401,6 +1404,60 @@
     @apply text-3xl font-extrabold leading-none;
   }
 
+  .data-table .col-align {
+    min-width: 11.5rem;
+    width: 13.5rem;
+    vertical-align: top;
+  }
+
+  .col-strong-text {
+    @apply font-semibold text-ams-ink;
+  }
+
+  .sim-sync-trigger {
+    @apply inline-flex max-w-full items-center gap-1.5 rounded px-0.5 text-left font-semibold text-ams-ink underline decoration-amber-400/70 decoration-dotted underline-offset-2 transition-colors;
+  }
+  .sim-sync-trigger:hover {
+    @apply text-amber-900 decoration-amber-500;
+  }
+  .sim-sync-trigger__dot {
+    @apply h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500;
+  }
+
+  .sim-sync-popover {
+    position: fixed;
+    z-index: 90;
+    width: min(17rem, calc(100vw - 1.5rem));
+    @apply rounded-lg border border-ams-line bg-white p-3 shadow-lg;
+  }
+  .sim-sync-popover__head {
+    @apply mb-2 flex items-center gap-1.5 text-[12px] font-bold text-amber-900;
+  }
+  .sim-sync-popover__diff {
+    @apply mb-2 grid grid-cols-2 gap-2;
+  }
+  .sim-sync-popover__diff dt {
+    @apply text-[9.5px] font-bold uppercase tracking-wide text-ams-faint;
+  }
+  .sim-sync-popover__diff dd {
+    @apply font-mono text-[11.5px] font-semibold text-ams-ink;
+  }
+  .sim-sync-popover__mono {
+    @apply mb-2 font-mono text-[11.5px] font-semibold text-ams-ink;
+  }
+  .sim-sync-popover__hint {
+    @apply mb-2.5 text-[11px] leading-snug text-ams-muted;
+  }
+  .sim-sync-popover__btn {
+    @apply inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-ams-accent/30 bg-white px-2.5 py-1.5 text-[11.5px] font-semibold text-ams-accent transition-colors;
+  }
+  .sim-sync-popover__btn:hover:not(:disabled) {
+    @apply border-ams-accent bg-ams-accent text-white;
+  }
+  .sim-sync-popover__btn:disabled {
+    @apply cursor-not-allowed opacity-60;
+  }
+
   .due-tag {
     @apply inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold;
   }
@@ -1605,6 +1662,12 @@
   }
   .drawer-locked-meta {
     @apply ml-2 text-xs font-normal text-ams-faint;
+  }
+  .drawer-section {
+    @apply mt-4 space-y-3 border-t border-ams-line pt-4 first:mt-0 first:border-0 first:pt-0;
+  }
+  .drawer-section-title {
+    @apply text-[11px] font-semibold uppercase tracking-wide text-ams-faint;
   }
   .drawer-choice-row {
     @apply grid grid-cols-2 gap-2;

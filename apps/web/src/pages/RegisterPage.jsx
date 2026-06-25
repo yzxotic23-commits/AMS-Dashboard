@@ -5,6 +5,7 @@ import PageHead from '../components/PageHead';
 import Drawer from '../components/Drawer';
 import ConfirmDialog from '../components/ConfirmDialog';
 import IconTooltip from '../components/IconTooltip';
+import ProxyCredentialPanel from '../components/ProxyCredentialPanel';
 import Toast from '../components/Toast';
 import { useSite } from '../context/SiteContext';
 import { useAuth } from '../context/AuthContext';
@@ -24,9 +25,12 @@ import { useFreeIps, useDeviceOptions, useSimOptions } from '../hooks/useResourc
 import { matchSimIdForPrepared } from '../lib/resource-mappers';
 import {
   DEVICE_CHANNEL_SLOTS,
-  formatDeviceOptionLabel,
+  DEVICE_MAX_SLOTS,
+  deviceSlotAvailability,
+  formatDeviceRegisterOption,
   normalizeDeviceChannel,
 } from '../lib/device-location';
+import { formatProxyOptionLabel, proxyFieldsFromIp, formatProxyOneLine } from '../lib/proxy-display';
 import { useAllAccounts } from '../hooks/useOperatorAccounts';
 import { toastCopy } from '../lib/operator-copy';
 import { dismissPreparedRow, usePreparedQueue, addPreparedNumber, deletePreparedNumber } from '../hooks/usePreparedQueue';
@@ -41,6 +45,15 @@ const TABS = [
 function NeedBadge({ need }) {
   if (!need) return <span className="badge badge-default">Not required</span>;
   return <span className="badge badge-warn">Required</span>;
+}
+
+function DrawerSection({ title, children }) {
+  return (
+    <div className="drawer-section">
+      <div className="drawer-section-title">{title}</div>
+      {children}
+    </div>
+  );
 }
 
 export default function RegisterPage() {
@@ -92,6 +105,11 @@ export default function RegisterPage() {
     );
     return DEVICE_CHANNEL_SLOTS.filter((slot) => !taken.has(slot));
   }, [form.deviceId, ledgerAccounts]);
+
+  const selectedIp = useMemo(
+    () => freeIps.find((ip) => ip.id === form.ipId) || null,
+    [freeIps, form.ipId],
+  );
 
   const list = useMemo(() => {
     if (site === 'all') {
@@ -181,12 +199,20 @@ export default function RegisterPage() {
   }
 
   function openReg(row) {
-    const deviceId = devices[0]?.id || '';
-    const slot = DEVICE_CHANNEL_SLOTS[0];
+    const deviceWithSlot = devices.find(
+      (d) => deviceSlotAvailability(d.id, ledgerAccounts).free > 0,
+    );
+    const deviceId = deviceWithSlot?.id || devices[0]?.id || '';
+    const taken = new Set(
+      ledgerAccounts
+        .filter((a) => a.device_id === deviceId)
+        .map((a) => normalizeDeviceChannel(a.channel)),
+    );
+    const slot = DEVICE_CHANNEL_SLOTS.find((s) => !taken.has(s)) || DEVICE_CHANNEL_SLOTS[0];
     setForm({
       deviceId,
       slot,
-      ipId: freeIps.find((ip) => (ip.in_use ?? 0) === 0)?.id || '',
+      ipId: freeIps.find((ip) => (ip.in_use ?? 0) === 0)?.id || freeIps[0]?.id || '',
       accountName: '',
       owner: ownerForDeviceSlot(),
       result: 'ok',
@@ -203,6 +229,7 @@ export default function RegisterPage() {
         const simId = matchSimIdForPrepared(drawer.phone, drawer.telco, sims) || drawer.id;
         const ipRow = freeIps.find((ip) => ip.id === form.ipId);
         const deviceRow = devices.find((d) => d.id === form.deviceId);
+        const proxyLog = proxyFieldsFromIp(ipRow);
         const created = await createAccount.mutateAsync({
           account_name: form.accountName.trim() || `Acct ${drawer.phone}`,
           phone_number: drawer.phone,
@@ -233,6 +260,7 @@ export default function RegisterPage() {
           device_id: form.deviceId || null,
           ip_id: form.ipId || null,
           remark: drawer.note || null,
+          ...proxyLog,
         });
         qc.invalidateQueries({ queryKey: ['accounts'] });
         qc.invalidateQueries({ queryKey: ['ips'] });
@@ -240,6 +268,7 @@ export default function RegisterPage() {
         await dismissPreparedRow(drawer.id, { need: false });
         setToast(toastCopy.registerOk(drawer.phone, form.accountName));
       } else {
+        const ipRow = freeIps.find((ip) => ip.id === form.ipId);
         await logRegistration.mutateAsync({
           phone_number: drawer.phone,
           telco: drawer.telco,
@@ -249,6 +278,7 @@ export default function RegisterPage() {
           device_id: form.deviceId || null,
           ip_id: form.ipId || null,
           remark: drawer.note || null,
+          ...proxyFieldsFromIp(ipRow),
         });
         qc.invalidateQueries({ queryKey: ['registrations'] });
         await dismissPreparedRow(drawer.id, { need: false });
@@ -270,7 +300,7 @@ export default function RegisterPage() {
     <div>
       <PageHead
         title="Register"
-        description="Numbers are pre-provisioned in bulk. Successful registration creates a REGISTERING account and sends it to Activation for engine linking."
+        description="Numbers are pre-provisioned in bulk. Governance flags rows that need registration when the registration pipeline is below target."
         actions={needCount > 0 ? (
           <div className="page-meta-bubble">
             <span className="font-semibold text-ams-warn">{needCount}</span>
@@ -404,6 +434,7 @@ export default function RegisterPage() {
               <tr>
                 <th>When</th>
                 <th>Phone</th>
+                <th>Proxy</th>
                 <th>Result</th>
                 <th>Reason / Account</th>
                 <th>Operator</th>
@@ -411,13 +442,14 @@ export default function RegisterPage() {
             </thead>
             <tbody>
               {regLog.length === 0 ? (
-                <tr><td colSpan={5} className="empty-cell">No registration attempts logged yet.</td></tr>
+                <tr><td colSpan={6} className="empty-cell">No registration attempts logged yet.</td></tr>
               ) : regLog.map((row) => (
                 <tr key={row.id}>
                   <td className="col-mono col-muted whitespace-nowrap">
                     {new Date(row.created_at).toLocaleString()}
                   </td>
                   <td className="col-mono">{row.phone_number}</td>
+                  <td className="col-mono text-[12px]">{formatProxyOneLine(row)}</td>
                   <td>
                     <span className={`badge ${row.result === 'ok' ? 'badge-success' : 'badge-danger'}`}>
                       {row.result === 'ok' ? 'Success' : 'Failed'}
@@ -452,20 +484,22 @@ export default function RegisterPage() {
         {drawer && (
           <>
             <p className="drawer-hint">
-              Successful registration creates the account in Activation queue (REGISTERING). Device farm phase starts after engine link.
+              Log the registration result from the device. Proxy/IP is chosen here — not when adding a prepared number.
+              On success, the account enters Activation (REGISTERING) and the number appears in SIM Card Ledger.
             </p>
             <div className="drawer-locked">
-              <div className="drawer-locked-label">Prepared number · Telco</div>
-              <div className="drawer-locked-value drawer-locked-value--mono">
-                {drawer.phone}
-                <span className="drawer-locked-meta">{drawer.telco}</span>
-              </div>
+              <div className="drawer-locked-label">Prepared number</div>
+              <div className="drawer-locked-value drawer-locked-value--mono">{drawer.phone}</div>
+              <div className="drawer-locked-label mt-2.5">Telco</div>
+              <div className="drawer-locked-value">{drawer.telco}</div>
             </div>
+
+            <DrawerSection title="Device assignment">
             <div className="drawer-fields">
               <label className="drawer-field">
                 <span className="drawer-label">Register to device</span>
                 <select
-                  className="input font-mono"
+                  className="input font-mono text-[13px]"
                   value={form.deviceId}
                   onChange={(e) => {
                     const deviceId = e.target.value;
@@ -474,7 +508,7 @@ export default function RegisterPage() {
                         .filter((a) => a.device_id === deviceId)
                         .map((a) => normalizeDeviceChannel(a.channel)),
                     );
-                    const free = DEVICE_CHANNEL_SLOTS.filter((slot) => !taken.has(slot));
+                    const free = DEVICE_CHANNEL_SLOTS.filter((s) => !taken.has(s));
                     setForm((f) => {
                       const slot = free[0] || DEVICE_CHANNEL_SLOTS[0];
                       return {
@@ -488,16 +522,21 @@ export default function RegisterPage() {
                 >
                   {devices.length === 0 ? (
                     <option value="">No devices for this site</option>
-                  ) : devices.map((d) => (
-                    <option key={d.id} value={d.id}>{formatDeviceOptionLabel(d)}</option>
-                  ))}
+                  ) : devices.map((d) => {
+                    const full = deviceSlotAvailability(d.id, ledgerAccounts).free === 0;
+                    return (
+                      <option key={d.id} value={d.id} disabled={full}>
+                        {formatDeviceRegisterOption(d, ledgerAccounts)}
+                      </option>
+                    );
+                  })}
                 </select>
                 <span className="mt-1 block text-[11px] text-ams-faint">
-                  One device code holds up to 4 WA slots — e.g. MYR-SB-001 · Shelf A · Slot 1
+                  Max {DEVICE_MAX_SLOTS} WA slots per device — WS Normal + WS Business.
                 </span>
               </label>
               <label className="drawer-field">
-                <span className="drawer-label">WA slot (max 4 per device)</span>
+                <span className="drawer-label">WA slot (max 2 per device)</span>
                 <select
                   className="input"
                   value={availableSlots.includes(form.slot) ? form.slot : (availableSlots[0] || '')}
@@ -511,7 +550,7 @@ export default function RegisterPage() {
                   }}
                 >
                   {availableSlots.length === 0 ? (
-                    <option value="">All 4 slots occupied</option>
+                    <option value="">All 2 slots occupied</option>
                   ) : availableSlots.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
               </label>
@@ -535,18 +574,33 @@ export default function RegisterPage() {
                   Pipeline Control Center mengelompokkan akun per operator ini.
                 </span>
               </label>
+            </div>
+            </DrawerSection>
+
+            <DrawerSection title="Proxy (IP ledger)">
               <label className="drawer-field">
-                <span className="drawer-label">Assign IP (from IP ledger)</span>
+                <span className="drawer-label">Select proxy</span>
                 <select
-                  className="input font-mono"
+                  className="input font-mono text-[13px]"
                   value={form.ipId}
                   onChange={(e) => setForm((f) => ({ ...f, ipId: e.target.value }))}
                 >
-                  {freeIps.map((ip) => (
-                    <option key={ip.id} value={ip.id}>{ip.ip_address}</option>
-                  ))}
+                  {freeIps.length === 0 ? (
+                    <option value="">No free IPs for this site</option>
+                  ) : freeIps.map((ip) => {
+                    const inUse = (ip.in_use ?? 0) > 0 && ip.id !== form.ipId;
+                    return (
+                      <option key={ip.id} value={ip.id} disabled={inUse}>
+                        {formatProxyOptionLabel(ip)}{inUse ? ' (in use)' : ''}
+                      </option>
+                    );
+                  })}
                 </select>
               </label>
+              <ProxyCredentialPanel ip={selectedIp} />
+            </DrawerSection>
+
+            <DrawerSection title="Account">
               <label className="drawer-field">
                 <span className="drawer-label">Account name</span>
                 <input
@@ -556,7 +610,8 @@ export default function RegisterPage() {
                   onChange={(e) => setForm((f) => ({ ...f, accountName: e.target.value }))}
                 />
               </label>
-            </div>
+            </DrawerSection>
+
             <div className="drawer-field">
               <span className="drawer-label">Registration result</span>
               <div className="drawer-choice-row">
@@ -610,7 +665,8 @@ export default function RegisterPage() {
         )}
       >
         <p className="drawer-hint">
-          Add a SIM number waiting for WhatsApp registration. Use Fill Result after the number is registered on device.
+          Tambah nomor SIM ke antrian register. Isi phone, telco, dan remark saja —
+          device, WA slot, dan proxy/IP dipilih nanti di <strong>Fill Result</strong> setelah nomor terdaftar di HP.
         </p>
         <div className="drawer-fields">
           <label className="drawer-field">

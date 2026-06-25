@@ -1,13 +1,11 @@
 /** Physical shelf/slot — stored in devices.notes or static demo map. */
 
-export const DEVICE_MAX_SLOTS = 4;
+export const DEVICE_MAX_SLOTS = 2;
 
-/** WhatsApp slots per device code (max 4). */
+/** WhatsApp slots per device code (max 2: Normal + Business). */
 export const DEVICE_CHANNEL_SLOTS = [
   'WS Normal',
   'WS Business',
-  'WS Slot 3',
-  'WS Slot 4',
 ];
 
 const LEGACY_CHANNEL_ALIASES = {
@@ -30,6 +28,40 @@ export function channelSlotIndex(channel) {
   if (idx !== -1) return idx;
   const m = normalized.match(/(\d+)/);
   return m ? Math.min(parseInt(m[1], 10) - 1, DEVICE_MAX_SLOTS - 1) : 99;
+}
+
+/** Group device accounts into the two WA slots; extras only when both slots are full. */
+export function groupAccountsByDeviceSlots(accounts) {
+  const sorted = [...(accounts || [])].sort((a, b) => {
+    const da = channelSlotIndex(a.channel);
+    const db = channelSlotIndex(b.channel);
+    if (da !== db) return da - db;
+    return String(a.account_name || '').localeCompare(String(b.account_name || ''));
+  });
+
+  const bySlot = new Map();
+  const overflow = [];
+
+  for (const account of sorted) {
+    const slot = normalizeDeviceChannel(account.channel);
+    if (DEVICE_CHANNEL_SLOTS.includes(slot) && !bySlot.has(slot)) {
+      bySlot.set(slot, account);
+      continue;
+    }
+    const open = DEVICE_CHANNEL_SLOTS.find((s) => !bySlot.has(s));
+    if (open) {
+      bySlot.set(open, account);
+      continue;
+    }
+    overflow.push(account);
+  }
+
+  const slots = DEVICE_CHANNEL_SLOTS.map((slotLabel) => ({
+    slotLabel,
+    account: bySlot.get(slotLabel) || null,
+  }));
+
+  return { slots, overflow };
 }
 
 const META_PREFIX = '_ams_loc:';
@@ -75,12 +107,30 @@ export function deviceShelf(device) {
   return SHELF_BY_NAME[device?.device_name] || '—';
 }
 
-/** Dropdown label: MYR-SB-001 · Shelf A · Slot 1 */
+/** Dropdown label: MYR-SB-001 — Shelf A, Slot 1 */
 export function formatDeviceOptionLabel(device) {
   const name = device?.device_name || '';
   if (!name) return '';
   const shelf = deviceShelf(device);
-  return shelf !== '—' ? `${name} · ${shelf}` : name;
+  if (shelf === '—') return name;
+  return `${name} — ${shelf.replace(/\s*·\s*/g, ', ')}`;
+}
+
+export function deviceSlotAvailability(deviceId, accounts = []) {
+  const taken = accounts.filter((a) => a.device_id === deviceId).length;
+  return {
+    taken,
+    free: Math.max(0, DEVICE_MAX_SLOTS - taken),
+  };
+}
+
+/** Register drawer — mark only when both WA slots are taken. */
+export function formatDeviceRegisterOption(device, accounts = []) {
+  const base = formatDeviceOptionLabel(device);
+  if (!base) return '';
+  const { free } = deviceSlotAvailability(device.id, accounts);
+  if (free === 0) return `${base} (full)`;
+  return base;
 }
 
 /** Sort MYR-SB-001 before MYR-SB-002 … MYR-SB-011 (wireframe ledger order). */

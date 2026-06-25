@@ -1,16 +1,18 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import PageHead from '../components/PageHead';
 import Drawer from '../components/Drawer';
 import Toast from '../components/Toast';
 import SegControl from '../components/SegControl';
+import SimTableRow from '../components/SimTableRow';
 import { useSite } from '../context/SiteContext';
-import { SITES, getSiteChipClass } from '../lib/sites';
+import { SITES } from '../lib/sites';
 import api from '../lib/api';
-import { filterSimsBySite, mapSimRow } from '../lib/resource-mappers';
+import { mapSimRow } from '../lib/resource-mappers';
 import { expiryFromChargeDate } from '../lib/sim-meta';
 import { toastCopy } from '../lib/operator-copy';
 import { useScrollRevealScrollbar } from '../hooks/useScrollRevealScrollbar';
+import { usePhoneSyncMutation, usePhoneSyncRows } from '../hooks/useSupply';
 
 function simDue(s) {
   return !s.last_charged;
@@ -49,19 +51,46 @@ export default function SimsPage() {
   const [chargeDate, setChargeDate] = useState('');
   const [toast, setToast] = useState('');
   const [page, setPage] = useState(1);
+  const [onlyMismatch, setOnlyMismatch] = useState(false);
+  const [syncBusyId, setSyncBusyId] = useState(null);
   const tableScrollRef = useScrollRevealScrollbar();
 
-  const { data: allRows = [], isLoading } = useQuery({
-    queryKey: ['sims'],
+  function syncActionForIssue(issue) {
+    if (issue === 'phone_mismatch' || issue === 'missing_sim') return 'copy_sim_to_account';
+    return 'link_sim';
+  }
+
+  const { data: syncData } = usePhoneSyncRows(site);
+  const syncMut = usePhoneSyncMutation();
+
+  const syncBySimId = useMemo(() => {
+    const map = new Map();
+    (syncData?.data || []).forEach((row) => {
+      if (row.sim_id) map.set(row.sim_id, row);
+    });
+    return map;
+  }, [syncData]);
+
+  const { data: allRows = [], isLoading, isFetching } = useQuery({
+    queryKey: ['sims', site],
     queryFn: async () => {
-      const res = await api.get('/sims', { params: { limit: 100 } });
+      const res = await api.get('/sims', {
+        params: {
+          limit: 200,
+          ...(site !== 'all' ? { site } : {}),
+        },
+      });
       return (res.data?.data || []).map(mapSim);
     },
+    staleTime: 30_000,
+    placeholderData: keepPreviousData,
   });
 
-  const siteRows = useMemo(
-    () => filterSimsBySite(allRows, site),
-    [allRows, site],
+  const siteRows = allRows;
+
+  const mismatchCount = useMemo(
+    () => siteRows.filter((row) => syncBySimId.get(row.id)?.needs_action).length,
+    [siteRows, syncBySimId],
   );
 
   const stats = useMemo(() => {
@@ -73,24 +102,54 @@ export default function SimsPage() {
   useEffect(() => {
     setOnlyDue(false);
     setFilterSoon(false);
+    setOnlyMismatch(false);
     setPage(1);
   }, [site]);
 
   useEffect(() => {
     setPage(1);
-  }, [telco, onlyDue, filterSoon]);
+  }, [telco, onlyDue, filterSoon, onlyMismatch]);
 
   const list = useMemo(() => {
     let rows = siteRows.filter((s) => telco === 'all' || s.carrier === telco);
     if (onlyDue || filterSoon) rows = rows.filter(simDue);
     if (filterSoon) rows = rows.filter((s) => s.days_left <= 7);
+    if (onlyMismatch) {
+      rows = rows.filter((s) => syncBySimId.get(s.id)?.needs_action);
+    }
     return rows.slice().sort((a, b) => {
       const ad = simDue(a) ? 0 : 1;
       const bd = simDue(b) ? 0 : 1;
       if (ad !== bd) return ad - bd;
       return a.days_left - b.days_left;
     });
-  }, [siteRows, telco, onlyDue, filterSoon]);
+  }, [siteRows, telco, onlyDue, filterSoon, onlyMismatch, syncBySimId]);
+
+  const openCharge = useCallback((row) => {
+    const today = new Date().toISOString().slice(0, 10);
+    setChargeDate(row.last_charged || today);
+    setDrawer(row);
+  }, []);
+
+  const handleAlign = useCallback(async (row) => {
+    const syncRow = syncBySimId.get(row.id);
+    if (!syncRow?.account_id) return;
+    setSyncBusyId(row.id);
+    try {
+      await syncMut.mutateAsync({
+        accountId: syncRow.account_id,
+        action: syncActionForIssue(syncRow.issue),
+        sim_id: row.id,
+      });
+      const fixed = syncRow.sim_phone || row.phone_number;
+      setToast(`Aligned — account now uses ${fixed}`);
+      setTimeout(() => setToast(''), 3500);
+    } catch (e) {
+      setToast(e?.response?.data?.error || e.message || 'Align failed');
+    } finally {
+      setSyncBusyId(null);
+    }
+  }, [syncBySimId, syncMut]);
 
   const totalPages = Math.max(1, Math.ceil(list.length / SIM_PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -113,12 +172,6 @@ export default function SimsPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['sims'] }),
   });
 
-  function openCharge(row) {
-    const today = new Date().toISOString().slice(0, 10);
-    setChargeDate(row.last_charged || today);
-    setDrawer(row);
-  }
-
   function submitCharge() {
     if (!drawer) return;
     const date = chargeDate || new Date().toISOString().slice(0, 10);
@@ -134,14 +187,16 @@ export default function SimsPage() {
     );
   }
 
+  const showTableLoading = isLoading && !allRows.length;
+
   return (
     <div>
       <PageHead
         title="SIM Card Ledger"
-        description={`Top-up tracking for registered numbers at ${SITES[site].name}. Filter by telco and mark charge dates.`}
+        description="Top-up tracking for registered numbers. Numbers enter here after a successful Register result."
       />
 
-      <div className="sim-attn mb-4 grid gap-3 sm:grid-cols-2">
+      <div className="sim-attn mb-4 grid gap-3 sm:grid-cols-3">
         <button
           type="button"
           className="sim-attn-card sim-attn-danger"
@@ -164,6 +219,18 @@ export default function SimsPage() {
             <div className="text-[11.5px] opacity-80">top these up first</div>
           </div>
         </button>
+        <button
+          type="button"
+          className={`sim-attn-card${mismatchCount > 0 ? ' sim-attn-calm' : ''}`}
+          onClick={() => { setOnlyMismatch(true); setOnlyDue(false); setFilterSoon(false); }}
+          disabled={mismatchCount === 0}
+        >
+          <span className="sim-attn-num">{mismatchCount}</span>
+          <div className="text-left text-[13px] leading-snug">
+            phone align needed
+            <div className="text-[11.5px] opacity-80">click account name in table</div>
+          </div>
+        </button>
       </div>
 
       <div className="sim-toolbar mb-4 flex flex-wrap items-center gap-3">
@@ -181,6 +248,20 @@ export default function SimsPage() {
         <label className="flex items-center gap-2 text-[13px] text-ams-muted">
           <input
             type="checkbox"
+            checked={onlyMismatch}
+            onChange={(e) => {
+              setOnlyMismatch(e.target.checked);
+              if (e.target.checked) {
+                setOnlyDue(false);
+                setFilterSoon(false);
+              }
+            }}
+          />
+          Alignment issues only
+        </label>
+        <label className="flex items-center gap-2 text-[13px] text-ams-muted">
+          <input
+            type="checkbox"
             checked={onlyDue}
             onChange={(e) => { setOnlyDue(e.target.checked); if (!e.target.checked) setFilterSoon(false); }}
           />
@@ -188,11 +269,12 @@ export default function SimsPage() {
         </label>
         <span className="ml-auto text-[13px] text-ams-faint">
           {list.length} SIM{list.length !== 1 ? 's' : ''} · {stats.total} at site
+          {isFetching && !showTableLoading ? ' · updating…' : ''}
         </span>
       </div>
 
       <div className="data-panel card overflow-hidden">
-        {isLoading ? (
+        {showTableLoading ? (
           <p className="p-8 text-center text-sm text-ams-faint">Loading…</p>
         ) : (
           <>
@@ -216,33 +298,14 @@ export default function SimsPage() {
                   {list.length === 0 ? (
                     <tr><td colSpan={7} className="empty-cell">No SIM cards match the filters.</td></tr>
                   ) : pageRows.map((row) => (
-                    <tr key={row.id}>
-                      <td className="col-mono">{row.phone_number}</td>
-                      <td>{row.carrier}</td>
-                      <td>
-                        <span className={getSiteChipClass(row.site)}>
-                          {SITES[row.site]?.name || row.location}
-                        </span>
-                      </td>
-                      <td className="col-strong">{row.account_name}</td>
-                      <td>
-                        <span className={`due-tag ${dueTag(row.days_left)}`}>{dueLabel(row.days_left)}</span>
-                      </td>
-                      <td>
-                        {row.last_charged ? (
-                          <span className="badge badge-success">Charged · {row.last_charged}</span>
-                        ) : (
-                          <span className="badge badge-danger">Due</span>
-                        )}
-                      </td>
-                      <td className="col-action">
-                        {row.last_charged ? (
-                          <button type="button" className="btn btn-ghost btn-sm" onClick={() => openCharge(row)}>Update</button>
-                        ) : (
-                          <button type="button" className="btn btn-primary btn-sm" onClick={() => openCharge(row)}>Mark Charged</button>
-                        )}
-                      </td>
-                    </tr>
+                    <SimTableRow
+                      key={row.id}
+                      row={row}
+                      syncRow={syncBySimId.get(row.id)}
+                      syncBusy={syncBusyId === row.id}
+                      onAlign={handleAlign}
+                      onCharge={openCharge}
+                    />
                   ))}
                 </tbody>
               </table>
@@ -305,7 +368,7 @@ export default function SimsPage() {
             <div className="drawer-locked">
               <div className="drawer-locked-label">Bound account · Location</div>
               <div className="drawer-locked-value">
-                {drawer.account_name || '—'} · {SITES[drawer.site]?.name || drawer.location || '—'}
+                {drawer.account_name || '—'} · {drawer.site_name || SITES[drawer.site]?.name || drawer.location || '—'}
               </div>
             </div>
             <div className="drawer-locked">

@@ -281,13 +281,13 @@ function TicketCard({
         <span className="tk-foot-note">Waiting for business to resubmit with corrected screenshot</span>
       );
     }
-  } else if (canBusinessAct && isRejected) {
+  } else if (canBusinessAct && role === 'business' && isRejected) {
     footActions = (
       <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={() => onResubmit(ticket)}>
         Resubmit
       </button>
     );
-  } else if (canBusinessAct && stage === 'posted') {
+  } else if (canBusinessAct && role === 'business' && stage === 'posted') {
     footActions = (
       <button type="button" className="btn btn-success btn-sm" disabled={busy} onClick={() => onConfirm(ticket)}>
         <CheckCircle2 size={14} strokeWidth={2.25} />
@@ -383,8 +383,8 @@ function TicketCard({
 export default function TicketsPage() {
   const { site } = useSite();
   const { profile } = useAuth();
-  const canOperatorAct = profile?.role === 'operator';
-  const canBusinessAct = profile?.role === 'business';
+  const canOperatorAct = profile?.role === 'operator' || profile?.role === 'admin';
+  const canBusinessAct = profile?.role === 'business' || profile?.role === 'admin';
   const isAdminUser = profile?.role === 'admin';
   const [searchParams, setSearchParams] = useSearchParams();
   const ownerFilter = (searchParams.get('owner') || '').trim();
@@ -448,7 +448,7 @@ export default function TicketsPage() {
 
   useEffect(() => {
     if (!profile?.role) return;
-    if (profile.role === 'operator') setRole('operator');
+    if (profile.role === 'operator' || profile.role === 'admin') setRole('operator');
     else if (profile.role === 'business') setRole('business');
   }, [profile?.role]);
 
@@ -684,7 +684,7 @@ export default function TicketsPage() {
         )}
         <p className="text-xs text-ams-muted">
           {isAdminUser
-            ? 'Admin Master: preview only. Review and go-live actions require an Operator account.'
+            ? 'Admin: tab Operator untuk review IP · tab Business untuk confirm delivery (mis. PP-Ben).'
             : role === 'business'
               ? 'Submit tickets and confirm when the account is live.'
               : 'Review IP match, go live on phone, or reject mismatches.'}

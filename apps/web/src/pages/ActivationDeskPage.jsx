@@ -1,15 +1,28 @@
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { CheckCircle2, Zap } from 'lucide-react';
 import PageHead from '../components/PageHead';
 import LinkWhatsAppDrawer from '../components/LinkWhatsAppDrawer';
 import EngineSlotSelect from '../components/EngineSlotSelect';
+import NurturingPanels from '../components/NurturingPanels';
 import Toast from '../components/Toast';
+import api from '../lib/api';
 import { useSite } from '../context/SiteContext';
 import { SITES, getSiteChipClass } from '../lib/sites';
 import { useEngineBridgeStatus } from '../hooks/useBridgeConnect';
 import { useAccountsByStatus, useAccountMutations, useAllAccounts } from '../hooks/useOperatorAccounts';
 import { useFreeIps, useDeviceOptions, useSimOptions } from '../hooks/useResourceOptions';
 import { toastCopy } from '../lib/operator-copy';
+import {
+  isAutoGraduationDue, isManualScanDue,
+} from '../lib/nurturing-day';
+
+const ACTIVATION_STEPS = ['sim', 'device', 'ip', 'phone', 'slot', 'linked'];
+
+const PAGE_TABS = [
+  { id: 'activation', label: 'Activation' },
+  { id: 'nurturing', label: 'Nurturing' },
+];
 
 function checklist(account, engineSlots) {
   const slot = account.wsaf_slot;
@@ -26,9 +39,13 @@ function checklist(account, engineSlots) {
   };
 }
 
-function progress(c) {
-  const keys = ['sim', 'device', 'ip', 'phone', 'slot', 'linked'];
-  return Math.round((keys.filter((k) => c[k]).length / keys.length) * 100);
+function stepProgress(c) {
+  const done = ACTIVATION_STEPS.filter((k) => c[k]).length;
+  return {
+    done,
+    total: ACTIVATION_STEPS.length,
+    pct: Math.round((done / ACTIVATION_STEPS.length) * 100),
+  };
 }
 
 function missingSteps(c) {
@@ -64,11 +81,14 @@ function LockedField({ label, value, mono }) {
 
 export default function ActivationDeskPage() {
   const { site } = useSite();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = searchParams.get('tab') === 'nurturing' ? 'nurturing' : 'activation';
   const [selectedId, setSelectedId] = useState(null);
   const [linkOpen, setLinkOpen] = useState(false);
   const [toast, setToast] = useState('');
   const [busy, setBusy] = useState(false);
   const { data: queue = [], isLoading } = useAccountsByStatus('REGISTERING');
+  const { data: nurturing = [] } = useAccountsByStatus('NURTURING');
   const { data: allAccounts = [] } = useAllAccounts();
   const { patchAccount, transitionAccount, invalidate } = useAccountMutations();
   const { data: engineStatus, refetch: refetchEngine } = useEngineBridgeStatus();
@@ -124,7 +144,22 @@ export default function ActivationDeskPage() {
   }
 
   const c = account ? checklist(account, engineSlots) : null;
-  const pct = c ? progress(c) : 0;
+  const steps = c ? stepProgress(c) : { done: 0, total: ACTIVATION_STEPS.length, pct: 0 };
+
+  const nurturingStats = useMemo(() => {
+    const scoped = site === 'all' ? nurturing : nurturing.filter((r) => r.siteKey === site);
+    const manual = scoped.filter((r) => r.nurturing_phase === 'manual');
+    const auto = scoped.filter((r) => r.nurturing_phase === 'auto');
+    const scanReady = manual.filter(isManualScanDue).length;
+    const gradReady = auto.filter(isAutoGraduationDue).length;
+    return {
+      active: scoped.length,
+      manual: manual.length,
+      auto: auto.length,
+      scanReady,
+      gradReady,
+    };
+  }, [nurturing, site]);
 
   const readyCount = list.filter((a) => {
     const ch = checklist(a, engineSlots);
@@ -132,6 +167,14 @@ export default function ActivationDeskPage() {
   }).length;
 
   const linkedCount = list.filter((a) => checklist(a, engineSlots).linked).length;
+
+  function setTab(nextTab) {
+    if (nextTab === 'nurturing') {
+      setSearchParams({ tab: 'nurturing' }, { replace: true });
+    } else {
+      setSearchParams({}, { replace: true });
+    }
+  }
 
   async function markAsLinked() {
     if (!account || busy) return;
@@ -169,6 +212,7 @@ export default function ActivationDeskPage() {
       });
       invalidate();
       setSelectedId(null);
+      setTab('nurturing');
       showToast(toastCopy.activationDone(account.account_name));
     } catch (e) {
       showToast(e.message || 'Activation failed');
@@ -180,19 +224,67 @@ export default function ActivationDeskPage() {
   return (
     <div>
       <PageHead
-        title="Activation"
-        description="Post-registration: assign resources, pick an engine slot, and link WhatsApp from AMS. Completed accounts move to Nurturing."
+        title="Activation & Nurturing"
+        description="Link WhatsApp after register, then track device farm (days 1–3) and engine nurturing (days 4–7) from one desk."
         actions={(
           <div className="page-meta-bubble">
             <span className="font-semibold text-ams-accent">{list.length}</span>
-            <span>pending</span>
+            <span>activation</span>
             <span className="text-ams-faint">·</span>
             <span>{linkedCount} linked</span>
+            <span className="text-ams-faint">·</span>
+            <span className="font-semibold text-ams-accent">{nurturingStats.active}</span>
+            <span>nurturing</span>
+            {nurturingStats.scanReady > 0 && (
+              <>
+                <span className="text-ams-faint">·</span>
+                <span className="font-semibold text-ams-warn">{nurturingStats.scanReady}</span>
+                <span>scan-in</span>
+              </>
+            )}
+            {nurturingStats.gradReady > 0 && (
+              <>
+                <span className="text-ams-faint">·</span>
+                <span className="font-semibold text-ams-success">{nurturingStats.gradReady}</span>
+                <span>day 7</span>
+              </>
+            )}
           </div>
         )}
       />
 
-      {!engineReachable && (
+      <div className="tk-tab-toolbar mb-4">
+        <div className="page-tab-bar tk-tab-toolbar-tabs" role="tablist" aria-label="Activation desk sections">
+          {PAGE_TABS.map(({ id, label }) => {
+            const active = tab === id;
+            const badge = id === 'activation'
+              ? (list.length > 0 ? list.length : null)
+              : (nurturingStats.active > 0 ? nurturingStats.active : null);
+            const badgeWarn = id === 'activation'
+              ? list.length > 0
+              : nurturingStats.scanReady > 0;
+            return (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                className={active ? 'page-tab page-tab-active' : 'page-tab'}
+                onClick={() => setTab(id)}
+              >
+                {label}
+                {badge != null && (
+                  <span className={`page-tab-badge${badgeWarn ? ' page-tab-badge--warn' : ''}`}>
+                    {badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {tab === 'activation' && !engineReachable && (
         <div className="mb-4 rounded-lg border border-ams-warn/40 bg-ams-warn/10 px-4 py-3 text-[13px] text-ams-warn">
           FeedFlow engine is offline — WhatsApp linking will fail until the engine is running on port 47821.
           {engineStatus?.error ? ` (${engineStatus.error})` : ''}
@@ -200,6 +292,7 @@ export default function ActivationDeskPage() {
         </div>
       )}
 
+      {tab === 'activation' && (
       <div className="activation-stats">
         <div className="activation-stat">
           <div className="activation-stat-val">{list.length}</div>
@@ -214,7 +307,9 @@ export default function ActivationDeskPage() {
           <div className="activation-stat-label">Linked</div>
         </div>
       </div>
+      )}
 
+      {tab === 'activation' && (
       <div className="activation-layout">
         <div className="data-panel card overflow-hidden">
           <div className="border-b border-ams-line px-4 py-3">
@@ -240,8 +335,9 @@ export default function ActivationDeskPage() {
                     </td>
                   </tr>
                 ) : list.map((row) => {
-                  const p = progress(checklist(row, engineSlots));
-                  const linked = checklist(row, engineSlots).linked;
+                  const ch = checklist(row, engineSlots);
+                  const sp = stepProgress(ch);
+                  const linked = ch.linked;
                   return (
                     <tr
                       key={row.id}
@@ -255,9 +351,9 @@ export default function ActivationDeskPage() {
                       <td>
                         <div className="nurt-progress">
                           <div className="nurt-progress-track">
-                            <div className="nurt-progress-fill nurt-progress-fill--warn" style={{ width: `${p}%` }} />
+                            <div className="nurt-progress-fill nurt-progress-fill--warn" style={{ width: `${sp.pct}%` }} />
                           </div>
-                          <span className="nurt-progress-label">{p}%</span>
+                          <span className="nurt-progress-label">Step {sp.done}/{sp.total}</span>
                         </div>
                       </td>
                       {site === 'all' && (
@@ -286,7 +382,7 @@ export default function ActivationDeskPage() {
             <>
               <div className="flex items-center justify-between border-b border-ams-line px-4 py-3">
                 <h3 className="text-sm font-semibold text-ams-ink">{account.account_name}</h3>
-                <span className="badge badge-accent">{pct}%</span>
+                <span className="badge badge-accent">Step {steps.done}/{steps.total}</span>
               </div>
               <div className="space-y-3 p-4">
                 <StepCard title="1. Resources" done={c.sim && c.device && c.ip}>
@@ -443,14 +539,14 @@ export default function ActivationDeskPage() {
                 <button
                   type="button"
                   className="btn btn-primary flex w-full items-center justify-center gap-2"
-                  disabled={pct < 100 || busy}
-                  title={pct < 100 ? `Complete: ${missingSteps(c).join(', ')}` : ''}
+                  disabled={steps.pct < 100 || busy}
+                  title={steps.pct < 100 ? `Complete: ${missingSteps(c).join(', ')}` : ''}
                   onClick={activate}
                 >
                   <CheckCircle2 size={16} />
                   {busy ? 'Activating…' : 'Activate for Nurturing'}
                 </button>
-                {pct < 100 && (
+                {steps.pct < 100 && (
                   <p className="text-center text-[11px] text-ams-muted">
                     Still missing: {missingSteps(c).join(' · ')}
                   </p>
@@ -460,6 +556,9 @@ export default function ActivationDeskPage() {
           )}
         </div>
       </div>
+      )}
+
+      {tab === 'nurturing' && <NurturingPanels />}
 
       <LinkWhatsAppDrawer
         open={linkOpen}

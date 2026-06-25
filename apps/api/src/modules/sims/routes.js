@@ -8,6 +8,8 @@ import {
   expiryFromChargeDate,
   mapSimRow,
   mergeSimLedgerMeta,
+  resolveBoundAccount,
+  simLedgerEligible,
 } from '../../lib/simMeta.js';
 
 const router = Router();
@@ -27,7 +29,36 @@ const updateSchema = createSchema.partial().extend({
   last_charged: z.string().optional().nullable(),
 });
 
-async function loadSimAccountMaps(simRows) {
+const EMPTY_PHONE_MAP = new Map();
+
+/** Ledger list — bind via sim_id / current_account_id only (skip slow phone OR scan). */
+async function loadSimAccountMapsLite(simRows) {
+  const simIds = simRows.map((s) => s.id).filter(Boolean);
+  const currentIds = simRows.map((s) => s.current_account_id).filter(Boolean);
+  const accountBySimId = new Map();
+  const accountByCurrentId = new Map();
+
+  if (simIds.length) {
+    const { data } = await supabaseAdmin
+      .from('accounts')
+      .select('id, account_name, sim_id, phone_number')
+      .in('sim_id', simIds);
+    (data || []).forEach((a) => {
+      if (a.sim_id) accountBySimId.set(a.sim_id, a);
+    });
+  }
+  if (currentIds.length) {
+    const { data } = await supabaseAdmin
+      .from('accounts')
+      .select('id, account_name, phone_number')
+      .in('id', currentIds);
+    (data || []).forEach((a) => accountByCurrentId.set(a.id, a));
+  }
+
+  return { accountBySimId, accountByCurrentId, accountByPhoneDigits: EMPTY_PHONE_MAP };
+}
+
+async function loadSimAccountMapsFull(simRows) {
   const simIds = simRows.map((s) => s.id).filter(Boolean);
   const currentIds = simRows.map((s) => s.current_account_id).filter(Boolean);
   const accountBySimId = new Map();
@@ -73,29 +104,50 @@ async function loadSimAccountMaps(simRows) {
   return { accountBySimId, accountByCurrentId, accountByPhoneDigits };
 }
 
+function filterLedgerRows(simRows, maps, siteKey) {
+  return (simRows || [])
+    .map((sim) => {
+      const boundAccount = resolveBoundAccount(
+        sim,
+        maps.accountBySimId,
+        maps.accountByCurrentId,
+        maps.accountByPhoneDigits,
+      );
+      if (!simLedgerEligible(sim, boundAccount)) return null;
+      const row = mapSimRow(
+        sim,
+        maps.accountBySimId,
+        maps.accountByCurrentId,
+        maps.accountByPhoneDigits,
+      );
+      if (siteKey && siteKey !== 'all' && row.site_key !== siteKey) return null;
+      return row;
+    })
+    .filter(Boolean);
+}
+
 router.get('/', async (req, res, next) => {
   try {
     const { page, limit, offset } = parsePagination(req.query);
-    let q = supabaseAdmin.from('sims').select('*', { count: 'exact' });
+    const siteKey = req.query.site || req.query.site_key || 'all';
+    let q = supabaseAdmin.from('sims').select('*');
 
     if (req.query.status) q = q.eq('status', req.query.status);
     if (req.query.search) {
       q = q.or(`phone_number.ilike.%${req.query.search}%,carrier.ilike.%${req.query.search}%`);
     }
 
-    const { data, error, count } = await q
+    const { data, error } = await q
       .order('updated_at', { ascending: false })
-      .range(offset, offset + limit - 1);
+      .limit(250);
     if (error) throw error;
 
-    const maps = await loadSimAccountMaps(data || []);
-    const rows = (data || []).map((sim) => mapSimRow(
-      sim,
-      maps.accountBySimId,
-      maps.accountByCurrentId,
-      maps.accountByPhoneDigits,
-    ));
-    res.json(paginatedResponse(rows, count || 0, page, limit));
+    const maps = await loadSimAccountMapsLite(data || []);
+    const allLedgerRows = filterLedgerRows(data, maps, siteKey);
+    const total = allLedgerRows.length;
+    const rows = allLedgerRows.slice(offset, offset + limit);
+    res.set('Cache-Control', 'private, max-age=15');
+    res.json(paginatedResponse(rows, total, page, limit));
   } catch (e) {
     next(e);
   }
@@ -105,7 +157,7 @@ router.get('/:id', async (req, res, next) => {
   try {
     const { data, error } = await supabaseAdmin.from('sims').select('*').eq('id', req.params.id).single();
     if (error) throw error;
-    const maps = await loadSimAccountMaps([data]);
+    const maps = await loadSimAccountMapsFull([data]);
     res.json(mapSimRow(
       data,
       maps.accountBySimId,
@@ -167,7 +219,7 @@ router.patch('/:id', async (req, res, next) => {
       req,
     });
 
-    const maps = await loadSimAccountMaps([data]);
+    const maps = await loadSimAccountMapsFull([data]);
     res.json(mapSimRow(
       data,
       maps.accountBySimId,

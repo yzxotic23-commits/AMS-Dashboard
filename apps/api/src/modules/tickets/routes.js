@@ -54,6 +54,14 @@ function isReviewOnlyRequest(body) {
   return body?.review_only === true || body?.review_only === 'true';
 }
 
+function canActAsTicketBusiness(profile) {
+  return profile?.role === 'business' || profile?.role === 'admin';
+}
+
+function canActAsTicketOperator(profile) {
+  return profile?.role === 'operator' || profile?.role === 'admin';
+}
+
 async function loadAccount(accountId) {
   const { data, error } = await supabaseAdmin
     .from('accounts')
@@ -409,8 +417,8 @@ router.post('/', async (req, res, next) => {
 // POST /tickets/:id/go-live — operator approves IP match and marks in use
 router.post('/:id/go-live', async (req, res, next) => {
   try {
-    if (req.profile.role !== 'operator') {
-      return res.status(403).json({ error: 'Operator only' });
+    if (!canActAsTicketOperator(req.profile)) {
+      return res.status(403).json({ error: 'Operator or admin only' });
     }
     const ticket = await loadTicketById(req.params.id);
     if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
@@ -468,8 +476,8 @@ router.post('/:id/go-live', async (req, res, next) => {
 // POST /tickets/:id/review-ip — operator marks screenshot match / mismatch (requires API reload after deploy)
 router.post('/:id/review-ip', async (req, res, next) => {
   try {
-    if (req.profile.role !== 'operator') {
-      return res.status(403).json({ error: 'Operator only' });
+    if (!canActAsTicketOperator(req.profile)) {
+      return res.status(403).json({ error: 'Operator or admin only' });
     }
     const match = z.object({ match: z.boolean() }).parse(req.body).match;
     const enriched = await saveTicketReview({
@@ -487,8 +495,8 @@ router.post('/:id/review-ip', async (req, res, next) => {
 // POST /tickets/:id/reject — reject ticket OR review-only (review_only + match)
 router.post('/:id/reject', async (req, res, next) => {
   try {
-    if (req.profile.role !== 'operator') {
-      return res.status(403).json({ error: 'Operator only' });
+    if (!canActAsTicketOperator(req.profile)) {
+      return res.status(403).json({ error: 'Operator or admin only' });
     }
 
     if (isReviewOnlyRequest(req.body)) {
@@ -608,6 +616,9 @@ router.post('/:id/resubmit', async (req, res, next) => {
 // POST /tickets/:id/confirm — business confirms delivery complete
 router.post('/:id/confirm', async (req, res, next) => {
   try {
+    if (!canActAsTicketBusiness(req.profile)) {
+      return res.status(403).json({ error: 'Business or admin only' });
+    }
     const { data: ticket, error } = await supabaseAdmin.from('tickets').select('*').eq('id', req.params.id).single();
     if (error) throw error;
     const account = await loadAccount(ticket.account_id);

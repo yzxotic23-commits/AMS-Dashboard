@@ -12,21 +12,23 @@ export function mapIpRow(row) {
 }
 
 export function mapSimRow(row) {
+  const site = row.site_key || row.site || inferSimSite(row);
   const expiry = row.expiry_date ? new Date(`${row.expiry_date}T12:00:00`) : null;
   const daysLeft = row.days_left ?? (expiry
     ? Math.max(0, Math.ceil((expiry - Date.now()) / 86400000))
     : 0);
-  const location = simLocationLabel(row);
-  const mapped = {
+  const siteName = row.site_name || simLocationLabel(row);
+  return {
     id: row.id,
     phone_number: row.phone_number,
     carrier: row.carrier || row.telco || '—',
-    location,
+    location: siteName,
+    site,
+    site_name: siteName,
     account_name: row.account_name || row.accounts?.account_name || '—',
     days_left: daysLeft,
     last_charged: row.last_charged || parseSimNotesMeta(row.notes).ledger.last_charged || null,
   };
-  return { ...mapped, site: inferSimSite({ ...mapped, notes: row.notes }) };
 }
 
 export function inferSimSite(simRow) {

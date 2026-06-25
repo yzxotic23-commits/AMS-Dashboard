@@ -31,10 +31,13 @@ export function parseSimNotesMeta(notes = '') {
 }
 
 export function simLocationLabel(row, siteNames = { my: 'Malaysia', pp: 'Poipet' }) {
-  const { prepared, human } = parseSimNotesMeta(row?.notes);
-  if (human) return human;
+  const { prepared, ledger } = parseSimNotesMeta(row?.notes);
+  if (ledger.site_key && siteNames[ledger.site_key]) return siteNames[ledger.site_key];
   if (prepared.site_key && siteNames[prepared.site_key]) return siteNames[prepared.site_key];
-  if (row?.location) return row.location;
+  if (row?.site_name) return row.site_name;
+  if (row?.location && (row.location === siteNames.my || row.location === siteNames.pp)) {
+    return row.location;
+  }
   const phone = String(row?.phone_number || '');
   if (phone.startsWith('+855')) return siteNames.pp;
   return siteNames.my;

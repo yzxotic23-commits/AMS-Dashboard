@@ -26,9 +26,9 @@ function banTone(val) {
   return 'metric-bad';
 }
 
-function MetricCard({ name, value, sub, pct, tone }) {
+function MetricCard({ name, value, sub, pct, tone, pctLabel }) {
   return (
-    <div className={`metric-card ${tone}`}>
+    <div className={`metric-card ${tone || ''}`}>
       <div className="text-xs font-medium text-ams-muted">{name}</div>
       <div className="metric-val">
         {value}
@@ -37,9 +37,19 @@ function MetricCard({ name, value, sub, pct, tone }) {
       {pct != null && (
         <>
           <div className="metric-bar"><i style={{ width: `${Math.min(100, pct)}%` }} /></div>
-          <div className="text-[11px] text-ams-faint">{pct}% of bans</div>
+          {pctLabel && <div className="text-[11px] text-ams-faint">{pctLabel}</div>}
         </>
       )}
+    </div>
+  );
+}
+
+function SupplyCountCard({ name, value }) {
+  return (
+    <div className="metric-card metric-card--count-only">
+      <div className="text-xs font-medium text-ams-muted">{name}</div>
+      <div className="metric-val">{value}</div>
+      <div className="text-[11px] text-ams-faint">Current count only</div>
     </div>
   );
 }
@@ -113,7 +123,7 @@ export default function GovernancePage() {
     <div>
       <PageHead
         title="Dashboard (Governance)"
-        description="Diagnostic view across supply, ban rates, recovery, and collaboration. Ban stats from live account history."
+        description="Diagnostic view across supply, ban rates, recovery, and collaboration. Register queue priority follows the registration pipeline target."
       />
 
       <div className="mb-4 text-xs text-ams-faint">
@@ -125,7 +135,13 @@ export default function GovernancePage() {
           {supply.length === 0 ? (
             <p className="col-span-full text-sm text-ams-muted">No account supply data yet.</p>
           ) : supply.map((s) => {
-            const pct = Math.round((s.cur / s.healthy) * 100);
+            if (s.countOnly) {
+              return (
+                <SupplyCountCard key={s.name} name={s.name} value={s.cur} />
+              );
+            }
+            const pct = s.pct ?? (s.healthy ? Math.round((s.cur / s.healthy) * 100) : 0);
+            const isRegistering = s.status === 'REGISTERING' || s.name === 'Registering';
             return (
               <MetricCard
                 key={s.name}
@@ -133,6 +149,9 @@ export default function GovernancePage() {
                 value={s.cur}
                 sub={`/ ${s.healthy}`}
                 pct={pct}
+                pctLabel={isRegistering
+                  ? `${pct}% of registration pipeline target`
+                  : `${pct}% of target`}
                 tone={supplyTone(pct)}
               />
             );
@@ -154,6 +173,7 @@ export default function GovernancePage() {
               value={`${b.val}%`}
               sub={b.count != null ? `(${b.count})` : null}
               pct={Math.min(100, b.val * 5)}
+              pctLabel={`${b.val}% of bans`}
               tone={banTone(b.val)}
             />
           ))}

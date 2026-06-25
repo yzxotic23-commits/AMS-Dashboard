@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Seed sample operational data into live Supabase (dev/staging).
+ * Seed moderate sample operational data for flow testing (dev/staging).
+ * Keeps auth profiles — wipes accounts, devices, sims, ips, tickets only.
  * Usage: npm run seed:sample
  */
 import fs from 'fs';
@@ -35,6 +36,15 @@ function prepNotes(meta) {
   return `_ams_prep:${JSON.stringify({ prepared: true, ...meta })}`;
 }
 
+function recNotes(recoveryMeta, human = '') {
+  const payload = `_ams_rec:${JSON.stringify(recoveryMeta)}`;
+  return human ? `${human}\n${payload}` : payload;
+}
+
+function daysAgo(n) {
+  return new Date(Date.now() - n * 86_400_000).toISOString();
+}
+
 loadEnv(envPath);
 
 const dbUrl = process.env.DATABASE_URL;
@@ -43,28 +53,18 @@ if (!dbUrl) {
   process.exit(1);
 }
 
+const id = () => randomUUID();
+
 const ids = {
-  dev1: randomUUID(),
-  dev2: randomUUID(),
-  dev3: randomUUID(),
-  dev4: randomUUID(),
-  ip1: randomUUID(),
-  ip2: randomUUID(),
-  ip3: randomUUID(),
-  ip4: randomUUID(),
-  ip5: randomUUID(),
-  sim1: randomUUID(),
-  sim2: randomUUID(),
-  sim3: randomUUID(),
-  sim4: randomUUID(),
-  sim5: randomUUID(),
-  sim6: randomUUID(),
-  acct1: randomUUID(),
-  acct2: randomUUID(),
-  acct3: randomUUID(),
-  acct4: randomUUID(),
-  acct5: randomUUID(),
-  acct6: randomUUID(),
+  devMY1: id(), devMY2: id(), devMY3: id(), devPP1: id(),
+  ipMY1: id(), ipMY2: id(), ipMY3: id(), ipPP1: id(), ipPP2: id(),
+  simPrep1: id(), simPrep2: id(),
+  sim1: id(), sim2: id(), sim3: id(), sim4: id(), sim5: id(), sim6: id(), sim7: id(),
+  simAlignDemo: id(), simAlignDemo2: id(), simAlignDemo3: id(),
+  acReg: id(), acMan1: id(), acMan3: id(), acAuto: id(), acAuto7: id(),
+  acStandby: id(), acInUse: id(), acBanned: id(), acRecovering: id(),
+  acAlignDemo: id(), acAlignDemo2: id(), acAlignDemo3: id(),
+  igrStandby: id(), igrInUse: id(),
 };
 
 const client = new pg.Client({ connectionString: dbUrl, ssl: { rejectUnauthorized: false } });
@@ -82,118 +82,208 @@ try {
     RESTART IDENTITY CASCADE
   `);
 
-  console.log('Inserting sample devices, IPs, SIMs, accounts…');
+  console.log('Inserting moderate sample set…');
 
   await client.query(`
     INSERT INTO devices (id, device_name, brand, model, serial_number, status) VALUES
     ($1, 'MYR-SB-001', 'Samsung', 'A14', 'SN-MY-001', 'ACTIVE'),
     ($2, 'MYR-SB-002', 'Samsung', 'A14', 'SN-MY-002', 'ACTIVE'),
-    ($3, 'PP-SB-011', 'Oppo', 'A58', 'SN-PP-011', 'ACTIVE'),
-    ($4, 'MYR-SB-003', 'Xiaomi', 'Redmi 12', 'SN-MY-003', 'ACTIVE')
-  `, [ids.dev1, ids.dev2, ids.dev3, ids.dev4]);
+    ($3, 'MYR-SB-003', 'Xiaomi', 'Redmi 12', 'SN-MY-003', 'ACTIVE'),
+    ($4, 'PP-SB-011', 'Oppo', 'A58', 'SN-PP-011', 'ACTIVE')
+  `, [ids.devMY1, ids.devMY2, ids.devMY3, ids.devPP1]);
 
   await client.query(`
     INSERT INTO ips (id, proxy_provider, proxy_type, ip_address, port, username, password, country, status, risk_count) VALUES
     ($1, 'IPRoyal', 'SOCKS5', '103.21.44.25', '8080', 'user_my01', 'pass_my01', 'MY', 'ACTIVE', 1),
-    ($2, 'IPRoyal', 'SOCKS5', '103.21.44.26', '8080', 'user_my02', 'pass_my02', 'MY', 'ACTIVE', 3),
-    ($3, '922', 'SOCKS5', '175.100.8.70', '8080', 'user_pp01', 'pass_pp01', 'KH', 'ACTIVE', 0),
-    ($4, '922', 'SOCKS5', '175.100.8.71', '8080', 'user_pp02', 'pass_pp02', 'KH', 'ACTIVE', 2),
-    ($5, 'IPRoyal', 'SOCKS5', '103.21.44.27', '8080', 'user_my03', 'pass_my03', 'MY', 'ACTIVE', 0)
-  `, [ids.ip1, ids.ip2, ids.ip3, ids.ip4, ids.ip5]);
+    ($2, 'IPRoyal', 'SOCKS5', '103.21.44.26', '8080', 'user_my02', 'pass_my02', 'MY', 'ACTIVE', 2),
+    ($3, 'IPRoyal', 'SOCKS5', '103.21.44.27', '8080', 'user_my03', 'pass_my03', 'MY', 'ACTIVE', 0),
+    ($4, '922', 'SOCKS5', '175.100.8.70', '8080', 'user_pp01', 'pass_pp01', 'KH', 'ACTIVE', 0),
+    ($5, '922', 'SOCKS5', '175.100.8.71', '8080', 'user_pp02', 'pass_pp02', 'KH', 'ACTIVE', 1)
+  `, [ids.ipMY1, ids.ipMY2, ids.ipMY3, ids.ipPP1, ids.ipPP2]);
 
   await client.query(`
     INSERT INTO sims (id, phone_number, carrier, status, notes) VALUES
-    ($1, '+601122045570', 'Tunetalk', 'OK', $7),
-    ($2, '+601122045571', 'Digi', 'OK', $8),
-    ($3, '+855965530100', 'Smart', 'OK', $9),
-    ($4, '+601122045572', 'Celcom', 'OK', NULL),
-    ($5, '+601122045573', 'Outsource', 'OK', NULL),
-    ($6, '+855965530101', 'Outsource', 'OK', NULL)
+    ($1, '+60199001101', 'Tunetalk', 'OK', $10),
+    ($2, '+60199001102', 'Digi', 'OK', $11),
+    ($3, '+601122045580', 'Celcom', 'OK', NULL),
+    ($4, '+601122045581', 'Outsource', 'OK', NULL),
+    ($5, '+601122045582', 'Tunetalk', 'OK', NULL),
+    ($6, '+855965530200', 'Smart', 'OK', NULL),
+    ($7, '+855965530201', 'Outsource', 'OK', NULL),
+    ($8, '+601122045583', 'Celcom', 'OK', NULL),
+    ($9, '+855965530202', 'Smart', 'OK', NULL),
+    ($10, '+60199001299', 'Tunetalk', 'OK', $12),
+    ($11, '+60199001302', 'Tunetalk', 'OK', $13),
+    ($12, '+60199001304', 'Digi', 'OK', $14)
   `, [
-    ids.sim1, ids.sim2, ids.sim3, ids.sim4, ids.sim5, ids.sim6,
-    prepNotes({ need: true, site_key: 'my', note: 'Supply refill MY' }),
-    prepNotes({ need: true, site_key: 'my', note: 'Replacement batch' }),
-    prepNotes({ need: true, site_key: 'pp', note: 'Standby pool PP' }),
+    ids.simPrep1, ids.simPrep2,
+    ids.sim1, ids.sim2, ids.sim3, ids.sim4, ids.sim5, ids.sim6, ids.sim7,
+    ids.simAlignDemo, ids.simAlignDemo2, ids.simAlignDemo3,
+    prepNotes({ need: true, site_key: 'my', note: 'Supply: registration pipeline below target' }),
+    prepNotes({ need: false, site_key: 'my', note: 'Spare MY number' }),
+    prepNotes({ site_key: 'my', note: 'Align demo 1 — SIM +60199001299' }),
+    prepNotes({ site_key: 'my', note: 'Align demo 2 — SIM +60199001302' }),
+    prepNotes({ site_key: 'my', note: 'Align demo 3 — SIM +60199001304' }),
   ]);
 
   await client.query(`
     INSERT INTO accounts (id, account_name, phone_number, status, device_id, sim_id, ip_id, wsaf_slot, notes) VALUES
-    ($1, 'SBMY-ela1', '+601122045580', 'REGISTERING', $7, $8, $9, 0, $13),
-    ($2, 'SBMY-ela2', '+601122045581', 'NURTURING',   $10, $11, $12, 1, $14),
-    ($3, 'SBMY-Oliver', '+601122045582', 'AVAILABLE', $15, NULL, $16, NULL, $17),
-    ($4, 'PP-Ben', '+855965530200', 'IN_USE',      $18, $19, $20, 2, $21),
-    ($5, 'SBMY-Cindy', '+601122045583', 'RECOVERING', NULL, NULL, NULL, NULL, $22),
-    ($6, 'PP-Joyce', '+855965530201', 'NURTURING', $18, NULL, $20, 3, $23)
+    ($1::uuid,  'SBMY-new01',  '+601122045580', 'REGISTERING', $10::uuid, $11::uuid, $12::uuid, 0,  $24),
+    ($2::uuid,  'SBMY-ela1',   '+601122045581', 'NURTURING',   $13::uuid, $14::uuid, $15::uuid, 1,  $25),
+    ($3::uuid,  'SBMY-ela2',   '+601122045582', 'NURTURING',   $13::uuid, $14::uuid, $15::uuid, NULL, $26),
+    ($4::uuid,  'SBMY-Oliver', '+601122045583', 'NURTURING',   $16::uuid, $17::uuid, $18::uuid, 2,  $27),
+    ($5::uuid,  'SBMY-Pam',    '+601122045584', 'NURTURING',   $16::uuid, NULL::uuid, $18::uuid, 3,  $28),
+    ($6::uuid,  'SBMY-mey',    '+601122045585', 'AVAILABLE',   $10::uuid, NULL::uuid, $19::uuid, NULL, $29),
+    ($7::uuid,  'PP-Ben',      '+855965530200', 'IN_USE',      $20::uuid, $21::uuid, $22::uuid, 4,  $30),
+    ($8::uuid,  'SBMY-Cindy',  '+601122045586', 'BANNED',      NULL::uuid, NULL::uuid, NULL::uuid, NULL, $31),
+    ($9::uuid,  'PP-Joyce',    '+855965530201', 'RECOVERING',  $20::uuid, $23::uuid, $22::uuid, NULL, $32),
+    ($10::uuid, 'SBMY-align-demo', '+60199001298', 'AVAILABLE', NULL::uuid, $24::uuid, NULL::uuid, NULL, $33),
+    ($11::uuid, 'SBMY-align-demo-2', '+60199001301', 'AVAILABLE', NULL::uuid, $25::uuid, NULL::uuid, NULL, $34),
+    ($12::uuid, 'SBMY-align-demo-3', '+60199001303', 'AVAILABLE', NULL::uuid, $26::uuid, NULL::uuid, NULL, $35)
   `, [
-    ids.acct1, ids.acct2, ids.acct3, ids.acct4, ids.acct5, ids.acct6,
-    ids.dev1, ids.sim4, ids.ip1,
-    ids.dev2, ids.sim5, ids.ip2,
-    opNotes({ site_key: 'my', channel: 'WS Normal', prepared_telco: 'Celcom' }, 'Awaiting activation'),
-    opNotes({ site_key: 'my', channel: 'WS Normal', nurturing_phase: 'manual', nurturing_started_at: new Date().toISOString(), linked_override: true }, 'Manual nurture day 2'),
-    ids.dev3, ids.ip5,
-    opNotes({ site_key: 'my', channel: 'WS Business', linked_override: true }, 'Standby for delivery'),
-    ids.dev4, ids.sim6, ids.ip3,
-    opNotes({ site_key: 'pp', channel: 'WS Normal', linked_override: true }, 'Live in business use'),
-    opNotes({ site_key: 'my', channel: 'WS Normal' }, 'SIM issue — recovery queue'),
-    opNotes({ site_key: 'pp', channel: 'WS Business', nurturing_phase: 'auto', nurturing_started_at: new Date(Date.now() - 5 * 86400000).toISOString(), linked_override: true }, 'Engine monitored day 6'),
+    ids.acReg, ids.acMan1, ids.acMan3, ids.acAuto, ids.acAuto7,
+    ids.acStandby, ids.acInUse, ids.acBanned, ids.acRecovering,
+    ids.acAlignDemo, ids.acAlignDemo2, ids.acAlignDemo3,
+    ids.devMY1, ids.sim1, ids.ipMY1,
+    ids.devMY2, ids.sim2, ids.ipMY2,
+    ids.devMY3, ids.sim6, ids.ipMY3, ids.ipMY2,
+    ids.devPP1, ids.sim4, ids.ipPP1, ids.sim5,
+    ids.simAlignDemo, ids.simAlignDemo2, ids.simAlignDemo3,
+    opNotes({ site_key: 'my', channel: 'WS Normal', owner: 'RM Executor 1', prepared_telco: 'Celcom' }, 'Awaiting activation'),
+    opNotes({
+      site_key: 'my', channel: 'WS Normal', owner: 'RM Executor 1',
+      nurturing_phase: 'manual', nurturing_started_at: daysAgo(1), linked_override: true,
+    }, 'Manual nurture day 2'),
+    opNotes({
+      site_key: 'my', channel: 'WS Business', owner: 'RM Executor 2',
+      nurturing_phase: 'manual', nurturing_started_at: daysAgo(2), linked_override: true,
+    }, 'Manual nurture — ready for scan-in'),
+    opNotes({
+      site_key: 'my', channel: 'WS Normal', owner: 'RM Executor 1',
+      nurturing_phase: 'auto', nurturing_started_at: daysAgo(4), linked_override: true,
+    }, 'System monitoring day 5'),
+    opNotes({
+      site_key: 'my', channel: 'WS Business', owner: 'RM Executor 2',
+      nurturing_phase: 'auto', nurturing_started_at: daysAgo(6), linked_override: true,
+    }, 'System monitoring day 7 — ready for standby'),
+    opNotes({ site_key: 'my', channel: 'WS Business', owner: 'RM Executor 1', linked_override: true }, 'Standby pool'),
+    opNotes({ site_key: 'pp', channel: 'WS Normal', owner: 'RM Executor 1', linked_override: true }, 'Live delivery'),
+    recNotes({
+      recovery_status: 'need',
+      started_at: daysAgo(1),
+      ban_stage: 'manual',
+      ban_reason: 'SIM card issue',
+      log: [{ st: 'need', time: daysAgo(1), by: 'System' }],
+    }, 'Banned during manual nurture'),
+    `${recNotes({
+      recovery_status: 'doing',
+      started_at: daysAgo(2),
+      ban_stage: 'auto',
+      ban_reason: 'Restrict during auto nurture',
+      log: [
+        { st: 'need', time: daysAgo(2), by: 'System' },
+        { st: 'doing', time: daysAgo(1), by: 'RM Executor 1' },
+      ],
+    }, 'Recovery in progress')}\n_ams_op:${JSON.stringify({ site_key: 'pp', channel: 'WS Business', owner: 'RM Executor 1' })}`,
+    opNotes({
+      site_key: 'my',
+      channel: 'WS Normal',
+      owner: 'RM Executor 1',
+      linked_override: true,
+    }, 'Demo phone mismatch — account +60199001298, SIM +60199001299'),
+    opNotes({
+      site_key: 'my',
+      channel: 'WS Normal',
+      owner: 'RM Executor 1',
+      linked_override: true,
+    }, 'Demo phone mismatch — account +60199001301, SIM +60199001302'),
+    opNotes({
+      site_key: 'my',
+      channel: 'WS Business',
+      owner: 'RM Executor 2',
+      linked_override: true,
+    }, 'Demo phone mismatch — account +60199001303, SIM +60199001304'),
   ]);
 
-  const linkRows = [
-    [ids.acct1, ids.ip1, ids.dev1, ids.sim4],
-    [ids.acct2, ids.ip2, ids.dev2, ids.sim5],
-    [ids.acct3, ids.ip5, ids.dev3, null],
-    [ids.acct4, ids.ip3, ids.dev4, ids.sim6],
-    [ids.acct6, ids.ip3, ids.dev4, null],
+  const bindings = [
+    [ids.acReg, ids.devMY1, ids.sim1, ids.ipMY1],
+    [ids.acMan1, ids.devMY2, ids.sim2, ids.ipMY2],
+    [ids.acMan3, ids.devMY2, ids.sim2, ids.ipMY2],
+    [ids.acAuto, ids.devMY3, ids.sim6, ids.ipMY3],
+    [ids.acAuto7, ids.devMY3, null, ids.ipMY3],
+    [ids.acStandby, ids.devMY1, null, ids.ipMY2],
+    [ids.acInUse, ids.devPP1, ids.sim4, ids.ipPP1],
+    [ids.acRecovering, ids.devPP1, ids.sim5, ids.ipPP1],
+    [ids.acAlignDemo, null, ids.simAlignDemo, null],
+    [ids.acAlignDemo2, null, ids.simAlignDemo2, null],
+    [ids.acAlignDemo3, null, ids.simAlignDemo3, null],
   ];
-  for (const [acctId, ipId, devId, simId] of linkRows) {
-    await client.query('UPDATE devices SET current_account_id = $1, current_ip_id = $2 WHERE id = $3', [acctId, ipId, devId]);
+  for (const [acctId, devId, simId, ipId] of bindings) {
+    await client.query(
+      'UPDATE devices SET current_account_id = $1, current_ip_id = $2 WHERE id = $3',
+      [acctId, ipId, devId],
+    );
     if (simId) {
       await client.query('UPDATE sims SET current_account_id = $1 WHERE id = $2', [acctId, simId]);
     }
-    await client.query('UPDATE ips SET assigned_account_id = $1, assigned_device_id = $2 WHERE id = $3', [acctId, devId, ipId]);
+    await client.query(
+      'UPDATE ips SET assigned_account_id = $1, assigned_device_id = $2 WHERE id = $3',
+      [acctId, devId, ipId],
+    );
   }
+
+  await client.query(`
+    INSERT INTO ip_gate_reviews (id, account_id, status, phone_ip_screenshot_url) VALUES
+    ($1, $2, 'PENDING', 'seed/sample-screenshot-my.png'),
+    ($3, $4, 'APPROVED', 'seed/sample-screenshot-pp.png')
+  `, [ids.igrStandby, ids.acStandby, ids.igrInUse, ids.acInUse]);
 
   await client.query(`
     INSERT INTO tickets (title, description, status, account_id) VALUES
     ($1, $2, 'OPEN', $3),
     ($4, $5, 'IN_PROGRESS', $6)
   `, [
-    'Go-live request · SBMY-Oliver',
+    'Delivery — SBMY-mey',
     `_ams_tkt:${JSON.stringify({
       site_key: 'my',
       link_code: '482910',
       delivery_stage: 'submitted',
       channel: 'WS Business',
-      shot_proxy: { ip_address: '103.21.44.25', port: '8080', username: 'user_my01', password: 'pass_my01' },
+      ip_gate_review_id: ids.igrStandby,
+      shot_proxy: { ip_address: '103.21.44.26', port: '8080', username: 'user_my02', password: 'pass_my02' },
     })}`,
-    ids.acct3,
-    'Go-live request · PP-Ben',
+    ids.acStandby,
+    'Delivery — PP-Ben',
     `_ams_tkt:${JSON.stringify({
       site_key: 'pp',
       link_code: '193847',
       delivery_stage: 'posted',
       channel: 'WS Normal',
+      ip_gate_review_id: ids.igrInUse,
+      review_match: true,
       shot_proxy: { ip_address: '175.100.8.70', port: '8080', username: 'user_pp01', password: 'pass_pp01' },
     })}`,
-    ids.acct4,
+    ids.acInUse,
   ]);
 
-  const counts = await client.query(`
-    SELECT
-      (SELECT count(*) FROM devices) AS devices,
-      (SELECT count(*) FROM ips) AS ips,
-      (SELECT count(*) FROM sims) AS sims,
-      (SELECT count(*) FROM accounts) AS accounts,
-      (SELECT count(*) FROM tickets) AS tickets
+  const summary = await client.query(`
+    SELECT status, count(*)::int AS n FROM accounts GROUP BY status ORDER BY status
   `);
 
-  const c = counts.rows[0];
-  console.log('✓ Sample data seeded:');
-  console.log(`  devices:  ${c.devices}`);
-  console.log(`  ips:      ${c.ips}`);
-  console.log(`  sims:     ${c.sims} (3 prepared for Register queue)`);
-  console.log(`  accounts: ${c.accounts}`);
-  console.log(`  tickets:  ${c.tickets}`);
+  console.log('\n✓ Sample data seeded (moderate set)\n');
+  console.log('Accounts by status:');
+  summary.rows.forEach((r) => console.log(`  ${r.status.padEnd(14)} ${r.n}`));
+  console.log('\nFlow coverage:');
+  console.log('  Activation  → SBMY-new01 (REGISTERING)');
+  console.log('  Nurturing   → manual day 2, manual scan-ready, auto day 5, auto graduate-ready');
+  console.log('  Standby     → SBMY-mey (AVAILABLE) + ticket awaiting review');
+  console.log('  In use      → PP-Ben (IN_USE) + ticket posted');
+  console.log('  Recovery    → SBMY-Cindy (BANNED), PP-Joyce (RECOVERING)');
+  console.log('  Phone Align → 3 demos (click account name in SIM Ledger):');
+  console.log('    SBMY-align-demo   account +60199001298 → SIM +60199001299');
+  console.log('    SBMY-align-demo-2 account +60199001301 → SIM +60199001302');
+  console.log('    SBMY-align-demo-3 account +60199001303 → SIM +60199001304');
+  console.log('  Register    → 2 prepared SIMs in queue (MY)');
 } catch (e) {
   console.error('✗ Seed failed:', e.message);
   process.exit(1);

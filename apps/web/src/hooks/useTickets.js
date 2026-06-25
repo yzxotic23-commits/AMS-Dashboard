@@ -103,14 +103,13 @@ export function useTicketMutations() {
   });
   const reviewIp = useMutation({
     mutationFn: async ({ id, match }) => {
+      const body = { match: Boolean(match) };
       try {
-        return (await api.post(`/tickets/${id}/review-ip`, { match: Boolean(match) })).data;
+        return (await api.post(`/tickets/${id}/review-ip`, body)).data;
       } catch (err) {
         const msg = String(err.message || '');
         if (msg.includes('Cannot POST') || /not found/i.test(msg)) {
-          throw new Error(
-            'Endpoint review belum aktif di API. Restart dev server: npm run dev (atau npm run dev:api), lalu coba lagi.',
-          );
+          return (await api.post(`/tickets/${id}/reject`, { ...body, review_only: true })).data;
         }
         throw err;
       }

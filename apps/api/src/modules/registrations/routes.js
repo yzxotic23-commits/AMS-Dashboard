@@ -4,6 +4,9 @@ import { authenticate, requireRole } from '../../middleware/auth.js';
 import { supabaseAdmin } from '../../lib/supabase.js';
 import { writeAudit } from '../../lib/audit.js';
 import { parsePagination, paginatedResponse } from '../../lib/pagination.js';
+import { parseOperatorMeta } from '../../lib/accountMeta.js';
+import { supplyTargetFor } from '../../lib/supplyTargets.js';
+import { isPreparedQueueSim } from '../../lib/simMeta.js';
 
 const router = Router();
 router.use(authenticate);
@@ -20,6 +23,10 @@ const logSchema = z.object({
   ip_id: z.string().uuid().optional().nullable(),
   account_name: z.string().optional().nullable(),
   remark: z.string().optional().nullable(),
+  proxy_ip: z.string().optional().nullable(),
+  proxy_port: z.string().optional().nullable(),
+  proxy_username: z.string().optional().nullable(),
+  proxy_password: z.string().optional().nullable(),
 });
 
 const META_PREFIX = '_ams_prep:';
@@ -35,15 +42,39 @@ function parsePreparedMeta(notes) {
   }
 }
 
-function mapPreparedSim(sim) {
+function mapPreparedSim(sim, supplyFlags = {}) {
   const meta = parsePreparedMeta(sim.notes);
+  const siteKey = meta.site_key || 'my';
+  const supplyNeed = supplyFlags[siteKey]?.registering_below_target;
+  const need = meta.need === false ? false : (meta.need !== false || supplyNeed);
+  const note = meta.note || (supplyNeed ? 'Supply: registration pipeline below target' : '');
   return {
     id: sim.id,
     phone: sim.phone_number,
     telco: sim.carrier || '—',
-    need: meta.need !== false,
-    note: meta.note || '',
-    site_key: meta.site_key || 'my',
+    need,
+    note,
+    site_key: siteKey,
+    supply_flagged: Boolean(supplyNeed && meta.need !== false),
+  };
+}
+
+async function loadSupplyFlags() {
+  const { data, error } = await supabaseAdmin
+    .from('accounts')
+    .select('status, notes')
+    .eq('status', 'REGISTERING');
+  if (error) throw error;
+
+  const counts = { my: 0, pp: 0 };
+  (data || []).forEach((row) => {
+    const sk = parseOperatorMeta(row).site_key === 'pp' ? 'pp' : 'my';
+    counts[sk] += 1;
+  });
+
+  return {
+    my: { registering_below_target: counts.my < supplyTargetFor('my', 'REGISTERING') },
+    pp: { registering_below_target: counts.pp < supplyTargetFor('pp', 'REGISTERING') },
   };
 }
 
@@ -59,8 +90,11 @@ router.get('/prepared', async (req, res, next) => {
       .limit(200);
     if (error) throw error;
 
+    const supplyFlags = await loadSupplyFlags();
+
     const rows = (data || [])
-      .map(mapPreparedSim)
+      .filter((sim) => isPreparedQueueSim(sim.notes))
+      .map((sim) => mapPreparedSim(sim, supplyFlags))
       .filter((row) => !siteKey || siteKey === 'all' || row.site_key === siteKey);
 
     const grouped = { my: [], pp: [] };
@@ -117,7 +151,7 @@ router.post('/prepared', async (req, res, next) => {
       req,
     });
 
-    res.status(201).json(mapPreparedSim(data));
+    res.status(201).json(mapPreparedSim(data, await loadSupplyFlags()));
   } catch (e) {
     next(e);
   }
@@ -157,7 +191,7 @@ router.patch('/prepared/:id', async (req, res, next) => {
       .single();
     if (error) throw error;
 
-    res.json(mapPreparedSim(data));
+    res.json(mapPreparedSim(data, await loadSupplyFlags()));
   } catch (e) {
     next(e);
   }
@@ -233,6 +267,10 @@ router.get('/', async (req, res, next) => {
       fail_reason: row.metadata?.fail_reason,
       account_id: row.entity_id,
       account_name: row.metadata?.account_name || row.new_value?.account_name,
+      proxy_ip: row.metadata?.proxy_ip,
+      proxy_port: row.metadata?.proxy_port,
+      proxy_username: row.metadata?.proxy_username,
+      proxy_password: row.metadata?.proxy_password,
       created_at: row.created_at,
       operator: row.profiles?.full_name || row.profiles?.email || '—',
     }));
@@ -299,6 +337,10 @@ router.post('/', async (req, res, next) => {
       fail_reason: body.fail_reason,
       account_name: body.account_name,
       remark: body.remark,
+      proxy_ip: body.proxy_ip,
+      proxy_port: body.proxy_port,
+      proxy_username: body.proxy_username,
+      proxy_password: body.proxy_password,
     };
 
     await writeAudit({

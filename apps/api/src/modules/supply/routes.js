@@ -5,6 +5,7 @@ import { supabaseAdmin } from '../../lib/supabase.js';
 import { writeAudit } from '../../lib/audit.js';
 import { parseOperatorMeta } from '../../lib/accountMeta.js';
 import { SUPPLY_LABELS, supplyTargetFor } from '../../lib/supplyTargets.js';
+import { loadRmSupplyModel } from '../../lib/rmSupplyData.js';
 import {
   applyPhoneSync,
   buildPhoneSyncRow,
@@ -22,14 +23,14 @@ function filterBySite(rows, siteKey) {
   return rows.filter((a) => parseOperatorMeta(a).site_key === siteKey);
 }
 
-// GET /supply — pool counts vs targets
+// GET /supply — pool counts vs targets (REGISTERING/NURTURING targets from RM model)
 router.get('/', async (req, res, next) => {
   try {
     const siteKey = req.query.site || req.query.site_key || 'all';
-    const { data: accounts, error } = await supabaseAdmin
-      .from('accounts')
-      .select('id, status, notes')
-      .limit(1000);
+    const [{ data: accounts, error }, rm] = await Promise.all([
+      supabaseAdmin.from('accounts').select('id, status, notes').limit(1000),
+      loadRmSupplyModel(siteKey),
+    ]);
     if (error) throw error;
 
     const filtered = filterBySite(accounts || [], siteKey);
@@ -38,14 +39,25 @@ router.get('/', async (req, res, next) => {
       if (counts[a.status] !== undefined) counts[a.status] += 1;
     });
 
+    const rmTargets = siteKey === 'all'
+      ? {
+        REGISTERING: (rm.sites?.my?.registeringTarget || 0) + (rm.sites?.pp?.registeringTarget || 0),
+        NURTURING: (rm.sites?.my?.nurturingTarget || 0) + (rm.sites?.pp?.nurturingTarget || 0),
+      }
+      : {
+        REGISTERING: rm.registeringTarget || 0,
+        NURTURING: rm.nurturingTarget || 0,
+      };
+
     const pools = Object.keys(SUPPLY_LABELS).map((status) => {
       const cur = counts[status] || 0;
       const name = SUPPLY_LABELS[status];
-      // Standby pool: current count only — no healthy line, target %, or alerts.
       if (status === 'AVAILABLE') {
         return { status, name, current: cur, count_only: true };
       }
-      const target = supplyTargetFor(siteKey, status);
+      const target = status === 'REGISTERING' || status === 'NURTURING'
+        ? (rmTargets[status] || supplyTargetFor(siteKey, status))
+        : supplyTargetFor(siteKey, status);
       const pct = target ? Math.round((cur / target) * 100) : 0;
       return {
         status,
@@ -56,6 +68,7 @@ router.get('/', async (req, res, next) => {
         gap: target - cur,
         healthy: pct >= 80,
         count_only: false,
+        rm_target: status === 'REGISTERING' || status === 'NURTURING',
       };
     });
 
@@ -65,12 +78,24 @@ router.get('/', async (req, res, next) => {
     res.json({
       site_key: siteKey,
       pools,
+      rm: siteKey === 'all' ? rm.sites : rm,
       summary: {
         total_current: totalCurrent,
         total_target: totalTarget,
         overall_pct: totalTarget ? Math.round((totalCurrent / totalTarget) * 100) : 0,
       },
     });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// GET /supply/rm-model — RM Operation Logic v3.2 calculation
+router.get('/rm-model', async (req, res, next) => {
+  try {
+    const siteKey = req.query.site || req.query.site_key || 'all';
+    const model = await loadRmSupplyModel(siteKey);
+    res.json(model);
   } catch (e) {
     next(e);
   }

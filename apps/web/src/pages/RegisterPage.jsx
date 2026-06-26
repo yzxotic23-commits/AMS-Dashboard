@@ -7,6 +7,7 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import IconTooltip from '../components/IconTooltip';
 import ProxyCredentialPanel from '../components/ProxyCredentialPanel';
 import Toast from '../components/Toast';
+import RmSupplyPanel from '../components/RmSupplyPanel';
 import { useSite } from '../context/SiteContext';
 import { useAuth } from '../context/AuthContext';
 import { SITES, getSiteChipClass } from '../lib/sites';
@@ -34,6 +35,7 @@ import { formatProxyOptionLabel, proxyFieldsFromIp, formatProxyOneLine } from '.
 import { useAllAccounts } from '../hooks/useOperatorAccounts';
 import { toastCopy } from '../lib/operator-copy';
 import { dismissPreparedRow, usePreparedQueue, addPreparedNumber, deletePreparedNumber } from '../hooks/usePreparedQueue';
+import { useRmSupplyModel } from '../hooks/useRmSupplyModel';
 
 const FAIL_REASONS = ['Number rejected', 'IP flagged', 'No verification code', 'Other'];
 const TELCO_OPTIONS = ['Outsource', 'Tunetalk', 'Celcom', 'Digi', 'Maxis', 'U Mobile'];
@@ -75,7 +77,6 @@ export default function RegisterPage() {
     telco: TELCO_OPTIONS[0],
     site_key: 'my',
     note: '',
-    need: true,
   });
   const [addSubmitting, setAddSubmitting] = useState(false);
   const [form, setForm] = useState({
@@ -97,6 +98,7 @@ export default function RegisterPage() {
   const { createAccount, logRegistration } = useAccountMutations();
   const { data: regStats } = useRegistrationStats(site);
   const { data: regLog = [] } = useRegistrationLog(15);
+  const { data: rmModel, isLoading: rmLoading } = useRmSupplyModel(site);
 
   const siteKey = drawer?.siteKey || 'my';
   const freeIps = useFreeIps(siteKey);
@@ -134,7 +136,6 @@ export default function RegisterPage() {
       telco: TELCO_OPTIONS[0],
       site_key: preparedSiteKeyForAdd(site, profile),
       note: '',
-      need: true,
     });
     setAddOpen(true);
   }
@@ -155,7 +156,6 @@ export default function RegisterPage() {
         telco: addForm.telco,
         site_key,
         note: addForm.note.trim() || null,
-        need: addForm.need,
       });
       qc.invalidateQueries({ queryKey: ['registrations', 'prepared'] });
       qc.invalidateQueries({ queryKey: ['sims'] });
@@ -308,7 +308,7 @@ export default function RegisterPage() {
     <div>
       <PageHead
         title="Register"
-        description="Numbers are pre-provisioned in bulk. Governance flags rows that need registration when the registration pipeline is below target."
+        description="Register prepared numbers and log each attempt. Rows that need action today are flagged automatically from supply and ban rate."
         actions={needCount > 0 ? (
           <div className="page-meta-bubble">
             <span className="font-semibold text-ams-warn">{needCount}</span>
@@ -321,6 +321,8 @@ export default function RegisterPage() {
           </div>
         ) : null}
       />
+
+      <RmSupplyPanel model={rmModel} site={site} loading={rmLoading} />
 
       <div className="tk-tab-toolbar">
         <div className="page-tab-bar tk-tab-toolbar-tabs" role="tablist" aria-label="Register sections">
@@ -716,15 +718,6 @@ export default function RegisterPage() {
               value={addForm.note}
               onChange={(e) => setAddForm((f) => ({ ...f, note: e.target.value }))}
             />
-          </label>
-          <label className="drawer-field flex-row items-center gap-3">
-            <input
-              type="checkbox"
-              className="ams-check"
-              checked={addForm.need}
-              onChange={(e) => setAddForm((f) => ({ ...f, need: e.target.checked }))}
-            />
-            <span className="drawer-label mb-0">Needs registration</span>
           </label>
         </div>
       </Drawer>

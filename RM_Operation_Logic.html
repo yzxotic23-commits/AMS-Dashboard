@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>资源账号供给计算仪表盘 · Account Supply Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0e1116;--panel:#161a22;--panel-2:#1c2230;--line:#262d3a;--line-soft:#1e2531;
+    --txt:#e7ecf3;--txt-2:#9aa6b8;--txt-3:#67718a;
+    --accent:#4f8cff;--accent-soft:#13233f;--teal:#2dd4a7;--teal-soft:#0f2b25;
+    --amber:#f5b544;--amber-soft:#33260c;--red:#ff6b6b;--red-soft:#331616;
+    --r:10px;--r-lg:14px;
+    --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans','Noto Sans SC',-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--txt);font-family:var(--sans);line-height:1.6;-webkit-font-smoothing:antialiased;
+    background-image:radial-gradient(circle at 15% -10%,rgba(79,140,255,.08),transparent 45%),radial-gradient(circle at 95% 0%,rgba(45,212,167,.06),transparent 40%);background-attachment:fixed;}
+  .wrap{max-width:1000px;margin:0 auto;padding:40px 24px 80px;}
+  .topbar{display:flex;justify-content:flex-end;margin-bottom:14px;}
+  .lang{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+  .lang button{background:transparent;border:none;color:var(--txt-3);font-family:var(--mono);font-size:12px;padding:7px 14px;cursor:pointer;transition:all .15s;}
+  .lang button.active{background:var(--accent-soft);color:var(--accent);}
+  .lang button:not(.active):hover{color:var(--txt-2);}
+  header{margin-bottom:30px;}
+  .kicker{font-family:var(--mono);font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:10px;}
+  h1{font-size:30px;font-weight:700;letter-spacing:-.01em;line-height:1.2;}
+  .sub{color:var(--txt-2);font-size:15px;margin-top:8px;max-width:680px;}
+  .tabs{display:flex;gap:6px;margin:8px 0 26px;border-bottom:1px solid var(--line);}
+  .tab{background:transparent;border:none;border-bottom:2px solid transparent;color:var(--txt-3);font-family:var(--sans);font-size:14px;font-weight:500;padding:11px 18px;cursor:pointer;margin-bottom:-1px;transition:color .15s,border-color .15s;}
+  .tab:hover{color:var(--txt-2);}
+  .tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+  .states{display:flex;flex-wrap:wrap;gap:8px;margin:22px 0 6px;}
+  .st{flex:1;min-width:120px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:11px 13px;position:relative;}
+  .st .stn{font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;}
+  .st .std{font-size:11px;color:var(--txt-3);margin-top:3px;}
+  .st .leak{position:absolute;top:10px;right:11px;font-family:var(--mono);font-size:10px;color:var(--red);background:var(--red-soft);border:1px solid rgba(255,107,107,.25);border-radius:4px;padding:1px 5px;}
+  .dot{width:7px;height:7px;border-radius:50%;display:inline-block;}
+  .d-reg{background:var(--txt-3);}.d-warm{background:var(--accent);}.d-ready{background:var(--teal);}.d-act{background:#8fb6ff;}.d-risk{background:var(--red);}.d-rec{background:var(--amber);}.d-dead{background:#444;}
+  .leak-cap{font-family:var(--mono);font-size:11px;color:var(--txt-3);margin-bottom:24px;}
+  .group{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);margin-bottom:20px;overflow:hidden;}
+  .ghead{display:flex;align-items:center;gap:11px;padding:16px 22px;border-bottom:1px solid var(--line-soft);background:var(--panel-2);}
+  .ghead .num{font-family:var(--mono);font-size:12px;color:var(--accent);background:var(--accent-soft);border:1px solid #234063;border-radius:6px;padding:3px 8px;}
+  .ghead .gt{font-size:16px;font-weight:600;}
+  .ghead .gpurpose{margin-left:auto;font-size:12px;color:var(--txt-3);font-family:var(--mono);text-align:right;line-height:1.5;}
+  .eq{display:flex;align-items:stretch;flex-wrap:wrap;padding:20px 22px;}
+  .eq-in{display:flex;flex-wrap:wrap;gap:12px;flex:1;min-width:240px;align-items:flex-end;}
+  .field{background:var(--bg);border:1px solid var(--line);border-radius:var(--r);padding:11px 13px;min-width:120px;flex:1;transition:border-color .15s;}
+  .field:focus-within{border-color:var(--accent);}
+  .field label{display:block;font-size:11.5px;color:var(--txt-2);margin-bottom:7px;font-weight:500;}
+  .field label .tag{font-family:var(--mono);color:var(--txt-3);font-size:11px;}
+  .field input{width:100%;background:transparent;border:none;color:var(--txt);font-family:var(--mono);font-size:19px;font-weight:600;outline:none;-moz-appearance:textfield;}
+  .field input::-webkit-outer-spin-button,.field input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+  .eq-op{display:flex;align-items:center;justify-content:center;padding:0 14px;font-family:var(--mono);font-size:24px;color:var(--txt-3);align-self:center;}
+  .eq-out{align-self:center;min-width:148px;background:var(--accent-soft);border:1px solid #234063;border-radius:var(--r);padding:14px 18px;text-align:center;}
+  .eq-out .ol{font-size:12px;color:#8fb6ff;margin-bottom:4px;}
+  .eq-out .ov{font-family:var(--mono);font-size:30px;font-weight:600;color:#8fb6ff;line-height:1.1;}
+  .eq-out .of{font-size:11px;color:var(--txt-3);font-family:var(--mono);margin-top:5px;}
+  .eq-out.teal{background:var(--teal-soft);border-color:#1c4d40;}
+  .eq-out.teal .ol,.eq-out.teal .ov{color:var(--teal);}
+  .eq-out.amber{background:var(--amber-soft);border-color:#5c4410;}
+  .eq-out.amber .ol,.eq-out.amber .ov{color:var(--amber);}
+  .subgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;padding:0 22px 20px;}
+  .sub{background:var(--bg);border:1px solid var(--line-soft);border-radius:var(--r);padding:12px 14px;}
+  .sub .sl{font-size:11.5px;color:var(--txt-2);margin-bottom:5px;}
+  .sub .sv{font-family:var(--mono);font-size:22px;font-weight:600;}
+  .sub .sf{font-size:10.5px;color:var(--txt-3);font-family:var(--mono);margin-top:3px;}
+  .sub.warn .sv{color:var(--amber);} .sub.red .sv{color:var(--red);}
+  .note{padding:0 22px 18px;font-size:12.5px;color:var(--txt-3);font-family:var(--mono);line-height:1.7;}
+  .note b{color:var(--accent);} .note .hl{color:var(--red);}
+  .sec-head{display:flex;align-items:center;gap:10px;margin:34px 0 14px;}
+  .sec-head .ico{width:30px;height:30px;border-radius:8px;background:var(--panel-2);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:15px;color:var(--amber);border:1px solid var(--line);font-weight:600;}
+  .sec-head h2{font-size:17px;font-weight:600;}
+  .sec-head .hint{margin-left:auto;font-size:12px;color:var(--txt-3);font-family:var(--mono);}
+  .dtable{width:100%;border-collapse:separate;border-spacing:0;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden;}
+  .dtable th{text-align:left;font-size:12px;font-weight:600;color:var(--txt-3);text-transform:uppercase;letter-spacing:.06em;padding:13px 16px;background:var(--panel-2);border-bottom:1px solid var(--line);}
+  .dtable td{padding:15px 16px;font-size:13.5px;border-bottom:1px solid var(--line-soft);vertical-align:top;line-height:1.55;}
+  .dtable tr:last-child td{border-bottom:none;}
+  .dtable .c-sym{width:34px;text-align:center;font-family:var(--mono);font-weight:600;font-size:15px;}
+  .dtable .c-cause{color:var(--txt);font-weight:600;width:22%;}
+  .dtable .c-action{color:var(--txt-2);} .dtable .c-action b{color:var(--txt);font-weight:600;}
+  .row-red .c-sym{color:var(--red);} .row-red{background:linear-gradient(90deg,rgba(255,107,107,.05),transparent);}
+  .row-amber .c-sym{color:var(--amber);} .row-amber{background:linear-gradient(90deg,rgba(245,181,68,.05),transparent);}
+  .row-blue .c-sym{color:#8fb6ff;} .row-blue{background:linear-gradient(90deg,rgba(79,140,255,.05),transparent);}
+  .row-teal .c-sym{color:var(--teal);} .row-teal{background:linear-gradient(90deg,rgba(45,212,167,.05),transparent);}
+  .row-gray .c-sym{color:var(--txt-3);}
+  .live-flag{display:inline-block;font-family:var(--mono);font-size:10.5px;padding:2px 7px;border-radius:5px;margin-left:8px;vertical-align:middle;white-space:nowrap;}
+  .flag-on{background:var(--red-soft);color:var(--red);border:1px solid rgba(255,107,107,.3);}
+  .flag-ok{background:var(--teal-soft);color:var(--teal);border:1px solid rgba(45,212,167,.3);}
+  footer{margin-top:46px;padding-top:22px;border-top:1px solid var(--line-soft);font-size:12px;color:var(--txt-3);font-family:var(--mono);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;}
+  .rm-lead{font-size:17px;line-height:1.7;color:var(--txt);background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:var(--r-lg);padding:20px 24px;margin-bottom:24px;}
+  .rm-block{margin-bottom:26px;}
+  .rm-h{display:flex;align-items:center;gap:11px;font-size:17px;font-weight:600;margin-bottom:12px;}
+  .rm-n{font-family:var(--mono);font-size:13px;color:var(--accent);background:var(--accent-soft);border:1px solid #234063;border-radius:7px;width:30px;height:30px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .rm-block p{font-size:15px;line-height:1.8;color:var(--txt-2);margin:0 0 10px 41px;}
+  .rm-block p b{color:var(--txt);font-weight:600;}
+  .rm-key{color:var(--accent)!important;font-weight:500;border-left:2px solid var(--accent);padding-left:14px!important;margin-left:41px!important;}
+  .rm-list{margin:0 0 0 41px;padding:0;list-style:none;}
+  .rm-list li{font-size:15px;line-height:1.75;color:var(--txt-2);padding:9px 0 9px 18px;border-left:1px solid var(--line);}
+  .rm-list li b{color:var(--teal);font-weight:600;}
+  .rm-soul{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);padding:20px 24px;}
+  .rm-soul .rm-h{margin-top:0;}
+  .rm-soul p:last-child{margin-bottom:0;}
+  .rm-soul p b{color:var(--amber);}
+  @media(max-width:600px){h1{font-size:24px;}.wrap{padding:28px 16px 60px;}.eq-op{display:none;}.eq-out{width:100%;margin-top:12px;}.dtable .c-cause{width:auto;}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <div class="lang">
+      <button id="lang-zh" class="active" onclick="setLang('zh')">华语</button>
+      <button id="lang-en" onclick="setLang('en')">English</button>
+    </div>
+  </div>
+
+  <header>
+    <div class="kicker">Resource Supply Model · WhatsApp / Telegram</div>
+    <h1 data-i="title"></h1>
+    <p class="sub" data-i="subtitle"></p>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" id="tab-calc" onclick="switchTab('calc')" data-i="tabCalc"></button>
+    <button class="tab" id="tab-readme" onclick="switchTab('readme')" data-i="tabReadme"></button>
+  </div>
+
+  <!-- README PANEL -->
+  <div id="panel-readme" class="panel" style="display:none;">
+    <div class="rm-lead" data-i="rmLead"></div>
+    <div class="rm-block">
+      <div class="rm-h"><span class="rm-n" data-i="n1"></span><span data-i="rmH1"></span></div>
+      <p data-i="rmP1a"></p><p data-i="rmP1b"></p>
+    </div>
+    <div class="rm-block">
+      <div class="rm-h"><span class="rm-n" data-i="n2"></span><span data-i="rmH2"></span></div>
+      <p data-i="rmP2a"></p><p data-i="rmP2b"></p><p class="rm-key" data-i="rmP2key"></p>
+    </div>
+    <div class="rm-block">
+      <div class="rm-h"><span class="rm-n" data-i="n3"></span><span data-i="rmH3"></span></div>
+      <p data-i="rmP3a"></p><p data-i="rmP3b"></p>
+    </div>
+    <div class="rm-block">
+      <div class="rm-h"><span class="rm-n" data-i="n4"></span><span data-i="rmH4"></span></div>
+      <ul class="rm-list">
+        <li data-i="rmL4a"></li><li data-i="rmL4c"></li>
+      </ul>
+    </div>
+    <div class="rm-block rm-soul">
+      <div class="rm-h"><span class="rm-n" data-i="n5"></span><span data-i="rmH5"></span></div>
+      <p data-i="rmP5a"></p><p data-i="rmP5b"></p>
+    </div>
+  </div>
+
+  <!-- CALCULATOR PANEL -->
+  <div id="panel-calc" class="panel">
+
+  <div class="states">
+    <div class="st"><span class="leak" data-i="leakFr"></span><div class="stn"><span class="dot d-reg"></span><span data-i="stReg"></span></div><div class="std" data-i="stRegD"></div></div>
+    <div class="st"><span class="leak" data-i="leakWf"></span><div class="stn"><span class="dot d-warm"></span><span data-i="stWarm"></span></div><div class="std" data-i="stWarmD"></div></div>
+    <div class="st"><span class="leak" data-i="leakD"></span><div class="stn"><span class="dot d-act"></span><span data-i="stAct"></span></div><div class="std" data-i="stActD"></div></div>
+    <div class="st"><div class="stn"><span class="dot d-rec"></span><span data-i="stRec"></span></div><div class="std" data-i="stRecD"></div></div>
+    <div class="st"><div class="stn"><span class="dot d-dead"></span><span data-i="stDead"></span></div><div class="std" data-i="stDeadD"></div></div>
+  </div>
+  <div class="leak-cap" data-i="leakCap"></div>
+
+  <div class="group">
+    <div class="ghead"><span class="num">01</span><span class="gt" data-i="g1t"></span><span class="gpurpose" data-i="g1p"></span></div>
+    <div class="eq">
+      <div class="eq-in">
+        <div class="field"><label data-i="lB"></label><input type="number" id="B" value="10" min="0" step="1"></div>
+        <div class="field"><label data-i="lC"></label><input type="number" id="C" value="8" min="0" step="1"></div>
+      </div>
+      <div class="eq-op">=</div>
+      <div class="eq-out"><div class="ol" data-i="oActive"></div><div class="ov" id="o-active">—</div><div class="of">B × C</div></div>
+    </div>
+    <div class="subgrid">
+      <div class="sub"><div class="sl" data-i="sPerUserActive"></div><div class="sv" id="o-peruser-active">—</div><div class="sf" data-i="sPerUserActiveF"></div></div>
+      <div class="sub"><div class="sl" data-i="sPerUserTotal"></div><div class="sv" id="o-peruser-total">—</div><div class="sf" data-i="sPerUserTotalF"></div></div>
+    </div>
+  </div>
+
+  <div class="group">
+    <div class="ghead"><span class="num">02</span><span class="gt" data-i="g2t"></span><span class="gpurpose" data-i="g2p"></span></div>
+    <div class="eq">
+      <div class="eq-in">
+        <div class="field"><label data-i="lD"></label><input type="number" id="D" value="5" min="0" max="100" step="0.1"></div>
+        <div class="field"><label data-i="lR"></label><input type="number" id="R" value="40" min="0" max="100" step="1"></div>
+      </div>
+      <div class="eq-op">&rarr;</div>
+      <div class="eq-out"><div class="ol" data-i="oNeed"></div><div class="ov" id="o-need">—</div><div class="of" data-i="oNeedF"></div></div>
+    </div>
+    <div class="note"><span data-i="g2n1"></span> = <b id="n-actloss">—</b></div>
+  </div>
+
+  <div class="group">
+    <div class="ghead"><span class="num">03</span><span class="gt" data-i="g3t"></span><span class="gpurpose" data-i="g3p"></span></div>
+    <div class="eq">
+      <div class="eq-in">
+        <div class="field"><label data-i="lNeed"></label><input type="number" id="needShow" value="—" disabled style="color:var(--txt-3)"></div>
+        <div class="field"><label data-i="lWf"></label><input type="number" id="Wf" value="15" min="0" max="100" step="1"></div>
+        <div class="field"><label data-i="lFr"></label><input type="number" id="Fr" value="20" min="0" max="100" step="1"></div>
+      </div>
+      <div class="eq-op">=</div>
+      <div class="eq-out amber"><div class="ol" data-i="oReg"></div><div class="ov" id="o-reg">—</div><div class="of" data-i="oRegF"></div></div>
+    </div>
+    <div class="subgrid">
+      <div class="sub"><div class="sl" data-i="sToWarm"></div><div class="sv" id="o-towarm">—</div><div class="sf" data-i="sToWarmF"></div></div>
+      <div class="sub red"><div class="sl" data-i="sYield"></div><div class="sv" id="o-yield">—</div><div class="sf">(1−Fr)×(1−Wf)</div></div>
+      <div class="sub red"><div class="sl" data-i="sMult"></div><div class="sv" id="o-mult">—</div><div class="sf" data-i="sMultF"></div></div>
+    </div>
+    <div class="note"><span class="hl" data-i="g3nk"></span><span data-i="g3na"></span> <b id="n-mult2">—</b> <span data-i="g3nb"></span></div>
+  </div>
+
+  <div class="group">
+    <div class="ghead"><span class="num">04</span><span class="gt" data-i="g4t"></span><span class="gpurpose" data-i="g4p"></span></div>
+    <div class="eq">
+      <div class="eq-in">
+        <div class="field"><label data-i="lToWarm"></label><input type="number" id="towarmShow" value="—" disabled style="color:var(--txt-3)"></div>
+        <div class="field"><label data-i="lW"></label><input type="number" id="W" value="7" min="1" step="1"></div>
+      </div>
+      <div class="eq-op">=</div>
+      <div class="eq-out teal"><div class="ol" data-i="oWarm"></div><div class="ov" id="o-warm">—</div><div class="of" data-i="oWarmF"></div></div>
+    </div>
+    <div class="note" data-i="g4n"></div>
+  </div>
+
+  <div class="group">
+    <div class="ghead"><span class="num">05</span><span class="gt" data-i="g5t"></span><span class="gpurpose" data-i="g5p"></span></div>
+    <div class="subgrid">
+      <div class="sub red"><div class="sl" data-i="sRec"></div><div class="sv" id="o-rec">—</div><div class="sf" data-i="sRecF"></div></div>
+      <div class="sub"><div class="sl" data-i="sTr"></div><input type="number" id="Tr" value="2" min="0" step="0.5" style="width:100%;background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--txt);font-family:var(--mono);font-size:20px;font-weight:600;padding:5px 8px;margin-top:2px;outline:none;"></div>
+    </div>
+  </div>
+
+  <div class="group">
+    <div class="ghead"><span class="num">06</span><span class="gt" data-i="g6t"></span><span class="gpurpose" data-i="g6p"></span></div>
+    <div class="eq">
+      <div class="eq-in">
+        <div class="field"><label data-i="lOnDev"></label><input type="number" id="ondevShow" value="—" disabled style="color:var(--txt-3)"></div>
+        <div class="field"><label data-i="lDev"></label><input type="number" id="dev" value="5" min="1" step="1"></div>
+      </div>
+      <div class="eq-op">=</div>
+      <div class="eq-out"><div class="ol" data-i="oDevices"></div><div class="ov" id="o-devices">—</div><div class="of" id="o-dev-note"></div></div>
+    </div>
+    <div class="subgrid">
+      <div class="sub"><div class="sl" data-i="sPerUserDevA"></div><div class="sv" id="o-peruser-devA">—</div><div class="sf" data-i="sPerUserDevAF"></div></div>
+      <div class="sub"><div class="sl" data-i="sPerUserDevT"></div><div class="sv" id="o-peruser-devT">—</div><div class="sf" data-i="sPerUserDevTF"></div></div>
+    </div>
+  </div>
+
+  <div class="group">
+    <div class="ghead"><span class="num">07</span><span class="gt" data-i="g7t"></span><span class="gpurpose" data-i="g7p"></span></div>
+    <div class="eq">
+      <div class="eq-in">
+        <div class="field"><label data-i="lTotal"></label><input type="number" id="totalShow" value="—" disabled style="color:var(--txt-3)"></div>
+        <div class="field"><label data-i="lPpl"></label><input type="number" id="ppl" value="50" min="1" step="1"></div>
+      </div>
+      <div class="eq-op">=</div>
+      <div class="eq-out"><div class="ol" data-i="oStaff"></div><div class="ov" id="o-staff">—</div><div class="of" id="o-staff-note"></div></div>
+    </div>
+    <div class="note"><span data-i="g7n"></span> <span id="t-active">—</span> + <span id="t-warm">—</span> + <span id="t-rec">—</span> = <b id="t-total">—</b></div>
+  </div>
+
+  <div class="sec-head">
+    <div class="ico">!</div>
+    <h2 data-i="diagH"></h2>
+    <span class="hint" data-i="diagHint"></span>
+  </div>
+  <table class="dtable">
+    <thead><tr><th></th><th data-i="thSym"></th><th data-i="thCause"></th><th data-i="thAction"></th></tr></thead>
+    <tbody>
+      <tr class="row-amber"><td class="c-sym">!</td><td><span data-i="d1s"></span> <span class="live-flag" id="flag-lossHigh"></span></td><td class="c-cause" data-i="d1c"></td><td class="c-action" data-i="d1a"></td></tr>
+      <tr class="row-blue"><td class="c-sym">&#9879;</td><td><span data-i="d2s"></span> <span class="live-flag" id="flag-prodLow"></span></td><td class="c-cause" data-i="d2c"></td><td class="c-action" data-i="d2a"></td></tr>
+      <tr class="row-red"><td class="c-sym">&#8635;</td><td><span data-i="d3s"></span> <span class="live-flag" id="flag-recoverBad"></span></td><td class="c-cause" data-i="d3c"></td><td class="c-action" data-i="d3a"></td></tr>
+      <tr class="row-red"><td class="c-sym">&#8595;</td><td><span data-i="d4s"></span> <span class="live-flag" id="flag-yieldLow"></span></td><td class="c-cause" data-i="d4c"></td><td class="c-action" data-i="d4a"></td></tr>
+      <tr class="row-gray"><td class="c-sym">&#8853;</td><td data-i="d6s"></td><td class="c-cause" data-i="d6c"></td><td class="c-action" data-i="d6a"></td></tr>
+    </tbody>
+  </table>
+
+  </div>
+
+  <footer>
+    <span data-i="footL"></span>
+    <span data-i="footR"></span>
+  </footer>
+</div>
+
+<script>
+var I18N = {
+  zh:{
+    title:"资源账号供给计算仪表盘",
+    subtitle:"每一组 = 一个明确的计算目的（看右上角说明）。已纳入全链路两处漏损：注册失败、养号风控。养好即上前线，不预设备用库存。改任意输入，结果实时重算。",
+    tabCalc:"计算仪表盘", tabReadme:"Readme · 设计思路",
+    rmLead:"这个工具解决一个老问题：账号永远不够用。但它的答案不是「一直注册更多」，而是先看清账号是怎么流失的、漏在哪里，再决定该补多少、该先修哪。",
+    n1:"一",rmH1:"账号不是「有/没有」，是会流动的",
+    rmP1a:"一个账号从注册到能用，要经过几个阶段：注册 → 养号（7 天）→ 养好即分配给业务用。中间任何一个环节都可能被封——注册会失败、养号会被风控、在用时会被封。",
+    rmP1b:"所以「我有多少账号」这个问题没意义，真正要问的是：每个阶段现在卡着多少、漏掉多少。这就是为什么要先定义「状态机」——把账号所在的每个状态分开看。",
+    n2:"二",rmH2:"核心思路：倒着算",
+    rmP2a:"正常人会想「我要注册多少」，但这个工具是反过来推的：",
+    rmP2b:"先确定业务最终要用多少（业务人数 × 每人并发上限）→ 再算每天会流失多少 → 再倒推每天要补多少成品 → 最后因为中途有漏损，才知道实际要注册多少。",
+    rmP2key:"先知道终点要多少，再往回推起点要投入多少。这样算出来的数字才不会凭感觉拍脑袋。",
+    n3:"三",rmH3:"为什么注册量总是比想象的多",
+    rmP3a:"因为漏损是叠加的。假设每要 1 个能用的账号：注册可能失败一部分、养号又被风控折损一部分——两道损耗乘起来，实际可能要注册 1.5 个才换到 1 个能用的。",
+    rmP3b:"这个「注册倍率」是这套模型最重要的提醒：与其拼命加注册，不如把漏损堵小，倍率一降，所有需求跟着降。",
+    n4:"四",rmH4:"两个池子要看什么",
+    rmL4a:"养号池：管的是「7 天后够不够」，因为养号要时间，今天不囤，下周就断。养好的账号直接上前线，不在备用池里囤放。",
+    rmL4c:"在用：管的是「业务此刻够不够」，这是硬底线。",
+    n5:"五",rmH5:"缺账号时，先别急着注册",
+    rmP5a:"这是整个工具的灵魂。缺账号的真正原因可能有好几个：封号率突然变高、恢复太慢、注册老失败、或者养号产能跟不上。",
+    rmP5b:"底部的诊断表会告诉你——先定位是哪一个，再行动。多数情况下，修漏损比加产量更省、更快、更划算。",
+    leakFr:"失败",leakWf:"风控",leakD:"封号",
+    stReg:"注册中",stRegD:"部分注册失败",stWarm:"养号中",stWarmD:"W 天，期间会折损",
+    stAct:"在用",stActD:"已分配给业务",
+    stRec:"恢复中",stRecD:"尝试救回",stDead:"报废",stDeadD:"无法恢复，销毁",
+    leakCap:"红标 = 该状态的流失口。可用账号 = 在用，其余皆为在途或损耗。",
+    g1t:"业务规模 → 在用账号需求",g1p:"业务人数 × 并发上限<br>= 同时在线必须满足",
+    lB:"业务人数 <span class='tag'>B</span>",lC:"每业务并发上限 <span class='tag'>C</span>",oActive:"在用需求",
+    sPerUserActive:"单人在用份额",sPerUserActiveF:"= 并发上限 C",
+    sPerUserTotal:"单人全链路份额",sPerUserTotalF:"总持有量 ÷ 业务人数（含在途）",
+    g2t:"在用封号 → 每日需产出可用账号",g2p:"在用账号的净流失<br>= 每天要补回的成品",
+    lD:"日封号率 <span class='tag'>D %</span>",lR:"恢复成功率 <span class='tag'>R %</span>",
+    oNeed:"日需产出成品",oNeedF:"在用净损",
+    g2n1:"在用净损耗 = 在用 × D × (1−R)",
+    g3t:"穿过养号风控 + 注册失败 → 每天实际要注册多少",g3p:"成品 ÷ 全链路成品率<br>= 真实注册投入",
+    lNeed:"需产出成品 <span class='tag'>自动</span>",lWf:"养号风控率 <span class='tag'>Wf %</span>",lFr:"注册失败率 <span class='tag'>Fr %</span>",
+    oReg:"日实际注册投入",oRegF:"成品 ÷ 成品率",
+    sToWarm:"日进养号量（含养号折损）",sToWarmF:"成品 ÷ (1−Wf)",sYield:"全链路成品率",sMult:"注册倍率（注册→1 可用）",sMultF:"1 ÷ 成品率",
+    g3nk:"关键：",g3na:"每产出 1 个可用账号，实际要注册",g3nb:"个。注册失败 / 养号风控每降一点，这个倍率就同步下降。",
+    g4t:"养号周期 → 养号池水位",g4p:"养号需 W 天<br>= 囤住未来 W 天的进养号量",
+    lToWarm:"日进养号量 <span class='tag'>自动</span>",lW:"养号天数 <span class='tag'>W 可调</span>",oWarm:"养号池水位",oWarmF:"进养号 × W",
+    g4n:"已含养号风控折损。低于此数 → W 天后供给必断。养好的账号直接上前线，不囤备用。",
+    g5t:"恢复在途 → 占用量参考",g5p:"封号后正在尝试救回的账号<br>= 暂时占用、未销毁",
+    sRec:"恢复在途（占用中）",sRecF:"在用 × D × Tr",sTr:"恢复耗时 Tr（天）",
+    g6t:"单设备承载 → 所需设备数",g6p:"需上设备账号(在用)<br>÷ 单设备承载",
+    lOnDev:"在用 <span class='tag'>自动</span>",lDev:"单设备承载账号 <span class='tag'>dev</span>",oDevices:"所需设备数",
+    sPerUserDevA:"单人在用设备",sPerUserDevAF:"并发上限 ÷ 单设备承载",
+    sPerUserDevT:"单人全链路设备",sPerUserDevTF:"设备总数 ÷ 业务人数（含在途）",
+    g7t:"单人管理量 → 资源部人力配置",g7p:"账号总持有量<br>÷ 单人可管理",
+    lTotal:"账号总持有量 <span class='tag'>自动</span>",lPpl:"单人可管理账号 <span class='tag'>ppl</span>",oStaff:"所需人力",
+    g7n:"总持有量 = 在用",
+    diagH:"病因诊断 · 缺账号时该看哪里",diagHint:"现状会自动高亮触发的行",
+    thSym:"",thCause:"真实病因",thAction:"正确动作（不是加注册！）",
+    d1s:"前线缺号，但养号池正常",d1c:"封号率上升",d1a:"查封号原因：是不是用法 / IP / 养号质量问题，<b>先把封号率压下来，优先于增产或加设备</b>",
+    d2s:"前线缺号，养号池也空",d2c:"注册端产能不足",d2a:"<b>这才该加注册量</b>",
+    d3s:"风控账号堆积、恢复慢",d3c:"恢复成功率低 或 恢复耗时太长",d3a:"优化恢复流程，<b>救回率每 +10%，注册需求直接下降</b>",
+    d4s:"注册投入高但成品少",d4c:"注册失败率 或 养号风控率太高",d4a:"查注册渠道质量与养号环境，<b>提高成品率比加注册更省</b>（注册倍率直接降）",
+    d6s:"在用频繁超过 上限（业务数 × 并发上限）",d6c:"业务超额占用",d6a:"<b>是分配 / 回收问题，不是供给问题</b>",
+    footL:"资源供给计算模型 v3.2 · 无囤货版",footR:"本地计算 · 可离线 · 可分享",
+    take:"向上取整",
+    fLossOn:"封号率 # 偏高",fLossOk:"封号率正常",
+    fProdOn:"养号池不足",fProdOk:"养号池达标",
+    fRecOn:"恢复率 # / 耗时 @ 天",fRecOk:"恢复良好",
+    fYieldOn:"成品率 #",fYieldOk:"成品率良好"
+  },
+  en:{
+    title:"Account Supply Calculation Dashboard",
+    subtitle:"Each block = one clear purpose (see the note on the right). Both chain leak points are built in: registration failures and warming-stage bans. Accounts go straight to the front line once warmed — no standby stockpile. Change any input and results recalc instantly.",
+    tabCalc:"Calculator", tabReadme:"Readme · Design Logic",
+    rmLead:"This tool tackles an old problem: there are never enough accounts. But its answer isn't \"just register more\" — it's to first see how accounts are lost and where they leak, then decide how much to add and what to fix first.",
+    n1:"1",rmH1:"An account isn't \"have / don't have\" — it flows",
+    rmP1a:"From registration to usable, an account passes through a few stages: register → warm up (7 days) → assigned to a business user once warmed. At any stage it can be lost — registration can fail, warming can get banned, and in-use accounts get banned.",
+    rmP1b:"So \"how many accounts do I have\" is the wrong question. The real one is: how many are stuck or lost at each stage right now? That's why we define a \"state machine\" — looking at each state the account can be in separately.",
+    n2:"2",rmH2:"Core idea: work backwards",
+    rmP2a:"Most people ask \"how many should I register?\" — but this tool reasons in reverse:",
+    rmP2b:"First fix how many the business ultimately needs (users × concurrent cap per user) → then how many are lost daily → then back out how many finished accounts to replenish daily → finally, because of mid-chain leakage, how many to actually register.",
+    rmP2key:"Know how much you need at the finish line, then work back to how much to invest at the start. That way the numbers aren't just guesswork.",
+    n3:"3",rmH3:"Why registration volume is always higher than expected",
+    rmP3a:"Because leaks stack up. For every 1 usable account: registration may fail a portion, warming loses another portion to bans — multiply the two and you might need to register ~1.5 to get 1 usable.",
+    rmP3b:"This \"registration multiplier\" is the model's most important reminder: rather than piling on registrations, shrink the leaks — when the multiplier drops, every requirement drops with it.",
+    n4:"4",rmH4:"What each of the two pools watches",
+    rmL4a:"Warming pool: governs \"enough 7 days from now?\" — warming takes time, so what you don't stock today runs dry next week. Warmed accounts go straight to the front line, not into a standby stockpile.",
+    rmL4c:"In-use: governs \"enough for the business right now?\" — this is the hard floor.",
+    n5:"5",rmH5:"When short on accounts, don't rush to register",
+    rmP5a:"This is the soul of the tool. A shortage can have several real causes: ban rate suddenly rose, recovery is too slow, or registration keeps failing.",
+    rmP5b:"The diagnosis table at the bottom tells you — pinpoint which one first, then act. In most cases, fixing leaks is cheaper, faster, and more worthwhile than adding output.",
+    leakFr:"fail",leakWf:"ban",leakD:"ban",
+    stReg:"Registering",stRegD:"Some fail to register",stWarm:"Warming",stWarmD:"W days, some lost",
+    stAct:"In use",stActD:"Assigned to business",
+    stRec:"Recovering",stRecD:"Attempting to recover",stDead:"Dead",stDeadD:"Unrecoverable, destroyed",
+    leakCap:"Red tag = the leak point of that state. Usable = in-use; the rest is in-transit or loss.",
+    g1t:"Business scale → In-use demand",g1p:"Users × concurrent cap<br>= must be online at once",
+    lB:"Business users <span class='tag'>B</span>",lC:"Concurrent cap / user <span class='tag'>C</span>",oActive:"In-use demand",
+    sPerUserActive:"Per-user in-use share",sPerUserActiveF:"= concurrent cap C",
+    sPerUserTotal:"Per-user full-chain share",sPerUserTotalF:"total held ÷ users (incl. in-transit)",
+    g2t:"In-use bans → Daily usable output needed",g2p:"Net loss of in-use accounts<br>= finished units to replace daily",
+    lD:"Daily ban rate <span class='tag'>D %</span>",lR:"Recovery success <span class='tag'>R %</span>",
+    oNeed:"Daily output needed",oNeedF:"in-use net loss",
+    g2n1:"In-use net loss = in-use × D × (1−R)",
+    g3t:"Through warming bans + reg failures → How many to actually register daily",g3p:"output ÷ full-chain yield<br>= true registration input",
+    lNeed:"Output needed <span class='tag'>auto</span>",lWf:"Warming ban rate <span class='tag'>Wf %</span>",lFr:"Reg failure rate <span class='tag'>Fr %</span>",
+    oReg:"Daily reg input",oRegF:"output ÷ yield",
+    sToWarm:"Daily into warming (incl. loss)",sToWarmF:"output ÷ (1−Wf)",sYield:"Full-chain yield",sMult:"Reg multiplier (reg → 1 usable)",sMultF:"1 ÷ yield",
+    g3nk:"Key: ",g3na:"For every 1 usable account, you actually register",g3nb:". Each drop in reg failure / warming ban lowers this multiplier in step.",
+    g4t:"Warming period → Warming pool level",g4p:"warming takes W days<br>= stock next W days of intake",
+    lToWarm:"Daily into warming <span class='tag'>auto</span>",lW:"Warming days <span class='tag'>W adj.</span>",oWarm:"Warming pool level",oWarmF:"intake × W",
+    g4n:"Already includes warming-ban loss. Below this → supply runs dry in W days. Warmed accounts go straight to the front line — no standby stockpile.",
+    g5t:"In recovery → Occupied count (reference)",g5p:"banned accounts being recovered<br>= temporarily occupied, not destroyed",
+    sRec:"In recovery (occupied)",sRecF:"in-use × D × Tr",sTr:"Recovery time Tr (days)",
+    g6t:"Per-device capacity → Devices needed",g6p:"accounts on device (in-use)<br>÷ per-device capacity",
+    lOnDev:"In-use <span class='tag'>auto</span>",lDev:"Accounts per device <span class='tag'>dev</span>",oDevices:"Devices needed",
+    sPerUserDevA:"Per-user in-use devices",sPerUserDevAF:"concurrent cap ÷ per-device capacity",
+    sPerUserDevT:"Per-user full-chain devices",sPerUserDevTF:"total devices ÷ users (incl. in-transit)",
+    g7t:"Per-person workload → Resource team headcount",g7p:"total accounts held<br>÷ per-person capacity",
+    lTotal:"Total accounts held <span class='tag'>auto</span>",lPpl:"Accounts per person <span class='tag'>ppl</span>",oStaff:"Headcount needed",
+    g7n:"Total held = in-use",
+    diagH:"Diagnosis · Where to look when short",diagHint:"Triggered rows auto-highlight",
+    thSym:"",thCause:"Real cause",thAction:"Right action (NOT just register more!)",
+    d1s:"Front line short, but warming pool fine",d1c:"Ban rate rising",d1a:"Investigate ban causes — usage / IP / warming quality. <b>Bring the ban rate down first, before adding output or devices.</b>",
+    d2s:"Front line short, warming pool also empty",d2c:"Registration capacity short",d2a:"<b>This is when you add registration volume.</b>",
+    d3s:"Banned accounts piling up, slow recovery",d3c:"Low recovery rate or long recovery time",d3a:"Improve recovery. <b>Every +10% recovery directly cuts registration demand.</b>",
+    d4s:"High reg input but few finished",d4c:"Reg failure or warming ban rate too high",d4a:"Check reg channel quality and warming environment. <b>Raising yield beats adding registrations</b> (multiplier drops directly).",
+    d6s:"In-use often exceeds the cap (users × concurrent cap)",d6c:"Business over-occupying",d6a:"<b>An allocation / recycling problem, not a supply problem.</b>",
+    footL:"Resource Supply Model v3.2 · No-stockpile Edition",footR:"Local compute · Offline-ready · Shareable",
+    take:"rounded up",
+    fLossOn:"Ban rate # high",fLossOk:"Ban rate OK",
+    fProdOn:"Warming short",fProdOk:"Warming OK",
+    fRecOn:"Recovery # / time @ d",fRecOk:"Recovery OK",
+    fYieldOn:"Yield #",fYieldOk:"Yield OK"
+  }
+};
+
+var LANG='zh';
+
+function applyLang(){
+  var t=I18N[LANG];
+  document.documentElement.lang = LANG==='zh'?'zh':'en';
+  document.querySelectorAll('[data-i]').forEach(function(el){
+    var k=el.getAttribute('data-i');
+    if(t[k]!==undefined) el.innerHTML=t[k];
+  });
+  document.getElementById('lang-zh').className = LANG==='zh'?'active':'';
+  document.getElementById('lang-en').className = LANG==='en'?'active':'';
+  calc();
+}
+function setLang(l){LANG=l;applyLang();}
+
+function switchTab(which){
+  var isCalc = which==='calc';
+  document.getElementById('panel-calc').style.display = isCalc?'block':'none';
+  document.getElementById('panel-readme').style.display = isCalc?'none':'block';
+  document.getElementById('tab-calc').className = 'tab'+(isCalc?' active':'');
+  document.getElementById('tab-readme').className = 'tab'+(isCalc?'':' active');
+}
+
+var ids=['B','C','D','R','Wf','Fr','Tr','W','dev','ppl'];
+function g(id){return parseFloat(document.getElementById(id).value)||0;}
+function r1(x){return Math.round(x*10)/10;}
+function set(id,v){var e=document.getElementById(id);if(e)e.textContent=v;}
+function setVal(id,v){var e=document.getElementById(id);if(e)e.value=v;}
+function flag(key,on,onText,okText){
+  var e=document.getElementById('flag-'+key);if(!e)return;
+  e.textContent=on?('\u26A0 '+onText):('\u2713 '+okText);
+  e.className='live-flag '+(on?'flag-on':'flag-ok');
+}
+function tmpl(s,a,b){return s.replace('#',a).replace('@',b);}
+
+function calc(){
+  var t=I18N[LANG];
+  var B=g('B'),C=g('C'),D=g('D')/100,R=g('R')/100,
+      Wf=g('Wf')/100,Fr=g('Fr')/100,Tr=g('Tr'),
+      W=g('W'),dev=g('dev')||1,ppl=g('ppl')||1;
+  var active=B*C;
+  var actLoss=active*D*(1-R);
+  var need=actLoss;
+  var yield_=(1-Fr)*(1-Wf); if(yield_<=0)yield_=0.0001;
+  var toWarm=need/(1-Wf);
+  var reg=need/yield_;
+  var mult=1/yield_;
+  var warm=toWarm*W;
+  var rec=active*D*Tr;
+  var total=active+warm+rec;
+  var onDevice=active;
+  var devices=Math.ceil(onDevice/dev);
+  var staff=Math.ceil(total/ppl);
+  var B_=B||1;
+  var perUserActive=C;
+  var perUserTotal=total/B_;
+  var perUserDevA=Math.ceil(C/dev);
+  var perUserDevT=devices/B_;
+
+  set('o-active',Math.round(active));set('o-need',r1(need));set('o-reg',r1(reg));
+  set('o-towarm',r1(toWarm));set('o-yield',(yield_*100).toFixed(0)+'%');set('o-mult',mult.toFixed(2)+'\u00D7');
+  set('o-warm',Math.round(warm));
+  set('o-rec',r1(rec));set('o-devices',devices);set('o-staff',staff);
+  set('o-peruser-active',Math.round(perUserActive));
+  set('o-peruser-total',r1(perUserTotal));
+  set('o-peruser-devA',perUserDevA);
+  set('o-peruser-devT',r1(perUserDevT));
+  set('n-actloss',r1(actLoss));set('n-mult2',mult.toFixed(2));
+  setVal('needShow',r1(need));setVal('towarmShow',r1(toWarm));
+  setVal('ondevShow',Math.round(onDevice));setVal('totalShow',Math.round(total));
+  set('o-dev-note','('+Math.round(onDevice)+' \u00F7 '+dev+') '+t.take);
+  set('o-staff-note','('+Math.round(total)+' \u00F7 '+ppl+') '+t.take);
+  set('t-active',Math.round(active));set('t-warm',Math.round(warm));
+  set('t-rec',r1(rec));set('t-total',Math.round(total));
+
+  flag('lossHigh', D*100>=8, tmpl(t.fLossOn,(D*100).toFixed(1)+'%'), t.fLossOk);
+  flag('prodLow', toWarm>0 && warm<toWarm*W*0.999, t.fProdOn, t.fProdOk);
+  flag('recoverBad', R*100<40||Tr>3, tmpl(t.fRecOn,(R*100).toFixed(0)+'%',Tr), t.fRecOk);
+  flag('yieldLow', yield_<0.7, tmpl(t.fYieldOn,(yield_*100).toFixed(0)+'%'), t.fYieldOk);
+}
+
+ids.forEach(function(id){var e=document.getElementById(id);if(e)e.addEventListener('input',calc);});
+applyLang();
+</script>
+</body>
+</html>

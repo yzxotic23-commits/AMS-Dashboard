@@ -4,9 +4,9 @@ import { authenticate, requireRole } from '../../middleware/auth.js';
 import { supabaseAdmin } from '../../lib/supabase.js';
 import { writeAudit } from '../../lib/audit.js';
 import { parsePagination, paginatedResponse } from '../../lib/pagination.js';
-import { parseOperatorMeta } from '../../lib/accountMeta.js';
-import { supplyTargetFor } from '../../lib/supplyTargets.js';
 import { isPreparedQueueSim } from '../../lib/simMeta.js';
+import { loadRmSupplyFlagsBySite } from '../../lib/rmSupplyData.js';
+import { rankPreparedNeedFlags } from '../../lib/rmSupplyModel.js';
 
 const router = Router();
 router.use(authenticate);
@@ -42,68 +42,81 @@ function parsePreparedMeta(notes) {
   }
 }
 
-function mapPreparedSim(sim, supplyFlags = {}) {
+function mapPreparedRow(sim, { need, note, siteKey }) {
   const meta = parsePreparedMeta(sim.notes);
-  const siteKey = meta.site_key || 'my';
-  const supplyNeed = supplyFlags[siteKey]?.registering_below_target;
-  const need = meta.need === false ? false : (meta.need !== false || supplyNeed);
-  const note = meta.note || (supplyNeed ? 'Supply: registration pipeline below target' : '');
   return {
     id: sim.id,
     phone: sim.phone_number,
     telco: sim.carrier || '—',
     need,
-    note,
+    note: need ? note : (meta.note || ''),
     site_key: siteKey,
-    supply_flagged: Boolean(supplyNeed && meta.need !== false),
+    supply_flagged: need,
+    created_at: sim.created_at,
   };
 }
 
-async function loadSupplyFlags() {
-  const { data, error } = await supabaseAdmin
-    .from('accounts')
-    .select('status, notes')
-    .eq('status', 'REGISTERING');
-  if (error) throw error;
-
-  const counts = { my: 0, pp: 0 };
-  (data || []).forEach((row) => {
-    const sk = parseOperatorMeta(row).site_key === 'pp' ? 'pp' : 'my';
-    counts[sk] += 1;
+function buildPreparedQueue(sims, rmFlags) {
+  const prepared = (sims || []).filter((sim) => isPreparedQueueSim(sim.notes));
+  const bySite = { my: [], pp: [] };
+  prepared.forEach((sim) => {
+    const meta = parsePreparedMeta(sim.notes);
+    const sk = meta.site_key === 'pp' ? 'pp' : 'my';
+    bySite[sk].push(sim);
   });
 
-  return {
-    my: { registering_below_target: counts.my < supplyTargetFor('my', 'REGISTERING') },
-    pp: { registering_below_target: counts.pp < supplyTargetFor('pp', 'REGISTERING') },
-  };
+  const grouped = { my: [], pp: [] };
+  for (const sk of ['my', 'pp']) {
+    const model = rmFlags[sk] || {};
+    const { needIds } = rankPreparedNeedFlags(bySite[sk], {
+      regDaily: model.regDaily ?? 0,
+      registering: model.registering ?? 0,
+    });
+    const note = model.needNote || 'RM supply: registration needed';
+    grouped[sk] = bySite[sk]
+      .map((sim) => mapPreparedRow(sim, {
+        need: needIds.has(sim.id),
+        note,
+        siteKey: sk,
+      }))
+      .sort((a, b) => {
+        if (a.need !== b.need) return a.need ? -1 : 1;
+        return new Date(a.created_at) - new Date(b.created_at);
+      });
+  }
+  return grouped;
+}
+
+async function loadPreparedSims() {
+  const { data, error } = await supabaseAdmin
+    .from('sims')
+    .select('*')
+    .is('current_account_id', null)
+    .order('created_at', { ascending: true })
+    .limit(200);
+  if (error) throw error;
+  return data || [];
 }
 
 // GET /registrations/prepared — SIMs waiting for registration (no active account)
 router.get('/prepared', async (req, res, next) => {
   try {
     const siteKey = req.query.site || req.query.site_key;
-    const { data, error } = await supabaseAdmin
-      .from('sims')
-      .select('*')
-      .is('current_account_id', null)
-      .order('created_at', { ascending: false })
-      .limit(200);
-    if (error) throw error;
+    const [data, rmFlags] = await Promise.all([
+      loadPreparedSims(),
+      loadRmSupplyFlagsBySite(),
+    ]);
+    const grouped = buildPreparedQueue(data, rmFlags);
+    const rows = [
+      ...grouped.my,
+      ...grouped.pp,
+    ].filter((row) => !siteKey || siteKey === 'all' || row.site_key === siteKey);
 
-    const supplyFlags = await loadSupplyFlags();
-
-    const rows = (data || [])
-      .filter((sim) => isPreparedQueueSim(sim.notes))
-      .map((sim) => mapPreparedSim(sim, supplyFlags))
-      .filter((row) => !siteKey || siteKey === 'all' || row.site_key === siteKey);
-
-    const grouped = { my: [], pp: [] };
-    rows.forEach((row) => {
-      const key = row.site_key === 'pp' ? 'pp' : 'my';
-      grouped[key].push(row);
+    res.json({
+      data: grouped,
+      count: rows.length,
+      rm: { my: rmFlags.my, pp: rmFlags.pp },
     });
-
-    res.json({ data: grouped, count: rows.length });
   } catch (e) {
     next(e);
   }
@@ -114,7 +127,6 @@ const preparedCreateSchema = z.object({
   telco: z.string().optional().nullable(),
   site_key: z.enum(['my', 'pp']).optional(),
   note: z.string().optional().nullable(),
-  need: z.boolean().optional(),
 });
 
 // POST /registrations/prepared — add a number to the registration queue
@@ -123,7 +135,6 @@ router.post('/prepared', async (req, res, next) => {
     const body = preparedCreateSchema.parse(req.body);
     const meta = {
       prepared: true,
-      need: body.need !== false,
       site_key: body.site_key || 'my',
       note: body.note?.trim() || '',
     };
@@ -151,17 +162,26 @@ router.post('/prepared', async (req, res, next) => {
       req,
     });
 
-    res.status(201).json(mapPreparedSim(data, await loadSupplyFlags()));
+    const rmFlags = await loadRmSupplyFlagsBySite();
+    const allPrepared = await loadPreparedSims();
+    const grouped = buildPreparedQueue(allPrepared, rmFlags);
+    const sk = meta.site_key === 'pp' ? 'pp' : 'my';
+    const row = grouped[sk].find((r) => r.id === data.id) || mapPreparedRow(data, {
+      need: false,
+      note: meta.note,
+      siteKey: sk,
+    });
+    res.status(201).json(row);
   } catch (e) {
     next(e);
   }
 });
 
-// PATCH /registrations/prepared/:id — update need flag / note on prepared SIM
+// PATCH /registrations/prepared/:id — update note / site on prepared SIM (need is RM-calculated)
 router.patch('/prepared/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { need, note, site_key: siteKey } = req.body || {};
+    const { note, site_key: siteKey } = req.body || {};
 
     const { data: sim, error: loadErr } = await supabaseAdmin
       .from('sims')
@@ -174,7 +194,6 @@ router.patch('/prepared/:id', async (req, res, next) => {
     const nextMeta = {
       ...meta,
       prepared: true,
-      ...(need !== undefined ? { need: Boolean(need) } : {}),
       ...(note !== undefined ? { note: String(note) } : {}),
       ...(siteKey ? { site_key: siteKey } : {}),
     };
@@ -191,7 +210,16 @@ router.patch('/prepared/:id', async (req, res, next) => {
       .single();
     if (error) throw error;
 
-    res.json(mapPreparedSim(data, await loadSupplyFlags()));
+    const rmFlags = await loadRmSupplyFlagsBySite();
+    const allPrepared = await loadPreparedSims();
+    const grouped = buildPreparedQueue(allPrepared, rmFlags);
+    const sk = nextMeta.site_key === 'pp' ? 'pp' : 'my';
+    const row = grouped[sk].find((r) => r.id === data.id) || mapPreparedRow(data, {
+      need: false,
+      note: nextMeta.note || '',
+      siteKey: sk,
+    });
+    res.json(row);
   } catch (e) {
     next(e);
   }

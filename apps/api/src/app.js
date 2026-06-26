@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import { ZodError } from 'zod';
 import v1Router from './routes/v1/index.js';
 
 const app = express();
@@ -22,6 +23,12 @@ app.use(express.json({ limit: '8mb' }));
 app.use('/api/v1', v1Router);
 
 app.use((err, _req, res, _next) => {
+  if (err instanceof ZodError) {
+    const first = err.issues[0];
+    const field = first?.path?.length ? first.path.join('.') : 'input';
+    const message = first?.message || 'Validation failed';
+    return res.status(400).json({ error: `${field}: ${message}` });
+  }
   console.error('[API Error]', err.message);
   const status = err.status || err.statusCode || (err.code === 'PGRST116' ? 404 : 500);
   res.status(status).json({

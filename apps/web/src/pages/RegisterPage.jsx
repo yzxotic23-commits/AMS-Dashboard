@@ -56,6 +56,13 @@ function DrawerSection({ title, children }) {
   );
 }
 
+/** Prepared queue site must be my or pp — never the page filter "all". */
+function preparedSiteKeyForAdd(pageSite, profile) {
+  if (pageSite === 'my' || pageSite === 'pp') return pageSite;
+  const sk = operatorSiteKey(profile);
+  return sk === 'pp' ? 'pp' : 'my';
+}
+
 export default function RegisterPage() {
   const { site } = useSite();
   const { profile } = useAuth();
@@ -125,7 +132,7 @@ export default function RegisterPage() {
     setAddForm({
       phone: '',
       telco: TELCO_OPTIONS[0],
-      site_key: operatorSiteKey(profile),
+      site_key: preparedSiteKeyForAdd(site, profile),
       note: '',
       need: true,
     });
@@ -142,10 +149,11 @@ export default function RegisterPage() {
     }
     setAddSubmitting(true);
     try {
+      const site_key = addForm.site_key === 'pp' ? 'pp' : 'my';
       await addPreparedNumber({
         phone_number: phone,
         telco: addForm.telco,
-        site_key: addForm.site_key,
+        site_key,
         note: addForm.note.trim() || null,
         need: addForm.need,
       });
@@ -571,7 +579,7 @@ export default function RegisterPage() {
                   })}
                 </select>
                 <span className="mt-1 block text-[11px] text-ams-faint">
-                  Pipeline Control Center mengelompokkan akun per operator ini.
+                  Control Center groups accounts by this operator.
                 </span>
               </label>
             </div>
@@ -665,8 +673,7 @@ export default function RegisterPage() {
         )}
       >
         <p className="drawer-hint">
-          Tambah nomor SIM ke antrian register. Isi phone, telco, dan remark saja —
-          device, WA slot, dan proxy/IP dipilih nanti di <strong>Fill Result</strong> setelah nomor terdaftar di HP.
+          Phone, telco, and remark only — device, slot, and proxy are set in <strong>Submit Result</strong>.
         </p>
         <div className="drawer-fields">
           <label className="drawer-field">

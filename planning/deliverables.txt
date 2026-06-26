@@ -1,0 +1,156 @@
+================================================================================
+JIRA TICKET : MLKB-5540
+TASK TITLE  : Account Lifecycle & Status Management Review
+CATEGORY    : Do
+DUE         : 25/06/2026 — 7:00 PM (GMT+7)
+STORY       : Account Management System (AMS)
+TOOLS       : FeedFlow PRO, Jira
+DESCRIPTION : Design and develop account lifecycle states, status transitions,
+              operational checkpoints, and governance rules for AMS account
+              management.
+EXPECTED    : AMS account lifecycle framework and state transition model
+              completed.
+================================================================================
+
+DELIVERABLES
+------------
+
+1. Account Lifecycle Framework — 8 account statuses defined
+
+   Every WhatsApp account in AMS is tracked through one of these statuses:
+
+   | Status       | What it means on screen     | What is happening operationally        |
+   |--------------|-----------------------------|----------------------------------------|
+   | Registering  | Registering                 | Account is being registered on WhatsApp|
+   | Nurturing    | Nurturing Pool              | Account is in warm-up after activation |
+   | Available    | Standby Pool                | Account is ready to hand off to business|
+   | In Use       | In Business Use             | Account is actively used by business   |
+   | Logged Out   | Logged Out                  | WhatsApp session is disconnected       |
+   | Banned       | Banned                      | Account has been banned                |
+   | Recovering   | Recovering                  | Account is being recovered after a ban |
+   | Recycled     | Recycled                    | Account is retired and no longer active|
+
+   This gives operators and managers a shared language for where each account
+   sits in the pipeline.
+
+2. State Transition Rules — who can move an account to what status
+
+   Accounts cannot skip steps or jump to invalid statuses. The system only
+   allows the moves listed below:
+
+   | Current status | Can move to                                              |
+   |----------------|----------------------------------------------------------|
+   | Registering    | Nurturing, Recycled                                      |
+   | Nurturing      | Standby (Available), Banned, Recycled                    |
+   | Standby        | In Business Use, back to Nurturing, Recycled              |
+   | In Business Use| Logged Out, Banned, back to Standby                      |
+   | Logged Out     | Nurturing, Recovering, Recycled                          |
+   | Banned         | Recovering, Recycled                                     |
+   | Recovering     | Nurturing, Standby, Recycled                             |
+   | Recycled       | No further moves (end of life)                           |
+
+   How this is enforced in practice:
+   - Operators change status through AMS screens; invalid moves are blocked
+     with a clear error message.
+   - Ban actions follow the same rules and automatically start recovery tracking.
+   - Every status change is recorded with who changed it, when, and why.
+
+3. Operational Checkpoints — what must be done at each stage
+
+   | Stage                    | Where in AMS              | What must be checked before moving on |
+   |--------------------------|---------------------------|---------------------------------------|
+   | Number preparation       | Register page             | Prepared numbers stay separate from the |
+   |                          |                           | SIM Card Ledger until registration    |
+   |                          |                           | succeeds; success and failure are logged|
+   | Registration in progress | Register page             | Each device holds max 2 accounts: one   |
+   |                          |                           | WS Normal and one WS Business; proxy    |
+   |                          |                           | details are shown during registration |
+   | After successful register| SIM Card Ledger           | SIM card is added to the ledger only    |
+   |                          |                           | after registration succeeds           |
+   | Activation               | Activation Desk           | 6 items must be complete: SIM, device,  |
+   |                          | (Activation tab)          | IP/proxy, phone number, engine slot,   |
+   |                          |                           | and WhatsApp linked                   |
+   | Registering → Nurturing  | Activation Desk           | Account can only graduate when the full |
+   |                          |                           | activation checklist is done          |
+   | Nurturing                | Activation Desk           | Manual or automatic day-based warm-up;  |
+   |                          | (Nurturing tab)           | graduate to Standby when ready        |
+   | Phone number alignment   | SIM Card Ledger           | If account phone and SIM phone do not   |
+   |                          |                           | match, operator can fix with Align now|
+   | Standby → In Business Use| Tickets (delivery)        | Business handoff and proxy verification|
+   |                          |                           | before go-live (see MLKB-5519)        |
+   | Ban and recovery         | Nurturing + Recovery pages| Ban is logged in two stages; banned     |
+   |                          |                           | accounts enter the recovery queue       |
+
+4. Governance Rules — how leadership monitors account supply
+
+   The Governance dashboard shows how many accounts sit in each pool and
+   whether supply is healthy per site (Malaysia, PP, or combined).
+
+   | Pool shown on Governance | How it is monitored                    | Target (MY / PP / All) |
+   |--------------------------|----------------------------------------|------------------------|
+   | Needs Registration       | Count compared to target; flagged if low| 30 / 20 / 50          |
+   | Nurturing Pool           | Count vs target with health percentage | 140 / 100 / 240       |
+   | In Business Use          | Count vs target with health percentage | 300 / 212 / 512       |
+   | Standby Pool             | Current count only — no target alert   | —                     |
+
+   Standby Pool is intentionally shown as a count only, because standby accounts
+   are buffered inventory rather than a pipeline stage that needs a fixed target.
+
+5. History and accountability
+
+   - Every status change is saved with previous status, new status, reason, and
+     operator name.
+   - Device, SIM, and proxy assignments at account creation are kept on record.
+   - Phone alignment fixes and ban actions are logged for audit review.
+   - Resource Ledger shows each account’s current status and full status history.
+
+6. Evidence for review (screenshots to attach in Jira)
+
+   Capture these screens from the live AMS dashboard:
+
+   1. Governance — supply levels for Registering, Nurturing, Standby, and In Use
+   2. Register — prepared number queue, registration log, and proxy details
+   3. Activation Desk — activation checklist with all 6 steps completed
+   4. Activation Desk — nurturing list with graduate to Standby action
+   5. SIM Card Ledger — phone mismatch popup with Align now button
+   6. Resource Ledger — account detail showing status change history
+   7. Recovery — sample banned and recovering accounts
+
+   AMS is live on the production dashboard (deployed June 2026).
+
+================================================================================
+QUICK COPY — paste into Jira "Deliverables" field
+================================================================================
+
+Completed the AMS account lifecycle framework with 8 defined statuses
+(Registering, Nurturing, Standby, In Business Use, Logged Out, Banned,
+Recovering, Recycled) and clear rules for which status changes are allowed.
+Built operational checkpoints at each stage: Register (prepared queue, 2 slots per
+device, proxy shown, SIM added to ledger on success), Activation Desk (6-step
+checklist before moving to Nurturing), Nurturing (manual/auto warm-up then
+graduate to Standby), delivery handoff to In Business Use via Tickets, and
+Ban/Recovery workflow. Governance dashboard monitors pool counts vs targets per
+site; Standby Pool is count-only. Phone mismatch on SIM Ledger can be fixed with
+Align now. All status changes and key actions are logged for audit. Screenshots
+attached from live AMS (Governance, Register, Activation, SIM Ledger, Resource
+Ledger, Recovery).
+
+================================================================================
+OPTIONAL — Retrospective Summary (Jira field)
+================================================================================
+
+Defined and built the full account lifecycle in AMS — from registration through
+nurturing, standby, business use, ban, and recovery. Operators now follow clear
+checkpoints at each stage, and managers can see supply health on the Governance
+dashboard. Invalid status jumps are blocked by the system, and every change is
+traceable.
+
+================================================================================
+OPTIONAL — Interruption Log (Jira field)
+================================================================================
+
+(none)
+
+================================================================================
+END — MLKB-5540
+================================================================================

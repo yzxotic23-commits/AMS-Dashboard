@@ -59,11 +59,13 @@ export function computeRmSupply({
   };
 }
 
-export function buildRmDiagnosis({ D, R, Wf, Fr, yieldPct, warm, toWarm, W, Tr }) {
+export function buildRmDiagnosis({
+  D, R, Wf, Fr, yieldPct, warm, toWarm, W, Tr, recCompleted = 0,
+}) {
   const flags = {
     lossHigh: D * 100 >= 8,
     prodLow: toWarm > 0 && warm < toWarm * W * 0.999,
-    recoverBad: R * 100 < 40 || Tr > 3,
+    recoverBad: recCompleted >= 3 && (R * 100 < 40 || Tr > 3),
     yieldLow: yieldPct < 70,
   };
 

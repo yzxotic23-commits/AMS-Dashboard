@@ -195,6 +195,7 @@ export async function loadRmSupplyModel(siteKey = 'all') {
       toWarm: calc.toWarm,
       W: RM_DEFAULTS.W,
       Tr,
+      recCompleted: recCompleted,
     });
 
     bySite[sk] = {

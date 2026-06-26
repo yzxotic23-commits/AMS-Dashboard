@@ -54,7 +54,7 @@ export function computeHubCounts(accounts, tickets, preparedQueue, site) {
   const scoped = filterSite(accounts, site);
   const counts = hubCountsFromAccounts(scoped, tickets, site);
   counts.reg = countRegNeededFromQueue(preparedQueue, site);
-  counts.total = counts.reg + counts.link + counts.man + counts.scan + counts.rec + counts.tk;
+  counts.total = counts.link + counts.man + counts.scan + counts.rec + counts.tk;
   return counts;
 }
 
@@ -98,7 +98,7 @@ export function buildOperatorHubRows(
   regOwnerByAccountId = {},
   roster = [],
 ) {
-  return roster
+  const rows = roster
     .filter((op) => rosterMatchesSiteFilter(op, site))
     .map((op) => {
       const name = operatorDisplayName(op);
@@ -120,6 +120,8 @@ export function buildOperatorHubRows(
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name) || a.siteLabel.localeCompare(b.siteLabel));
+
+  return rows;
 }
 
 export function useHubCountsBySite() {

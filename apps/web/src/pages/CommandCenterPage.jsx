@@ -1,20 +1,15 @@
-import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PageHead from '../components/PageHead';
 import { useSite } from '../context/SiteContext';
 import { SITES } from '../lib/sites';
 import { HUB_COLS, HUB_TASK_TONE } from '../lib/wireframe-data';
-import { useHubOperators } from '../hooks/useHubCounts';
+import { useHubCounts, useHubOperators } from '../hooks/useHubCounts';
 
 export default function CommandCenterPage() {
   const navigate = useNavigate();
   const { site } = useSite();
   const { rows: list, rosterLoading, rosterError } = useHubOperators(site);
-
-  const totalPending = useMemo(
-    () => list.reduce((sum, row) => sum + (row.total || 0), 0),
-    [list],
-  );
+  const { total: totalPending } = useHubCounts(site);
 
   return (
     <div>

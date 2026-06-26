@@ -7,7 +7,6 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import IconTooltip from '../components/IconTooltip';
 import ProxyCredentialPanel from '../components/ProxyCredentialPanel';
 import Toast from '../components/Toast';
-import RmSupplyPanel from '../components/RmSupplyPanel';
 import { useSite } from '../context/SiteContext';
 import { useAuth } from '../context/AuthContext';
 import { SITES, getSiteChipClass } from '../lib/sites';
@@ -35,7 +34,6 @@ import { formatProxyOptionLabel, proxyFieldsFromIp, formatProxyOneLine } from '.
 import { useAllAccounts } from '../hooks/useOperatorAccounts';
 import { toastCopy } from '../lib/operator-copy';
 import { dismissPreparedRow, usePreparedQueue, addPreparedNumber, deletePreparedNumber } from '../hooks/usePreparedQueue';
-import { useRmSupplyModel } from '../hooks/useRmSupplyModel';
 
 const FAIL_REASONS = ['Number rejected', 'IP flagged', 'No verification code', 'Other'];
 const TELCO_OPTIONS = ['Outsource', 'Tunetalk', 'Celcom', 'Digi', 'Maxis', 'U Mobile'];
@@ -98,7 +96,6 @@ export default function RegisterPage() {
   const { createAccount, logRegistration } = useAccountMutations();
   const { data: regStats } = useRegistrationStats(site);
   const { data: regLog = [] } = useRegistrationLog(15);
-  const { data: rmModel, isLoading: rmLoading } = useRmSupplyModel(site);
 
   const siteKey = drawer?.siteKey || 'my';
   const freeIps = useFreeIps(siteKey);
@@ -321,8 +318,6 @@ export default function RegisterPage() {
           </div>
         ) : null}
       />
-
-      <RmSupplyPanel model={rmModel} site={site} loading={rmLoading} />
 
       <div className="tk-tab-toolbar">
         <div className="page-tab-bar tk-tab-toolbar-tabs" role="tablist" aria-label="Register sections">

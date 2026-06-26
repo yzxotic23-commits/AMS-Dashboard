@@ -13,7 +13,7 @@ const NAV = [
   ]},
   { section: 'OPERATOR ACTIONS', collapsible: true, items: [
     { to: '/', icon: LayoutGrid, label: 'Control Center', end: true, badge: 'hub' },
-    { to: '/register', icon: Plus, label: 'Register' },
+    { to: '/register', icon: Plus, label: 'Register', badge: 'reg' },
     { to: '/link', icon: Zap, label: 'Activation & Nurturing' },
     { to: '/recovery', icon: RotateCcw, label: 'Account Recovery' },
   ]},

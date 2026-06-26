@@ -163,7 +163,7 @@ export default function UserManagementPage() {
 
   return (
     <div>
-      <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-ams-faint">Resource mgmt</p>
+      <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-ams-faint">Settings</p>
       <PageHead
         title="User management"
         description="Admin Master manages users and settings only — not pipeline operators. Operators appear in Control Center when accounts are assigned to them."

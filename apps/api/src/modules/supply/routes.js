@@ -7,6 +7,12 @@ import { parseOperatorMeta } from '../../lib/accountMeta.js';
 import { SUPPLY_LABELS, supplyTargetFor } from '../../lib/supplyTargets.js';
 import { loadRmSupplyModel } from '../../lib/rmSupplyData.js';
 import {
+  defaultRmSupplySettings,
+  loadRmSupplySettings,
+  normalizeRmSupplySettings,
+  saveRmSupplySettings,
+} from '../../lib/rmSupplySettings.js';
+import {
   applyPhoneSync,
   buildPhoneSyncRow,
   phoneDigits,
@@ -96,6 +102,91 @@ router.get('/rm-model', async (req, res, next) => {
     const siteKey = req.query.site || req.query.site_key || 'all';
     const model = await loadRmSupplyModel(siteKey);
     res.json(model);
+  } catch (e) {
+    next(e);
+  }
+});
+
+const rmSettingsSchema = z.object({
+  my: z.object({
+    sources: z.record(z.enum(['live', 'manual'])).optional(),
+    manual: z.record(z.coerce.number()).optional(),
+  }).optional(),
+  pp: z.object({
+    sources: z.record(z.enum(['live', 'manual'])).optional(),
+    manual: z.record(z.coerce.number()).optional(),
+  }).optional(),
+});
+
+// GET /supply/rm-settings — RM formula config (admin)
+router.get('/rm-settings', requireRole('admin'), async (_req, res, next) => {
+  try {
+    const [config, model] = await Promise.all([
+      loadRmSupplySettings(),
+      loadRmSupplyModel('all'),
+    ]);
+    res.json({ config, model });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// PATCH /supply/rm-settings
+router.patch('/rm-settings', requireRole('admin'), async (req, res, next) => {
+  try {
+    const body = rmSettingsSchema.parse(req.body);
+    const prev = await loadRmSupplySettings();
+    const merged = normalizeRmSupplySettings({
+      my: {
+        ...prev.my,
+        ...body.my,
+        sources: { ...prev.my?.sources, ...body.my?.sources },
+        manual: { ...prev.my?.manual, ...body.my?.manual },
+      },
+      pp: {
+        ...prev.pp,
+        ...body.pp,
+        sources: { ...prev.pp?.sources, ...body.pp?.sources },
+        manual: { ...prev.pp?.manual, ...body.pp?.manual },
+      },
+    });
+    const config = await saveRmSupplySettings(merged, req.user.id);
+    const model = await loadRmSupplyModel('all');
+
+    await writeAudit({
+      entityType: 'app_settings',
+      entityId: null,
+      action: 'RM_SUPPLY_UPDATE',
+      previousValue: prev,
+      newValue: config,
+      userId: req.user.id,
+      req,
+    });
+
+    res.json({ config, model });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// POST /supply/rm-settings/reset
+router.post('/rm-settings/reset', requireRole('admin'), async (req, res, next) => {
+  try {
+    const prev = await loadRmSupplySettings();
+    const config = await saveRmSupplySettings(defaultRmSupplySettings(), req.user.id);
+    const model = await loadRmSupplyModel('all');
+
+    await writeAudit({
+      entityType: 'app_settings',
+      entityId: null,
+      action: 'RM_SUPPLY_RESET',
+      previousValue: prev,
+      newValue: config,
+      userId: req.user.id,
+      req,
+    });
+
+    res.json({ config, model });
   } catch (e) {
     next(e);
   }

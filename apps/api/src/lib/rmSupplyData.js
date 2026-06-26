@@ -8,6 +8,7 @@ import {
   buildRmDiagnosis,
   formatRmNeedNote,
 } from './rmSupplyModel.js';
+import { loadRmSupplySettings, resolveRmInputs } from './rmSupplySettings.js';
 
 const REC_PREFIX = '_ams_rec:';
 const LOOKBACK_DAYS = 30;
@@ -144,6 +145,7 @@ function countByStatus(accounts, siteKey) {
 export async function loadRmSupplyModel(siteKey = 'all') {
   const sites = siteKey === 'all' ? ['my', 'pp'] : [siteKey];
   const accounts = await loadAccounts();
+  const settings = await loadRmSupplySettings();
 
   const bySite = {};
   for (const sk of sites) {
@@ -159,13 +161,26 @@ export async function loadRmSupplyModel(siteKey = 'all') {
     const D = dailyBanRateOnPool(banRecords, inUse, 'IN_USE');
     const Wf = dailyBanRateOnPool(banRecords, Math.max(nurturing, 1), 'NURTURING');
 
+    const liveRaw = {
+      D,
+      R,
+      Wf,
+      Fr,
+      Tr,
+    };
+
+    const siteConfig = settings[sk] || settings.my;
+    const resolved = resolveRmInputs(liveRaw, siteConfig);
+
     const inputs = {
-      D: Math.round(D * 1000) / 10,
-      R: Math.round(R * 1000) / 10,
-      Wf: Math.round(Wf * 1000) / 10,
-      Fr: Math.round(Fr * 1000) / 10,
-      W: RM_DEFAULTS.W,
-      Tr: Math.round(Tr * 10) / 10,
+      D: Math.round(resolved.D * 1000) / 10,
+      R: Math.round(resolved.R * 1000) / 10,
+      Wf: Math.round(resolved.Wf * 1000) / 10,
+      Fr: Math.round(resolved.Fr * 1000) / 10,
+      W: resolved.W,
+      Tr: Math.round(resolved.Tr * 10) / 10,
+      dev: resolved.dev,
+      ppl: resolved.ppl,
       active: inUse,
       registering,
       nurturing,
@@ -173,34 +188,45 @@ export async function loadRmSupplyModel(siteKey = 'all') {
       recCompleted,
       recSuccess,
       lookbackDays: LOOKBACK_DAYS,
+      live: {
+        D: Math.round(D * 1000) / 10,
+        R: Math.round(R * 1000) / 10,
+        Wf: Math.round(Wf * 1000) / 10,
+        Fr: Math.round(Fr * 1000) / 10,
+        Tr: Math.round(Tr * 10) / 10,
+      },
+      sources: resolved.sources,
     };
 
     const calc = computeRmSupply({
       active: inUse || 1,
-      D: D,
-      R: R,
-      Wf: Wf,
-      Fr: Fr,
-      W: RM_DEFAULTS.W,
-      Tr: Tr,
+      D: resolved.D,
+      R: resolved.R,
+      Wf: resolved.Wf,
+      Fr: resolved.Fr,
+      W: resolved.W,
+      Tr: resolved.Tr,
+      dev: resolved.dev,
+      ppl: resolved.ppl,
     });
 
     const diagnosis = buildRmDiagnosis({
-      D,
-      R,
-      Wf,
-      Fr,
+      D: resolved.D,
+      R: resolved.R,
+      Wf: resolved.Wf,
+      Fr: resolved.Fr,
       yieldPct: calc.yield,
       warm: nurturing,
       toWarm: calc.toWarm,
-      W: RM_DEFAULTS.W,
-      Tr,
-      recCompleted: recCompleted,
+      W: resolved.W,
+      Tr: resolved.Tr,
+      recCompleted,
     });
 
     bySite[sk] = {
       site_key: sk,
       inputs,
+      config: siteConfig,
       ...calc,
       nurturingTarget: calc.warm,
       registeringTarget: calc.regDaily,

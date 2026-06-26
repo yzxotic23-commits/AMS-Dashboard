@@ -37,14 +37,18 @@ const USER_MGMT_ITEM = {
   label: 'User management',
 };
 
+const SETTINGS_GROUP = {
+  section: 'SETTINGS',
+  collapsible: true,
+  items: [
+    { to: '/settings', icon: LineChart, label: 'RM Supply model', end: true },
+    USER_MGMT_ITEM,
+  ],
+};
+
 function buildNav(profile) {
-  return NAV.map((group) => {
-    if (group.section !== 'RESOURCE MGMT' || profile?.role !== 'admin') return group;
-    return {
-      ...group,
-      items: [...group.items, USER_MGMT_ITEM],
-    };
-  });
+  if (profile?.role !== 'admin') return NAV;
+  return [...NAV, SETTINGS_GROUP];
 }
 
 function groupIsOpen(section, items, pathname, openMap) {

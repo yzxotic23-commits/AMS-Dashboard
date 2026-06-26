@@ -3,14 +3,23 @@
  */
 
 export const RM_DEFAULTS = {
-  D: 5,
+  D: 20,
   R: 40,
-  Wf: 15,
+  Wf: 20,
   Fr: 20,
   W: 7,
   Tr: 2,
   dev: 2,
   ppl: 50,
+};
+
+/** Phase 1 — fixed ban rates (manual) until live AMS metrics are trusted. */
+export const RM_PHASE1_SOURCES = {
+  D: 'manual',
+  R: 'live',
+  Wf: 'manual',
+  Fr: 'live',
+  Tr: 'live',
 };
 
 export function round1(x) {

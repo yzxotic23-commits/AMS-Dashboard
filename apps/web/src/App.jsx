@@ -15,6 +15,7 @@ import RecoveryPage from './pages/RecoveryPage';
 import FeedFlowPage from './pages/FeedFlowPage';
 import TicketsPage from './pages/TicketsPage';
 import UserManagementPage from './pages/settings/UserManagementPage';
+import SettingsPage from './pages/settings/SettingsPage';
 import AdminRoute from './components/AdminRoute';
 
 function ProtectedShell() {
@@ -48,18 +49,18 @@ export default function App() {
         <Route path="ip-gate" element={<Navigate to="/ips" replace />} />
         <Route path="audit" element={<AuditLogPage />} />
         <Route
-          path="settings/users"
+          path="settings"
           element={(
             <AdminRoute>
-              <UserManagementPage />
+              <SettingsPage />
             </AdminRoute>
           )}
         />
         <Route
-          path="settings"
+          path="settings/users"
           element={(
             <AdminRoute>
-              <Navigate to="/settings/users" replace />
+              <UserManagementPage />
             </AdminRoute>
           )}
         />

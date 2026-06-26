@@ -32,6 +32,8 @@ export default function LinkWhatsAppDrawer({
   onEngineRefresh,
   onClose,
   onLinked,
+  embedded = false,
+  hideAccountRow = false,
 }) {
   const canvasRef = useRef(null);
   const [method, setMethod] = useState('qr');
@@ -58,14 +60,14 @@ export default function LinkWhatsAppDrawer({
           await api.post('/bridge/audit/sync').catch(() => {});
         }
         await onLinked?.();
-        onClose?.();
+        if (!embedded) onClose?.();
       } catch (e) {
         linkedRef.current = false;
         setLinked(false);
         setMessage(e?.message || 'Could not save link status.');
       }
     })();
-  }, [onLinked, onClose, slot, account?.account_name, account?.phone_number]);
+  }, [onLinked, onClose, slot, account, embedded]);
 
   useEffect(() => {
     linkedRef.current = false;
@@ -256,6 +258,222 @@ export default function LinkWhatsAppDrawer({
     }
   }
 
+  const linkStartDisabled = slot == null
+    || connectLoading
+    || engineBooting
+    || (linking && method === 'qr' && !qrVisible)
+    || (linking && method === 'pairing' && !pairingCode);
+
+  const linkStartLabel = engineBooting
+    ? 'Starting engine…'
+    : connectLoading
+      ? 'Starting…'
+      : pairingCode && method === 'pairing'
+        ? 'New pairing code'
+        : method === 'qr'
+          ? 'Show QR Code'
+          : 'Get Pairing Code';
+
+  const linkStartButton = !linked ? (
+    <button
+      type="button"
+      className={`btn btn-sm ${embedded ? 'btn-secondary' : 'btn-primary'}`}
+      disabled={linkStartDisabled}
+      onClick={startLink}
+    >
+      {linkStartLabel}
+    </button>
+  ) : null;
+
+  const panelBody = account && (
+    <div className={embedded ? 'link-wa-flow link-wa-flow--embedded' : 'space-y-4'}>
+      {!embedded && (
+        <p className="rounded-lg bg-ams-surface-muted px-3 py-2 text-[12.5px] leading-relaxed text-ams-muted">
+          Link runs on the <strong className="text-ams-ink">local FeedFlow engine</strong> (port 47821).
+          QR and pairing codes appear here — no separate FeedFlow window needed.
+        </p>
+      )}
+
+      {!engineReachable && !linked && (
+        <p className={embedded
+          ? 'text-[11px] leading-relaxed text-ams-warn'
+          : 'rounded-lg border border-ams-warn/40 bg-ams-warn/10 px-3 py-2 text-[12px] text-ams-warn'}
+        >
+          {embedded
+            ? 'FeedFlow engine offline — AMS will try to start it automatically.'
+            : 'FeedFlow engine is offline. AMS will try to start it automatically when this panel opens.'}
+        </p>
+      )}
+
+      {!hideAccountRow && (
+        <div className="drawer-locked">
+          <div className="drawer-locked-label">Account</div>
+          <div className="text-sm font-semibold">{account.account_name}</div>
+        </div>
+      )}
+
+      <label className="drawer-field">
+        <span className="drawer-label">Engine slot</span>
+        {onSlotChange ? (
+          <EngineSlotSelect
+            value={slot}
+            engineSlots={engineSlots}
+            slotTakenBy={slotTakenBy}
+            onChange={onSlotChange}
+            className="input"
+          />
+        ) : (
+          <div className="text-sm font-mono text-ams-muted">
+            {slot != null ? `Slot ${slot + 1}` : 'No slot assigned'}
+          </div>
+        )}
+      </label>
+
+      {slot == null && (
+        <p className={embedded ? 'text-[11px] text-ams-muted' : 'text-sm text-ams-danger'}>
+          Assign an engine slot before linking.
+        </p>
+      )}
+
+      {blockingSlot != null && !linked && (
+        <div className="rounded-lg border border-ams-danger/30 bg-ams-danger/5 px-3 py-2.5 text-[12px] text-ams-danger">
+          <p>
+            <strong>{blockingLabel}</strong> is still linking. FeedFlow allows one link at a time.
+          </p>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm mt-2 text-ams-danger"
+            disabled={connectLoading}
+            onClick={cancelBlockingLink}
+          >
+            Cancel linking on {blockingLabel}
+          </button>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-2">
+        {[
+          { key: 'qr', label: 'QR Scan' },
+          { key: 'pairing', label: 'Pairing Code' },
+        ].map(({ key, label }) => (
+          <button
+            key={key}
+            type="button"
+            disabled={linked}
+            className={`drawer-radio ${method === key ? 'drawer-radio-on' : ''}`}
+            onClick={() => setMethod(key)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {method === 'pairing' && (
+        <div className="drawer-field">
+          {account.phone_number ? (
+            <div className="drawer-locked">
+              <div className="drawer-locked-label">Phone number</div>
+              <div className="drawer-locked-value drawer-locked-value--mono">{account.phone_number}</div>
+            </div>
+          ) : (
+            <label className="block">
+              <span className="drawer-label">Phone number</span>
+              <input
+                className="input font-mono"
+                placeholder="+62…"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                disabled={linked}
+              />
+            </label>
+          )}
+          <p className="mt-1.5 text-[11px] leading-relaxed text-ams-muted">
+            Must match the WhatsApp on this phone. Enter the code within 2 minutes and keep this panel open.
+          </p>
+        </div>
+      )}
+
+      <div className={`link-wa-panel${embedded ? ' link-wa-panel--embedded' : ''}`}>
+        {linked ? (
+          <div className="link-wa-success">
+            <Smartphone size={28} className="text-ams-success" />
+            <span className="text-sm font-semibold text-ams-success">Connected</span>
+          </div>
+        ) : (
+          <>
+            <canvas
+              ref={canvasRef}
+              className={`link-wa-qr${qrVisible ? ' is-visible' : ''}`}
+              aria-hidden={!qrVisible}
+            />
+            {!qrVisible && !pairingCode && (
+              <div className="link-wa-placeholder">
+                {linking ? (
+                  <Loader2 size={24} className="animate-spin text-ams-faint" />
+                ) : (
+                  <Smartphone size={28} className="text-ams-faint" />
+                )}
+                <span className="text-xs text-ams-faint">
+                  {linking
+                    ? (method === 'qr' ? 'Waiting for QR…' : 'Requesting pairing code…')
+                    : (method === 'qr'
+                      ? 'Scan with WhatsApp → Linked Devices'
+                      : 'Get a code to enter on your phone')}
+                </span>
+                {!linking && linkStartButton}
+              </div>
+            )}
+            {pairingCode && !qrVisible && (() => {
+              const parts = pairingCode.includes('-')
+                ? pairingCode.split('-')
+                : [pairingCode.slice(0, 4), pairingCode.slice(4)];
+              return (
+              <div className="link-wa-pairing">
+                <div className="link-wa-pairing-code" aria-label={`Pairing code ${pairingCode}`}>
+                  <span className="link-wa-pairing-half">{parts[0]}</span>
+                  <span className="link-wa-pairing-dash" aria-hidden="true">-</span>
+                  <span className="link-wa-pairing-half">{parts[1]}</span>
+                </div>
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm link-wa-pairing-copy gap-1.5"
+                    onClick={() => {
+                      navigator.clipboard?.writeText(pairingCode.replace(/-/g, ''));
+                      setMessage('Code copied — enter without spaces or dashes.');
+                    }}
+                  >
+                    <Copy size={14} />
+                    Copy code
+                  </button>
+                  {linkStartButton}
+                </div>
+              </div>
+              );
+            })()}
+          </>
+        )}
+      </div>
+
+      {message && (
+        <p className={`text-xs ${
+          linked
+            ? 'text-ams-success'
+            : (message.includes('still linking') || message.includes('engine') || message.includes('FeedFlow') || message.includes('Could not'))
+              ? 'text-ams-danger'
+              : 'text-ams-muted'
+        }`}>
+          {message}
+        </p>
+      )}
+    </div>
+  );
+
+  if (embedded) {
+    if (!open || !account) return null;
+    return panelBody;
+  }
+
   return (
     <Drawer
       open={open}
@@ -264,30 +482,7 @@ export default function LinkWhatsAppDrawer({
       footer={(
         <>
           <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
-          {!linked ? (
-            <button
-              type="button"
-              className="btn btn-primary"
-              disabled={
-                slot == null
-                || connectLoading
-                || engineBooting
-                || (linking && method === 'qr' && !pairingCode)
-                || (linking && method === 'pairing' && !pairingCode)
-              }
-              onClick={startLink}
-            >
-              {engineBooting
-                ? 'Starting engine…'
-                : connectLoading
-                  ? 'Starting…'
-                  : pairingCode && method === 'pairing'
-                    ? 'New pairing code'
-                    : method === 'qr'
-                      ? 'Show QR Code'
-                      : 'Get Pairing Code'}
-            </button>
-          ) : (
+          {linked && (
             <button type="button" className="btn btn-primary" onClick={onClose}>
               Done
             </button>
@@ -295,166 +490,7 @@ export default function LinkWhatsAppDrawer({
         </>
       )}
     >
-      {account && (
-        <div className="space-y-4">
-          <p className="rounded-lg bg-ams-surface-muted px-3 py-2 text-[12.5px] leading-relaxed text-ams-muted">
-            Link runs on the <strong className="text-ams-ink">local FeedFlow engine</strong> (port 47821).
-            QR and pairing codes appear here — no separate FeedFlow window needed.
-          </p>
-
-          {!engineReachable && !linked && (
-            <p className="rounded-lg border border-ams-warn/40 bg-ams-warn/10 px-3 py-2 text-[12px] text-ams-warn">
-              FeedFlow engine is offline. AMS will try to start it automatically when this panel opens.
-            </p>
-          )}
-
-          <div className="drawer-locked">
-            <div className="drawer-locked-label">Account</div>
-            <div className="text-sm font-semibold">{account.account_name}</div>
-          </div>
-
-          <label className="drawer-field">
-            <span className="drawer-label">Engine slot</span>
-            {onSlotChange ? (
-              <EngineSlotSelect
-                value={slot}
-                engineSlots={engineSlots}
-                slotTakenBy={slotTakenBy}
-                onChange={onSlotChange}
-                className="input"
-              />
-            ) : (
-              <div className="text-sm font-mono text-ams-muted">
-                {slot != null ? `Slot ${slot + 1}` : 'No slot assigned'}
-              </div>
-            )}
-          </label>
-
-          {slot == null && (
-            <p className="text-sm text-ams-danger">Assign an engine slot before linking.</p>
-          )}
-
-          {blockingSlot != null && !linked && (
-            <div className="rounded-lg border border-ams-danger/30 bg-ams-danger/5 px-3 py-2.5 text-[12px] text-ams-danger">
-              <p>
-                <strong>{blockingLabel}</strong> is still linking. FeedFlow allows one link at a time.
-              </p>
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm mt-2 text-ams-danger"
-                disabled={connectLoading}
-                onClick={cancelBlockingLink}
-              >
-                Cancel linking on {blockingLabel}
-              </button>
-            </div>
-          )}
-
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              { key: 'qr', label: 'QR Scan' },
-              { key: 'pairing', label: 'Pairing Code' },
-            ].map(({ key, label }) => (
-              <button
-                key={key}
-                type="button"
-                disabled={linked}
-                className={`drawer-radio ${method === key ? 'drawer-radio-on' : ''}`}
-                onClick={() => setMethod(key)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-
-          {method === 'pairing' && (
-            <div className="drawer-field">
-              {account.phone_number ? (
-                <div className="drawer-locked">
-                  <div className="drawer-locked-label">Phone number</div>
-                  <div className="drawer-locked-value drawer-locked-value--mono">{account.phone_number}</div>
-                </div>
-              ) : (
-                <label className="block">
-                  <span className="drawer-label">Phone number</span>
-                  <input
-                    className="input font-mono"
-                    placeholder="+62…"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    disabled={linked}
-                  />
-                </label>
-              )}
-              <p className="mt-1.5 text-[11px] leading-relaxed text-ams-muted">
-                Must match the WhatsApp on this phone. Enter the code within 2 minutes and keep this panel open.
-              </p>
-            </div>
-          )}
-
-          <div className="link-wa-panel">
-            {linked ? (
-              <div className="link-wa-success">
-                <Smartphone size={28} className="text-ams-success" />
-                <span className="text-sm font-semibold text-ams-success">Connected</span>
-              </div>
-            ) : (
-              <>
-                <canvas
-                  ref={canvasRef}
-                  className={`link-wa-qr${qrVisible ? ' is-visible' : ''}`}
-                  aria-hidden={!qrVisible}
-                />
-                {!qrVisible && method === 'qr' && !pairingCode && (
-                  <div className="link-wa-placeholder">
-                    {linking ? <Loader2 size={24} className="animate-spin text-ams-faint" /> : <Smartphone size={28} className="text-ams-faint" />}
-                    <span className="text-xs text-ams-faint">
-                      {linking ? 'Waiting for QR…' : 'Click Show QR Code to start'}
-                    </span>
-                  </div>
-                )}
-                {pairingCode && (() => {
-                  const parts = pairingCode.includes('-')
-                    ? pairingCode.split('-')
-                    : [pairingCode.slice(0, 4), pairingCode.slice(4)];
-                  return (
-                  <div className="link-wa-pairing">
-                    <div className="link-wa-pairing-code" aria-label={`Pairing code ${pairingCode}`}>
-                      <span className="link-wa-pairing-half">{parts[0]}</span>
-                      <span className="link-wa-pairing-dash" aria-hidden="true">-</span>
-                      <span className="link-wa-pairing-half">{parts[1]}</span>
-                    </div>
-                    <button
-                      type="button"
-                      className="btn btn-ghost btn-sm link-wa-pairing-copy gap-1.5"
-                      onClick={() => {
-                        navigator.clipboard?.writeText(pairingCode.replace(/-/g, ''));
-                        setMessage('Code copied — enter without spaces or dashes.');
-                      }}
-                    >
-                      <Copy size={14} />
-                      Copy code
-                    </button>
-                  </div>
-                  );
-                })()}
-              </>
-            )}
-          </div>
-
-          {message && (
-            <p className={`text-xs ${
-              linked
-                ? 'text-ams-success'
-                : (message.includes('still linking') || message.includes('engine') || message.includes('FeedFlow') || message.includes('Could not'))
-                  ? 'text-ams-danger'
-                  : 'text-ams-muted'
-            }`}>
-              {message}
-            </p>
-          )}
-        </div>
-      )}
+      {panelBody}
     </Drawer>
   );
 }

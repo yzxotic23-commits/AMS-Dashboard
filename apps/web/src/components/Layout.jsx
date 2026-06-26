@@ -15,7 +15,8 @@ const NAV_SECTIONS = [
   { section: 'OPERATOR ACTIONS', collapsible: true, items: [
     { to: '/' }, { to: '/register' }, { to: '/link' }, { to: '/nurturing' }, { to: '/recovery' },
   ]},
-  { section: 'RESOURCE MGMT', collapsible: true, items: [{ to: '/ips' }, { to: '/sims' }, { to: '/settings/users' }] },
+  { section: 'RESOURCE MGMT', collapsible: true, items: [{ to: '/ips' }, { to: '/sims' }] },
+  { section: 'SETTINGS', collapsible: true, items: [{ to: '/settings' }, { to: '/settings/users' }] },
   { section: 'DELIVERY / DATA', collapsible: true, items: [
     { to: '/tickets' }, { to: '/governance' }, { to: '/audit' },
   ]},

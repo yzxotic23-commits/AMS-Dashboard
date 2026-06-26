@@ -5,8 +5,6 @@ import { SITES } from '../lib/sites';
 import { useBanStats } from '../hooks/useBanStats';
 import { useRecoveryStats } from '../hooks/useRecoveryStats';
 import { useSupplyStats } from '../hooks/useSupplyStats';
-import { useRmSupplyModel } from '../hooks/useRmSupplyModel';
-import RmSupplyPanel from '../components/RmSupplyPanel';
 import { useTicketStats } from '../hooks/useTickets';
 import { BAD_IP_FLAG_THRESHOLD } from '../lib/ban-analytics';
 
@@ -99,7 +97,6 @@ export default function GovernancePage() {
   const { data: banStats, isLoading: banLoading } = useBanStats(site);
   const { data: recStats } = useRecoveryStats(site);
   const { data: supplyLive } = useSupplyStats(site);
-  const { data: rmModel, isLoading: rmLoading } = useRmSupplyModel(site);
   const { data: tkStats } = useTicketStats(site);
   const supply = supplyLive?.length ? supplyLive : [];
   const rejReason = tkStats?.rejectReasons?.length
@@ -126,14 +123,12 @@ export default function GovernancePage() {
     <div>
       <PageHead
         title="Dashboard (Governance)"
-        description="Diagnostic view across supply, ban rates, recovery, and RM registration need (auto from ban rate)."
+        description="Diagnostic view across supply, ban rates, and recovery."
       />
 
       <div className="mb-4 text-xs text-ams-faint">
         {SITES[site].name}
       </div>
-
-      <RmSupplyPanel model={rmModel} site={site} loading={rmLoading} />
 
       <DashSection title="Supply Levels">
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

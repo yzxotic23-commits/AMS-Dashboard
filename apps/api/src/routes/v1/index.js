@@ -15,6 +15,7 @@ import ipGateRoutes from '../../modules/ip-gate/routes.js';
 import usersRoutes from '../../modules/users/routes.js';
 import operatorsRoutes from '../../modules/operators/routes.js';
 import supplyRoutes from '../../modules/supply/routes.js';
+import settingsRoutes from '../../modules/settings/routes.js';
 
 const router = Router();
 
@@ -43,6 +44,7 @@ router.use('/tickets', ticketsRoutes);
 router.use('/ip-gate', ipGateRoutes);
 router.use('/operators', operatorsRoutes);
 router.use('/supply', supplyRoutes);
+router.use('/settings', settingsRoutes);
 router.use('/users', usersRoutes);
 
 export default router;

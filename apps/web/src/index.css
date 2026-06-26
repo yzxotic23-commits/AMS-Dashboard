@@ -972,6 +972,9 @@
   .nurt-progress-fill--warn {
     background-color: var(--ams-warn);
   }
+  .nurt-progress-fill--ok {
+    background-color: var(--ams-success);
+  }
   .nurt-progress-fill--blue {
     background-color: var(--ams-blue);
   }
@@ -990,50 +993,169 @@
   }
 
   .activation-stats {
-    @apply mb-5 grid gap-px;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    background-color: var(--ams-line);
-    border-radius: var(--ams-radius-card);
-    overflow: hidden;
-    box-shadow: var(--ams-shadow-card);
+    @apply mb-4 grid grid-cols-2 gap-3;
   }
-  .activation-stat {
-    @apply px-4 py-3;
-    background-color: var(--ams-surface-card);
-  }
-  .activation-stat-val {
-    @apply text-2xl font-bold tracking-tight text-ams-ink;
-  }
-  .activation-stat-label {
-    @apply mt-0.5 text-[11px] font-medium text-ams-muted;
-  }
-  .activation-layout {
-    @apply grid gap-4;
-    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
-  }
-  @media (max-width: 900px) {
-    .activation-layout {
+  @media (max-width: 640px) {
+    .activation-stats {
       grid-template-columns: 1fr;
     }
   }
-  .activation-wizard {
-    @apply flex min-h-[24rem] flex-col overflow-hidden p-0;
+  .activation-stat {
+    @apply flex w-full cursor-pointer items-center justify-between gap-3 rounded-lg border bg-white px-4 py-2.5 text-left shadow-card transition-[background-color,border-color,color,box-shadow];
+    border-color: var(--ams-line);
   }
-  .activation-step {
-    @apply rounded-lg border border-ams-line bg-ams-surface-muted/40 p-3;
+  .activation-stat:hover:not(.activation-stat--active) {
+    border-color: rgba(6, 6, 6, 0.14);
+    background-color: color-mix(in srgb, var(--ams-ink) 3%, white);
   }
-  .activation-step--done {
-    border-color: rgba(26, 147, 46, 0.25);
-    background-color: rgba(26, 147, 46, 0.04);
+  .activation-stat--active {
+    border-color: rgba(6, 6, 6, 0.2);
+    background-color: var(--ams-surface-muted);
+    box-shadow: inset 0 0 0 1px rgba(6, 6, 6, 0.05);
   }
-  .activation-step-title {
-    @apply mb-2 text-[11px] font-semibold uppercase tracking-wide text-ams-muted;
+  .activation-stat--active:hover {
+    border-color: rgba(6, 6, 6, 0.26);
+    background-color: color-mix(in srgb, var(--ams-ink) 4%, var(--ams-surface-muted));
   }
-  .activation-step--done .activation-step-title {
+  .activation-stat--active .activation-stat-label {
+    color: var(--ams-ink-sub);
+    font-weight: 600;
+  }
+  .activation-stat--ready:hover:not(.activation-stat--active) {
+    border-color: color-mix(in srgb, var(--ams-success) 30%, var(--ams-line));
+    background-color: color-mix(in srgb, var(--ams-success) 6%, white);
+  }
+  .activation-stat--ready.activation-stat--active {
+    border-color: color-mix(in srgb, var(--ams-success) 50%, var(--ams-line));
+    background-color: #e6f4ea;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ams-success) 14%, transparent);
+  }
+  .activation-stat--ready.activation-stat--active:hover {
+    border-color: color-mix(in srgb, var(--ams-success) 58%, var(--ams-line));
+    background-color: color-mix(in srgb, var(--ams-success) 10%, #e6f4ea);
+  }
+  .activation-stat--ready.activation-stat--active .activation-stat-label {
+    color: color-mix(in srgb, var(--ams-success) 55%, var(--ams-ink-sub));
+    font-weight: 600;
+  }
+  .activation-stat-val {
+    @apply text-lg font-semibold tabular-nums tracking-tight text-ams-ink;
+  }
+  .activation-stat--ready .activation-stat-val {
     color: var(--ams-success);
   }
-  .activation-fields {
-    @apply grid gap-2;
+  .activation-stat-label {
+    @apply text-[12px] font-medium text-ams-muted;
+  }
+  .settings-hub {
+    @apply grid gap-3;
+  }
+  .settings-hub-card {
+    @apply flex items-center gap-4 rounded-lg border border-ams-line bg-white px-4 py-3.5 shadow-card transition-colors;
+    color: inherit;
+  }
+  .settings-hub-card:hover {
+    border-color: rgba(6, 6, 6, 0.14);
+    background-color: color-mix(in srgb, var(--ams-ink) 2%, white);
+  }
+  .settings-hub-icon {
+    @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-lg;
+    background-color: var(--ams-surface-muted);
+    color: var(--ams-ink-sub);
+  }
+  .settings-hub-title {
+    @apply block text-sm font-semibold text-ams-ink;
+  }
+  .settings-hub-desc {
+    @apply mt-0.5 block text-[12px] leading-snug text-ams-muted;
+  }
+  .rm-settings-grid {
+    @apply grid gap-4;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  }
+  @media (max-width: 960px) {
+    .rm-settings-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+  .rm-settings-form,
+  .rm-settings-preview {
+    @apply p-4;
+  }
+  .rm-settings-form-head {
+    @apply mb-3 border-b border-ams-line pb-2.5;
+  }
+  .rm-field-grid {
+    @apply grid grid-cols-2 gap-2.5;
+  }
+  @media (max-width: 640px) {
+    .rm-field-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+  .rm-field-tile {
+    @apply rounded-lg border border-ams-line bg-ams-surface-muted/30 px-3 py-2.5;
+  }
+  .rm-field-tile-head {
+    @apply mb-1.5;
+  }
+  .rm-field-tile-row {
+    @apply flex items-center gap-2;
+  }
+  .rm-field-foot {
+    @apply mt-1.5 text-[10px] leading-snug text-ams-faint;
+  }
+  .rm-field-label {
+    @apply text-[12px] font-semibold leading-snug text-ams-ink;
+  }
+  .rm-field-symbol {
+    @apply ml-1 rounded bg-white px-1 py-0.5 font-mono text-[10px] font-medium text-ams-faint;
+    box-shadow: inset 0 0 0 1px var(--ams-line);
+  }
+  .rm-source-toggle {
+    @apply inline-flex shrink-0 rounded-pill border border-ams-line bg-white p-0.5;
+  }
+  .rm-source-toggle-btn {
+    @apply rounded-pill px-2 py-0.5 text-[10px] font-semibold text-ams-muted transition-colors;
+  }
+  .rm-source-toggle-btn--on {
+    background-color: #fff0e8;
+    color: var(--ams-accent);
+    font-weight: 600;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ams-accent) 35%, transparent);
+  }
+  .rm-source-toggle-btn:hover:not(.rm-source-toggle-btn--on):not(:disabled) {
+    color: var(--ams-ink-sub);
+  }
+  .rm-field-input-wrap {
+    @apply relative min-w-0 flex-1;
+  }
+  .rm-field-input {
+    @apply w-full pr-9 py-1.5 text-sm font-mono;
+  }
+  .rm-field-unit {
+    @apply pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-ams-faint;
+  }
+  .rm-output-grid {
+    @apply grid grid-cols-2 gap-3 lg:grid-cols-3;
+  }
+  .rm-output-card {
+    @apply rounded-lg border border-ams-line bg-ams-surface-muted/40 px-3 py-2.5;
+  }
+  .rm-output-label {
+    @apply text-[11px] font-medium text-ams-muted;
+  }
+  .rm-output-value {
+    @apply mt-1 text-lg font-semibold tracking-tight text-ams-ink;
+  }
+  .rm-output-sub {
+    @apply ml-1 text-sm font-medium text-ams-faint;
+  }
+  .rm-effective-row {
+    @apply mt-4 flex flex-col gap-1 border-t border-ams-line pt-3;
+  }
+  .rm-site-tabs {
+    @apply mb-0 border-0;
   }
   .data-table tbody tr.row-selected {
     background-color: rgba(230, 95, 43, 0.06);
@@ -1048,6 +1170,51 @@
   .link-wa-panel {
     @apply relative flex min-h-[13rem] items-center justify-center rounded-xl border border-dashed border-ams-line bg-ams-surface-muted/50 p-4;
   }
+  .link-wa-panel--embedded {
+    @apply min-h-[10.5rem] rounded-lg border-solid bg-white p-3 shadow-card;
+    border-color: var(--ams-line);
+  }
+  .link-wa-flow--embedded {
+    @apply flex flex-col gap-3;
+  }
+  .link-wa-flow--embedded .drawer-field {
+    @apply mb-0;
+  }
+  .link-wa-flow--embedded .drawer-label {
+    @apply mb-1.5 text-[11px] font-medium;
+  }
+  .link-wa-flow--embedded .drawer-radio {
+    @apply py-2 text-[12px] font-medium;
+  }
+  .link-wa-flow--embedded .drawer-radio-on {
+    border-color: rgba(6, 6, 6, 0.18);
+    background-color: var(--ams-surface-muted);
+    color: var(--ams-ink-sub);
+  }
+  .scan-drawer-form {
+    @apply gap-4;
+  }
+  .drawer-hint--compact {
+    @apply py-2.5 text-[12px] leading-snug;
+  }
+  .drawer-summary-card {
+    @apply rounded-lg border border-ams-line bg-white px-3.5 py-3 shadow-card;
+  }
+  .drawer-kv-v--name {
+    @apply font-sans text-sm font-semibold;
+    font-family: inherit;
+  }
+  .drawer-kv-v--plain {
+    @apply font-sans text-sm font-medium;
+    font-family: inherit;
+  }
+  .scan-drawer-confirm {
+    @apply cursor-pointer leading-snug;
+  }
+  .btn-scan-confirm:not(:disabled) {
+    @apply font-semibold text-ams-ink-sub;
+    border-color: rgba(6, 6, 6, 0.14);
+  }
   .link-wa-qr {
     @apply hidden rounded-lg bg-white p-2 shadow-sm;
   }
@@ -1055,7 +1222,7 @@
     @apply block;
   }
   .link-wa-placeholder {
-    @apply flex flex-col items-center gap-2 text-center;
+    @apply flex flex-col items-center gap-3 text-center;
   }
   .link-wa-pairing {
     @apply flex w-full flex-col items-center gap-4 text-center;

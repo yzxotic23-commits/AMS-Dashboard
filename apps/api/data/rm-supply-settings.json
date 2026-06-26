@@ -1,0 +1,40 @@
+{
+  "my": {
+    "sources": {
+      "D": "manual",
+      "R": "live",
+      "Wf": "manual",
+      "Fr": "live",
+      "Tr": "live"
+    },
+    "manual": {
+      "D": 20,
+      "R": 40,
+      "Wf": 20,
+      "Fr": 20,
+      "W": 7,
+      "Tr": 2,
+      "dev": 2,
+      "ppl": 50
+    }
+  },
+  "pp": {
+    "sources": {
+      "D": "manual",
+      "R": "live",
+      "Wf": "manual",
+      "Fr": "live",
+      "Tr": "live"
+    },
+    "manual": {
+      "D": 20,
+      "R": 40,
+      "Wf": 20,
+      "Fr": 20,
+      "W": 7,
+      "Tr": 2,
+      "dev": 2,
+      "ppl": 50
+    }
+  }
+}

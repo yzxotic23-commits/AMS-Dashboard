@@ -4,15 +4,23 @@ import { Ban, CheckCircle2, Clock, ScanLine } from 'lucide-react';
 import Drawer from './Drawer';
 import IconTooltip from './IconTooltip';
 import Toast from './Toast';
+import LinkWhatsAppDrawer from './LinkWhatsAppDrawer';
 import { useSite } from '../context/SiteContext';
 import { SITES, getSiteChipClass } from '../lib/sites';
-import { useAccountsByStatus, useAccountMutations } from '../hooks/useOperatorAccounts';
+import { useEngineBridgeStatus } from '../hooks/useBridgeConnect';
+import { useAccountsByStatus, useAccountMutations, useAllAccounts } from '../hooks/useOperatorAccounts';
 import { useFreeIps } from '../hooks/useResourceOptions';
 import {
   isAutoGraduationDue, isManualScanDue, nurturingDay,
 } from '../lib/nurturing-day';
 import { NURT_STATUS, toastCopy } from '../lib/operator-copy';
 import { formatProxyOptionLabel } from '../lib/proxy-display';
+import {
+  buildIpBindings,
+  isIpSelectableForAccount,
+  ipBindingCount,
+  proxyBindingSuffix,
+} from '../lib/ip-ready';
 
 function ProgressBar({ day, max, tone = 'warn' }) {
   const pct = Math.min(100, Math.round((day / max) * 100));
@@ -70,13 +78,43 @@ export default function NurturingPanels() {
   const [banReason, setBanReason] = useState(BAN_REASONS_MANUAL[0]);
   const [scanIpId, setScanIpId] = useState('');
   const [scanOk, setScanOk] = useState(false);
+  const [scanSlot, setScanSlot] = useState(null);
+  const [feedflowLinked, setFeedflowLinked] = useState(false);
   const [toast, setToast] = useState('');
   const [busy, setBusy] = useState(false);
   const { data: nurturing = [], isLoading } = useAccountsByStatus('NURTURING');
+  const { data: allAccounts = [] } = useAllAccounts();
   const { patchAccount, transitionAccount, banAccount } = useAccountMutations();
+  const { data: engineStatus, refetch: refetchEngine } = useEngineBridgeStatus();
+
+  const engineReachable = engineStatus?.reachable !== false && engineStatus?.ok !== false;
+  const engineSlots = engineStatus?.accounts || engineStatus?.slots || [];
+
+  const slotTakenBy = useMemo(() => {
+    const map = {};
+    allAccounts.forEach((a) => {
+      if (a.wsaf_slot == null || a.id === scanRow?.id) return;
+      map[a.wsaf_slot] = a.account_name;
+    });
+    return map;
+  }, [allAccounts, scanRow?.id]);
 
   const scanSite = scanRow?.siteKey || 'my';
   const freeIps = useFreeIps(scanSite);
+
+  const ipBindings = useMemo(() => buildIpBindings(allAccounts), [allAccounts]);
+
+  function pickDefaultScanIp(row) {
+    if (row.ip_id) {
+      const current = freeIps.find((ip) => ip.id === row.ip_id);
+      if (current && isIpSelectableForAccount(current, ipBindings, row.ip_id)) return current;
+    }
+    const byAddress = freeIps.find(
+      (ip) => ip.ip_address === row.ip && isIpSelectableForAccount(ip, ipBindings, row.ip_id),
+    );
+    if (byAddress) return byAddress;
+    return freeIps.find((ip) => isIpSelectableForAccount(ip, ipBindings, row.ip_id)) || null;
+  }
 
   const manualList = useMemo(() => {
     const rows = nurturing
@@ -112,16 +150,45 @@ export default function NurturingPanels() {
   }
 
   function openScan(row) {
-    const defaultIp = freeIps.find((ip) => ip.ip_address === row.ip) || freeIps[0];
+    const defaultIp = pickDefaultScanIp(row);
     setScanIpId(defaultIp?.id || '');
     setScanOk(false);
+    setScanSlot(row.wsaf_slot ?? null);
+    setFeedflowLinked(false);
     setScanRow(row);
+  }
+
+  async function changeScanSlot(slot) {
+    if (!scanRow) return;
+    if (slot != null && slotTakenBy[slot]) {
+      showToast(`Slot ${slot + 1} is already used by ${slotTakenBy[slot]}`);
+      return;
+    }
+    setScanSlot(slot);
+    try {
+      await patchAccount.mutateAsync({
+        id: scanRow.id,
+        row: scanRow,
+        patch: { wsaf_slot: slot },
+        extra: { wsaf_slot: slot },
+      });
+    } catch (e) {
+      showToast(e.message || 'Could not save engine slot');
+    }
   }
 
   async function submitScan() {
     if (!scanRow || busy) return;
     if (!scanOk) {
       showToast(toastCopy.nurturingConfirmIp());
+      return;
+    }
+    if (scanSlot == null) {
+      showToast('Assign an engine slot and link FeedFlow before scan-in.');
+      return;
+    }
+    if (!feedflowLinked) {
+      showToast('Link WhatsApp in FeedFlow before confirming scan-in.');
       return;
     }
     setBusy(true);
@@ -134,8 +201,10 @@ export default function NurturingPanels() {
           ip: ipRow?.ip_address || scanRow.ip,
           ip_id: ipRow?.id || null,
           nurturing_phase: 'auto',
+          linked_override: true,
+          wsaf_slot: scanSlot,
         },
-        extra: {},
+        extra: { wsaf_slot: scanSlot },
       });
       setScanRow(null);
       showToast(toastCopy.nurturingScanIn(scanRow.acct));
@@ -209,7 +278,11 @@ export default function NurturingPanels() {
     }
   }
 
-  const scanIpRow = freeIps.find((ip) => ip.id === scanIpId);
+  const scanAccount = scanRow ? {
+    ...scanRow,
+    account_name: scanRow.acct || scanRow.account_name,
+    phone_number: scanRow.phone_number,
+  } : null;
 
   return (
     <div>
@@ -384,68 +457,90 @@ export default function NurturingPanels() {
         footer={(
           <>
             <button type="button" className="btn btn-ghost" onClick={() => setScanRow(null)}>Cancel</button>
-            <button type="button" className="btn btn-primary" onClick={submitScan} disabled={busy}>
+            <button
+              type="button"
+              className="btn btn-secondary btn-scan-confirm"
+              onClick={submitScan}
+              disabled={busy || !scanOk || scanSlot == null || !feedflowLinked}
+            >
               {busy ? 'Saving…' : 'Confirm Auto Nurturing'}
             </button>
           </>
         )}
       >
         {scanRow && (
-          <div className="space-y-4">
-            <p className="drawer-hint">
-              WhatsApp was linked during Activation. Confirm the account is ready to move from device farm to engine-monitored auto nurturing (days 4–7).
+          <div className="drawer-form scan-drawer-form">
+            <p className="drawer-hint drawer-hint--compact">
+              Day 3 on device farm — link FeedFlow for engine monitoring (days 4–7), then confirm scan-in.
             </p>
-            <div className="drawer-locked">
-              <div className="drawer-locked-label">Account</div>
-              <div className="text-sm font-semibold">{scanRow.acct}</div>
-            </div>
-            <div className="drawer-locked">
-              <div className="drawer-locked-label">Device / Slot · Location</div>
-              <div className="text-sm font-mono">{scanRow.dev} · {scanRow.ch}</div>
-              <div className="mt-1 text-xs text-ams-faint">
-                {SITES[scanRow.siteKey].name}
+
+            <div className="drawer-summary-card">
+              <div className="drawer-kv-grid">
+                <span className="drawer-kv-k">Account</span>
+                <span className="drawer-kv-v drawer-kv-v--name">{scanRow.acct}</span>
+                <span className="drawer-kv-k">Device</span>
+                <span className="drawer-kv-v">{scanRow.dev} · {scanRow.ch}</span>
+                <span className="drawer-kv-k">Site</span>
+                <span className="drawer-kv-v drawer-kv-v--plain">{SITES[scanRow.siteKey].name}</span>
               </div>
             </div>
-            <label className="drawer-field">
-              <span className="drawer-label">Engine proxy (from IP Ledger)</span>
+
+            <section className="drawer-section">
+              <div className="drawer-section-title">Engine proxy</div>
               <select
-                className="input font-mono"
+                className="input font-mono text-sm"
                 value={scanIpId}
                 onChange={(e) => setScanIpId(e.target.value)}
               >
-                {freeIps.map((ip) => (
-                  <option key={ip.id} value={ip.id}>{formatProxyOptionLabel(ip)}</option>
-                ))}
+                {freeIps.length === 0 ? (
+                  <option value="">No proxies for this site</option>
+                ) : freeIps.map((ip) => {
+                  const bound = ipBindingCount(ip, ipBindings);
+                  const selectable = isIpSelectableForAccount(ip, ipBindings, scanRow.ip_id);
+                  const suffix = proxyBindingSuffix(bound, scanRow.ip_id, ip.id);
+                  return (
+                    <option key={ip.id} value={ip.id} disabled={!selectable}>
+                      {formatProxyOptionLabel(ip)}{suffix}
+                    </option>
+                  );
+                })}
               </select>
-            </label>
-            {scanIpRow && (
-              <div className="drawer-fields grid-cols-2">
-                <div className="drawer-locked">
-                  <div className="drawer-locked-label">IP</div>
-                  <div className="drawer-locked-value drawer-locked-value--mono">{scanIpRow.ip_address}</div>
-                </div>
-                <div className="drawer-locked">
-                  <div className="drawer-locked-label">Port</div>
-                  <div className="drawer-locked-value drawer-locked-value--mono">{scanIpRow.port || '—'}</div>
-                </div>
-                <div className="drawer-locked">
-                  <div className="drawer-locked-label">Username</div>
-                  <div className="drawer-locked-value drawer-locked-value--mono">{scanIpRow.username || '—'}</div>
-                </div>
-                <div className="drawer-locked">
-                  <div className="drawer-locked-label">Password</div>
-                  <div className="drawer-locked-value drawer-locked-value--mono">{scanIpRow.password || '—'}</div>
-                </div>
-              </div>
-            )}
-            <label className="flex items-start gap-2.5 text-[13px] text-ams-ink">
+            </section>
+
+            <section className="drawer-section">
+              <div className="drawer-section-title">FeedFlow link</div>
+              <LinkWhatsAppDrawer
+                embedded
+                hideAccountRow
+                open={!!scanRow}
+                account={scanAccount}
+                slot={scanSlot}
+                engineSlots={engineSlots}
+                slotTakenBy={slotTakenBy}
+                engineReachable={engineReachable}
+                engineStatus={engineStatus}
+                onEngineRefresh={refetchEngine}
+                onSlotChange={changeScanSlot}
+                onLinked={async () => {
+                  setFeedflowLinked(true);
+                  await patchAccount.mutateAsync({
+                    id: scanRow.id,
+                    row: scanRow,
+                    patch: { linked_override: true, wsaf_slot: scanSlot },
+                    extra: { wsaf_slot: scanSlot },
+                  });
+                }}
+              />
+            </section>
+
+            <label className="scan-drawer-confirm flex items-start gap-2.5 text-[13px] text-ams-muted">
               <input
                 type="checkbox"
-                className="mt-0.5 h-4 w-4 shrink-0"
+                className="ams-check mt-0.5 shrink-0"
                 checked={scanOk}
                 onChange={(e) => setScanOk(e.target.checked)}
               />
-              Device farm phase is complete — hand off to engine monitoring
+              <span>Device farm complete — ready for engine monitoring</span>
             </label>
           </div>
         )}

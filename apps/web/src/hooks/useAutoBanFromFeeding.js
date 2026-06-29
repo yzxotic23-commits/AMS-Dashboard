@@ -31,7 +31,7 @@ export function useAutoBanFromFeeding() {
       const res = await api.get('/accounts', { params: { limit: 400 } });
       return (res.data?.data || []).map(accountToOperatorRow);
     },
-    refetchInterval: 30_000,
+    refetchInterval: false,
   });
 
   useEffect(() => {

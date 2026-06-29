@@ -1,6 +1,5 @@
 import './loadEnv.js';
 import app from './app.js';
-import { startWsafEngine } from './lib/wsafEngineManager.js';
 import { ensureTicketScreenshotBucket } from './lib/ticketScreenshots.js';
 
 const PORT = parseInt(process.env.API_PORT || '4000', 10);
@@ -12,9 +11,7 @@ const buildTag = 'operators-roster-v1';
 app.listen(PORT, HOST, () => {
   console.log(`[AMS API] http://${HOST}:${PORT} (started ${startedAt}, ${buildTag})`);
   console.log(`[AMS API] Health: http://localhost:${PORT}/api/v1/health`);
-  startWsafEngine().catch((e) => {
-    console.error('[AMS] FeedFlow engine bootstrap error:', e.message);
-  });
+  console.log('[AMS API] FeedFlow engine starts on first /bridge/* request (not on API boot).');
   ensureTicketScreenshotBucket().catch((e) => {
     console.error('[AMS] ticket-screenshots bucket check failed:', e.message);
   });

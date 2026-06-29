@@ -5,7 +5,7 @@ export function useFeedingAudit(limit = 100) {
   return useQuery({
     queryKey: ['bridge', 'audit', limit],
     queryFn: () => getFeedingAudit(limit),
-    refetchInterval: 15_000,
+    refetchInterval: false,
     staleTime: 10_000,
   });
 }

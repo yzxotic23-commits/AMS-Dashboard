@@ -14,6 +14,7 @@ async function wsafRequest(path, options = {}) {
       signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
+        'X-FeedFlow-Client': 'ams-bridge',
         ...(options.headers || {}),
       },
     });

@@ -11,6 +11,17 @@ import SiteSwitcher from './SiteSwitcher';
 import AppSidebar from './AppSidebar';
 import EngineBackgroundSync from './EngineBackgroundSync';
 
+/** AMS bridge sync only on pages that explicitly use FeedFlow engine — not global. */
+const AMS_BRIDGE_SYNC_PATHS = [
+  '/governance',
+  '/audit',
+  '/feedflow',
+  '/link',
+  '/nurturing',
+  '/register',
+  '/recovery',
+];
+
 const NAV_SECTIONS = [
   { section: 'OPERATOR ACTIONS', collapsible: true, items: [
     { to: '/' }, { to: '/register' }, { to: '/link' }, { to: '/nurturing' }, { to: '/recovery' },
@@ -71,10 +82,13 @@ export default function Layout({ authBooting = false }) {
   }, [signOut, navigate]);
 
   const initials = (profile?.full_name || profile?.email || 'U').charAt(0).toUpperCase();
+  const amsBridgeSync = AMS_BRIDGE_SYNC_PATHS.some(
+    (p) => location.pathname === p || location.pathname.startsWith(`${p}/`),
+  );
 
   return (
     <div className="flex h-screen overflow-hidden bg-ams-sidebar">
-      <EngineBackgroundSync />
+      {amsBridgeSync ? <EngineBackgroundSync /> : null}
       <AppSidebar
         profile={profile}
         pathname={location.pathname}

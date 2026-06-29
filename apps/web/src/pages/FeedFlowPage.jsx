@@ -1,33 +1,13 @@
 import { ExternalLink } from 'lucide-react';
-import { useEffect, useRef } from 'react';
 import PageHead from '../components/PageHead';
 import EngineStatusPanel from '../components/EngineStatusPanel';
 import FeedingAuditPanel from '../components/FeedingAuditPanel';
 import { useEngineStatus } from '../hooks/useEngineStatus';
-import { useAllAccounts } from '../hooks/useOperatorAccounts';
-import api from '../lib/api';
-import { feedflowSlotLabelBody } from '../lib/feeding-audit';
 import { wsafConsoleUrl } from '../lib/wsafEmbed';
 
 export default function FeedFlowPage() {
   const { data } = useEngineStatus();
-  const { data: accounts = [] } = useAllAccounts();
   const live = data?.reachable === true;
-  const syncedRef = useRef(false);
-
-  useEffect(() => {
-    if (!live || syncedRef.current) return;
-    const rows = accounts.filter((a) => a.wsaf_slot != null && a.account_name);
-    if (!rows.length) return;
-    syncedRef.current = true;
-    void Promise.all([
-      ...rows.map((a) => api.post(
-        `/bridge/slots/${a.wsaf_slot}/display-label`,
-        feedflowSlotLabelBody(a),
-      ).catch(() => {})),
-      api.post('/bridge/audit/sync').catch(() => {}),
-    ]);
-  }, [live, accounts]);
 
   return (
     <div>

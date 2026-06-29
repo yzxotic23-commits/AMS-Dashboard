@@ -109,7 +109,7 @@ export default function EngineStatusPanel() {
           <div>
             <div className="text-sm font-medium text-ams-ink">Starting FeedFlow engine…</div>
             <div className="text-xs text-ams-muted">
-              AMS launches the engine automatically — open the console to link accounts.
+              AMS launches the engine on first bridge request — klik Refresh untuk sync.
             </div>
           </div>
         </div>

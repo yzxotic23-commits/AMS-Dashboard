@@ -7,7 +7,11 @@ function base() {
 async function localFetch(path, options = {}) {
   const res = await fetch(`${base()}${path}`, {
     ...options,
-    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+    headers: {
+      'Content-Type': 'application/json',
+      'X-FeedFlow-Client': 'ams-bridge',
+      ...(options.headers || {}),
+    },
     signal: options.signal ?? AbortSignal.timeout(options.timeout ?? 8000),
   });
   const text = await res.text();

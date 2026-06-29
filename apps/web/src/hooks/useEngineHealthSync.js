@@ -12,7 +12,7 @@ export function useEngineHealthSync() {
   const { data: bridge } = useQuery({
     queryKey: ['bridge', 'summary'],
     queryFn: getBridgeSummary,
-    refetchInterval: 20_000,
+    refetchInterval: false,
     retry: 1,
   });
 
@@ -22,7 +22,7 @@ export function useEngineHealthSync() {
       const res = await api.get('/accounts', { params: { limit: 400 } });
       return (res.data?.data || []).map(accountToOperatorRow);
     },
-    refetchInterval: 30_000,
+    refetchInterval: false,
   });
 
   useEffect(() => {

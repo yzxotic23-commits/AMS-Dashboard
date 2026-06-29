@@ -11,7 +11,7 @@ export function useEngineBridgeStatus() {
   return useQuery({
     queryKey: ['bridge', 'status'],
     queryFn: getBridgeStatus,
-    refetchInterval: 8_000,
+    refetchInterval: false,
     staleTime: 4_000,
   });
 }

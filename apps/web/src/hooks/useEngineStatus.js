@@ -5,12 +5,7 @@ export function useEngineStatus() {
   return useQuery({
     queryKey: ['bridge', 'summary'],
     queryFn: getBridgeSummary,
-    refetchInterval: (query) => {
-      const boot = query.state.data?.boot;
-      const reachable = query.state.data?.reachable;
-      if (boot?.state === 'starting' || (!reachable && boot?.autoStart)) return 2_000;
-      return 10_000;
-    },
+    refetchInterval: false,
     staleTime: 5_000,
   });
 }

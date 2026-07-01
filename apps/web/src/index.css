@@ -510,6 +510,11 @@
     @apply mb-4 text-[13px] font-semibold;
     color: var(--ams-ink);
   }
+  .dash-empty-hint {
+    @apply rounded-[11px] border border-dashed border-ams-line px-5 py-5 text-center text-[13px] leading-relaxed;
+    background-color: var(--ams-surface-muted);
+    color: var(--ams-faint);
+  }
   .dash-stat-row {
     @apply flex items-center justify-between py-2.5 text-[13px];
     border-bottom: 1px solid var(--ams-line);

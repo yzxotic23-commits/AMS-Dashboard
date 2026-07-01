@@ -213,12 +213,15 @@ export default function GovernancePage() {
         title="Ban Rate · By Stage"
         badge={banLoading ? 'Loading…' : `Overall ${overallBan} · ${banStats?.total ?? 0} events`}
       >
+        {byStage.length === 0 ? (
+          <div className="dash-panel">
+            <div className="dash-empty-hint">
+              No ban events recorded yet for this range. When bans occur, this is the first place to look — a rising ban rate is addressed at its root (usage / IP / warming quality), not by adding devices or stock.
+            </div>
+          </div>
+        ) : (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {byStage.length === 0 ? (
-            <p className="col-span-full text-sm text-ams-muted">
-              No ban events recorded yet for this range.
-            </p>
-          ) : byStage.map((b) => (
+          {byStage.map((b) => (
             <MetricCard
               key={b.name}
               name={b.name}
@@ -230,6 +233,7 @@ export default function GovernancePage() {
             />
           ))}
         </div>
+        )}
 
         {banStats?.total > 0 && (
           <div className="mt-4 grid gap-3 lg:grid-cols-2">

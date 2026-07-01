@@ -1,0 +1,12 @@
+{
+  "css.validate": false,
+  "less.validate": false,
+  "scss.validate": false,
+  "files.associations": {
+    "apps/web/src/index.css": "tailwindcss"
+  },
+  "tailwindCSS.experimental.configFile": "apps/web/tailwind.config.js",
+  "tailwindCSS.includeLanguages": {
+    "plaintext": "html"
+  }
+}

@@ -106,10 +106,11 @@ export default function Layout({ authBooting = false }) {
         <header className="app-header-sticky w-full shrink-0 bg-ams-canvas">
           <div className="app-gutter app-header-toolbar pt-4 pb-3">
             <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
-              <div className="flex items-center justify-start gap-3">
+              <div aria-hidden="true" />
+              <div className="header-toolbar-center">
+                <SiteSwitcher />
                 {isGovernance && <GovernanceDateControls />}
               </div>
-              <SiteSwitcher />
               <div className="flex justify-end">
                 <div className="header-user">
                   <div className="header-user-avatar">{initials}</div>

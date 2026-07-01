@@ -527,41 +527,43 @@
 
   /* Governance date range (top bar) */
   .governance-date-ctl {
-    @apply flex flex-wrap items-center gap-2;
-  }
-  .governance-date-quick {
-    @apply inline-flex rounded-lg border border-ams-line p-0.5;
-    background-color: var(--ams-surface-muted);
-  }
-  .governance-date-quick button {
-    @apply rounded-md px-3 py-1 text-xs font-medium transition-colors;
-    color: var(--ams-muted);
-  }
-  .governance-date-quick button.on {
-    background-color: var(--ams-blue);
-    color: #fff;
-    font-weight: 600;
+    @apply relative flex flex-wrap items-center gap-2;
   }
   .governance-date-picker-wrap {
     @apply relative;
   }
   .governance-date-range {
-    @apply inline-flex items-center gap-2 rounded-lg border border-ams-line px-3 py-1.5 text-xs font-semibold transition-colors;
-    background-color: var(--ams-surface);
-    color: var(--ams-ink);
+    @apply inline-flex items-center gap-2 px-3.5 py-1.5 text-[13px] font-medium transition-all duration-150;
+    border-radius: var(--ams-radius-pill);
+    background-color: rgba(255, 255, 255, 0.55);
+    border: 1px solid rgba(6, 6, 6, 0.06);
+    box-shadow: var(--ams-shadow-card);
+    color: var(--ams-ink-sub);
   }
   .governance-date-range:hover {
-    border-color: var(--ams-blue);
+    color: var(--ams-ink);
+    background-color: rgba(255, 255, 255, 0.75);
   }
   .governance-date-val {
+    @apply font-semibold;
+    color: var(--ams-ink);
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .governance-date-ic {
+    @apply shrink-0;
+    color: var(--ams-muted);
+  }
+  .governance-date-sep {
+    @apply text-xs;
+    color: var(--ams-faint);
   }
   .governance-date-caret {
-    @apply text-[9px];
+    @apply ml-0.5 text-[9px];
     color: var(--ams-faint);
   }
   .governance-date-popover {
-    @apply absolute left-0 top-full z-50 mt-2 min-w-[240px] rounded-lg border border-ams-line p-3 shadow-lg;
+    @apply absolute right-0 top-full z-50 mt-2 min-w-[240px] rounded-lg border border-ams-line p-3 shadow-lg;
     background-color: var(--ams-surface);
   }
   .governance-date-fields {
@@ -924,6 +926,10 @@
   }
   .app-header-toolbar {
     background-color: var(--ams-canvas);
+  }
+
+  .header-toolbar-center {
+    @apply flex flex-wrap items-center justify-center gap-3;
   }
 
   .site-switcher {

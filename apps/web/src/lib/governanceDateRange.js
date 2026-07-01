@@ -49,6 +49,14 @@ export function defaultGovernanceRange() {
   return { preset: '30d', ...presetRange('30d') };
 }
 
+export function formatDateChip(d) {
+  return d.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
 export function formatRangeShort(from, to) {
   const opts = { day: 'numeric', month: 'short', year: 'numeric' };
   const a = from.toLocaleDateString('en-GB', opts);

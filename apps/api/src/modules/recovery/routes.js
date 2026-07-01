@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authenticate, requireRole } from '../../middleware/auth.js';
 import { supabaseAdmin } from '../../lib/supabase.js';
 import { parseOperatorMeta } from '../../lib/accountMeta.js';
+import { parseDateRangeQuery, inDateRange } from '../../lib/dateRange.js';
 
 const REC_PREFIX = '_ams_rec:';
 
@@ -23,6 +24,7 @@ router.use(requireRole('admin', 'operator'));
 router.get('/stats', async (req, res, next) => {
   try {
     const siteKey = req.query.site || req.query.site_key;
+    const range = parseDateRangeQuery(req.query);
     const { data: accounts, error } = await supabaseAdmin
       .from('accounts')
       .select('id, notes, status')
@@ -35,10 +37,13 @@ router.get('/stats', async (req, res, next) => {
       if (!rec?.log?.length) return;
       const meta = parseOperatorMeta(a);
       if (siteKey && siteKey !== 'all' && meta.site_key !== siteKey) return;
-      const last = rec.log[rec.log.length - 1];
-      if (last.st === 'ok' || last.st === 'fail') {
-        attempts.push({ result: last.st, reason: last.reason || '' });
-      } else if (rec.recovery_status === 'doing') {
+      (rec.log || []).forEach((entry) => {
+        if (entry.st === 'ok' || entry.st === 'fail') {
+          if (range && !inDateRange(entry.time, range)) return;
+          attempts.push({ result: entry.st, reason: entry.reason || '' });
+        }
+      });
+      if (!range && rec.recovery_status === 'doing') {
         attempts.push({ result: 'pending', reason: '' });
       }
     });
@@ -69,6 +74,7 @@ router.get('/stats', async (req, res, next) => {
       successRate: rate,
       failReasons,
       detail: `${total} attempts · ${success} success · ${failed} failed`,
+      date_range: range ? { from: range.from, to: range.to } : null,
     });
   } catch (e) {
     next(e);

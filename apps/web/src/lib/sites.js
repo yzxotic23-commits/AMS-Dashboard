@@ -1,3 +1,5 @@
+import { formatRangeCompact } from './governanceDateRange';
+
 export const SITES = {
   all: { id: 'all', name: 'All sites', short: 'All' },
   my: { id: 'my', name: 'Malaysia', short: 'MY' },
@@ -61,12 +63,17 @@ const STRIP_PAGE = {
   '/feedflow': 'feedflow',
 };
 
-export function getSiteStripMessage(pathname, site) {
+export function getSiteStripMessage(pathname, site, governanceDate = null) {
   const key = STRIP_PAGE[pathname] || 'operator';
   const siteKey = site === 'all' || site === 'my' || site === 'pp' ? site : 'all';
+  let sub = STRIP_SUB[key][siteKey];
+  if (key === 'governance' && governanceDate?.from && governanceDate?.to) {
+    const range = formatRangeCompact(governanceDate.from, governanceDate.to);
+    sub = `Range: ${range} · ${sub}`;
+  }
   return {
     label: SITE_BAR[siteKey].label,
-    sub: STRIP_SUB[key][siteKey],
+    sub,
   };
 }
 

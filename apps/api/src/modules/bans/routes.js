@@ -7,6 +7,7 @@ import {
   buildBanRecords, aggregateBanStats, parseBanReason, banStageLabel,
 } from '../../lib/banAnalytics.js';
 import { ACCOUNT_SELECT_BAN } from '../../lib/accountSelect.js';
+import { parseDateRangeQuery, inDateRange } from '../../lib/dateRange.js';
 
 const router = Router();
 router.use(authenticate);
@@ -45,8 +46,12 @@ async function loadBanData() {
 router.get('/stats', async (req, res, next) => {
   try {
     const siteKey = req.query.site || req.query.site_key || 'all';
+    const range = parseDateRangeQuery(req.query);
     const { records } = await loadBanData();
-    const stats = aggregateBanStats(records, { siteKey });
+    const filtered = range
+      ? records.filter((r) => inDateRange(r.changed_at, range))
+      : records;
+    const stats = aggregateBanStats(filtered, { siteKey });
 
     const { count: poolSize } = await supabaseAdmin
       .from('accounts')
@@ -69,6 +74,7 @@ router.get('/stats', async (req, res, next) => {
       overallPct,
       poolSize: poolSize || 0,
       flaggedIps: flaggedIps || [],
+      date_range: range ? { from: range.from, to: range.to } : null,
     });
   } catch (e) {
     next(e);

@@ -1,12 +1,16 @@
 import { Plug } from 'lucide-react';
 import PageHead from '../components/PageHead';
+import KpiInfoTip from '../components/KpiInfoTip';
 import { useSite } from '../context/SiteContext';
+import { useGovernanceDate } from '../context/GovernanceDateContext';
 import { SITES } from '../lib/sites';
 import { useBanStats } from '../hooks/useBanStats';
 import { useRecoveryStats } from '../hooks/useRecoveryStats';
 import { useSupplyStats } from '../hooks/useSupplyStats';
 import { useTicketStats } from '../hooks/useTickets';
 import { BAD_IP_FLAG_THRESHOLD } from '../lib/ban-analytics';
+import { kpiInfoForSupply } from '../lib/supplyKpiInfo';
+import { formatRangeCompact, isRangeEndingToday } from '../lib/governanceDateRange';
 
 const BAR_TONE = {
   danger: 'bar-row-fill-danger',
@@ -26,10 +30,23 @@ function banTone(val) {
   return 'metric-bad';
 }
 
-function MetricCard({ name, value, sub, pct, tone, pctLabel }) {
+function MetricCard({
+  name, value, sub, pct, tone, pctLabel, info,
+}) {
+  const tip = info;
   return (
     <div className={`metric-card ${tone || ''}`}>
-      <div className="text-xs font-medium text-ams-muted">{name}</div>
+      <div className="metric-card-head text-xs font-medium text-ams-muted">
+        <span>{name}</span>
+        {tip && (
+          <KpiInfoTip
+            title={tip.title}
+            body={tip.body}
+            formula={tip.formula}
+            align={tip.align}
+          />
+        )}
+      </div>
       <div className="metric-val">
         {value}
         {sub && <span className="text-sm font-medium text-ams-faint"> {sub}</span>}
@@ -44,12 +61,25 @@ function MetricCard({ name, value, sub, pct, tone, pctLabel }) {
   );
 }
 
-function SupplyCountCard({ name, value }) {
+function SupplyCountCard({ name, value, snapshotLabel, info }) {
+  const tip = info;
   return (
-    <div className="metric-card metric-card--count-only">
-      <div className="text-xs font-medium text-ams-muted">{name}</div>
+    <div className="metric-card">
+      <div className="metric-card-head text-xs font-medium text-ams-muted">
+        <span>{name}</span>
+        {tip && (
+          <KpiInfoTip
+            title={tip.title}
+            body={tip.body}
+            formula={tip.formula}
+            align={tip.align}
+          />
+        )}
+      </div>
       <div className="metric-val">{value}</div>
-      <div className="text-[11px] text-ams-faint">Current count only</div>
+      <div className="text-[11px] text-ams-faint">
+        {snapshotLabel || 'Current count only'}
+      </div>
     </div>
   );
 }
@@ -94,11 +124,16 @@ function StatBlock({ value, label, tone }) {
 
 export default function GovernancePage() {
   const { site } = useSite();
-  const { data: banStats, isLoading: banLoading } = useBanStats(site);
-  const { data: recStats } = useRecoveryStats(site);
-  const { data: supplyLive } = useSupplyStats(site);
-  const { data: tkStats } = useTicketStats(site);
-  const supply = supplyLive?.length ? supplyLive : [];
+  const dateRange = useGovernanceDate();
+  const { data: banStats, isLoading: banLoading } = useBanStats(site, dateRange);
+  const { data: recStats } = useRecoveryStats(site, dateRange);
+  const { data: supplyData } = useSupplyStats(site, dateRange);
+  const { data: tkStats } = useTicketStats(site, dateRange);
+  const supply = supplyData?.pools?.length ? supplyData.pools : [];
+  const rangeLabel = formatRangeCompact(dateRange.from, dateRange.to);
+  const liveEnd = isRangeEndingToday(dateRange.to);
+  const snapshotSuffix = liveEnd ? '' : ` (as of ${rangeLabel.split('–').pop()?.trim() || rangeLabel})`;
+
   const rejReason = tkStats?.rejectReasons?.length
     ? tkStats.rejectReasons.map((r) => ({
       l: r.label,
@@ -128,6 +163,8 @@ export default function GovernancePage() {
 
       <div className="mb-4 text-xs text-ams-faint">
         {SITES[site].name}
+        {' · '}
+        Range: {rangeLabel}
       </div>
 
       <DashSection title="Supply Levels">
@@ -135,9 +172,19 @@ export default function GovernancePage() {
           {supply.length === 0 ? (
             <p className="col-span-full text-sm text-ams-muted">No account supply data yet.</p>
           ) : supply.map((s) => {
-            if (s.countOnly) {
+            const info = kpiInfoForSupply(s.status);
+            const isSnapshot = !liveEnd && (s.status === 'AVAILABLE' || s.status === 'IN_USE');
+            if (s.countOnly || isSnapshot) {
               return (
-                <SupplyCountCard key={s.name} name={s.name} value={s.cur} />
+                <SupplyCountCard
+                  key={s.name}
+                  name={s.name}
+                  value={s.cur}
+                  info={info}
+                  snapshotLabel={isSnapshot || (s.countOnly && !liveEnd)
+                    ? `Live count${snapshotSuffix}`
+                    : 'Current count only'}
+                />
               );
             }
             const pct = s.pct ?? (s.healthy ? Math.round((s.cur / s.healthy) * 100) : 0);
@@ -149,6 +196,7 @@ export default function GovernancePage() {
                 value={s.cur}
                 sub={`/ ${s.healthy}`}
                 pct={pct}
+                info={info}
                 pctLabel={isRegistering
                   ? `${pct}% of RM daily reg target`
                   : s.name === 'Nurturing Pool'
@@ -167,7 +215,9 @@ export default function GovernancePage() {
       >
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {byStage.length === 0 ? (
-            <p className="col-span-full text-sm text-ams-muted">No ban events recorded yet.</p>
+            <p className="col-span-full text-sm text-ams-muted">
+              No ban events recorded yet for this range.
+            </p>
           ) : byStage.map((b) => (
             <MetricCard
               key={b.name}
@@ -251,7 +301,7 @@ export default function GovernancePage() {
               {recStats?.total > 0 ? `${recStats.successRate}%` : '—'}
             </div>
             <p className="mb-4 text-xs text-ams-muted">
-              {recStats?.detail || 'No recovery attempts logged yet.'}
+              {recStats?.detail || 'No recovery attempts logged yet for this range.'}
             </p>
             <div className="space-y-3">
               {(recStats?.failReasons?.length ? recStats.failReasons : []).map((r) => (
@@ -294,8 +344,19 @@ export default function GovernancePage() {
           <div className="dash-panel">
             <h4 className="dash-panel-title">Ticket Processing</h4>
             <div className="dash-stat-row"><span>Pending review</span><span>{tkStats?.tkPending ?? 0}</span></div>
-            <div className="dash-stat-row"><span>Avg. handling time</span><span>—</span></div>
-            <div className="dash-stat-row"><span>Backlog (&gt;30 min)</span><span>—</span></div>
+            <div className="dash-stat-row">
+              <span>Avg. handling time</span>
+              <span>{tkStats?.avgHandlingTime ?? '—'}</span>
+            </div>
+            <div className="dash-stat-row">
+              <span>Backlog (&gt;30 min)</span>
+              <span>{tkStats?.backlogOver30 ?? 0}</span>
+            </div>
+            {!liveEnd && (
+              <p className="mt-2 text-[11px] text-ams-faint">
+                Pending &amp; backlog reflect queue state at end of selected range.
+              </p>
+            )}
           </div>
           <div className="dash-panel">
             <h4 className="dash-panel-title">Completed / Rejected</h4>
@@ -306,7 +367,7 @@ export default function GovernancePage() {
             </p>
             <div className="space-y-3">
               {rejReason.length === 0 ? (
-                <p className="text-xs text-ams-muted">No rejections recorded yet.</p>
+                <p className="text-xs text-ams-muted">No rejections recorded yet for this range.</p>
               ) : rejReason.map((r) => (
                 <BarRow key={r.l} label={r.l} val={`${r.v}%`} pct={r.v} tone={r.tone} />
               ))}

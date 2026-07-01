@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { AuthProvider } from './context/AuthContext';
 import { SiteProvider } from './context/SiteContext';
+import { GovernanceDateProvider } from './context/GovernanceDateContext';
 import { getWebConfig } from './lib/supabase';
 import './index.css';
 
@@ -49,7 +50,9 @@ if (!config.ok) {
         <BrowserRouter>
           <AuthProvider>
             <SiteProvider>
-              <App />
+              <GovernanceDateProvider>
+                <App />
+              </GovernanceDateProvider>
             </SiteProvider>
           </AuthProvider>
         </BrowserRouter>

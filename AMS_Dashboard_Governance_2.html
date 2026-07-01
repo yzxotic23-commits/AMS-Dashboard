@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AMS — Dashboard (Governance) · Reference Mockup</title>
+<style>
+  :root{
+    --bg:#f5f3ef;
+    --panel:#ffffff;
+    --panel-soft:#faf9f6;
+    --ink:#1c1a17;
+    --ink-soft:#6b6862;
+    --ink-faint:#9a968e;
+    --line:#e7e3db;
+    --line-soft:#efece5;
+    --accent:#1f6f4a;      /* healthy green */
+    --accent-soft:#e3f0e8;
+    --amber:#b5761b;
+    --amber-soft:#f6ecd9;
+    --red:#b0402f;
+    --red-soft:#f6e4df;
+    --sidebar:#17150f;
+    --sidebar-ink:#c9c4b8;
+    --sidebar-ink-faint:#75716a;
+    --sidebar-active:#232019;
+    --core:#2a5f8f;        /* core focus accent — nurturing pool */
+    --core-soft:#e5eef6;
+    --mono:'SF Mono',ui-monospace,'Cascadia Code',Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',Roboto,sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;line-height:1.45;}
+
+  .app{display:flex;min-height:100vh;}
+
+  /* ---------- Sidebar ---------- */
+  .side{width:248px;background:var(--sidebar);color:var(--sidebar-ink);flex-shrink:0;padding:0 0 28px;position:sticky;top:0;height:100vh;overflow-y:auto;}
+  .brand{display:flex;align-items:center;gap:11px;padding:22px 22px 26px;}
+  .brand .logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#2a5f8f,#1f6f4a);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:15px;flex-shrink:0;}
+  .brand .bt{font-weight:650;font-size:14px;color:#fff;letter-spacing:-0.01em;}
+  .brand .bs{font-size:11.5px;color:var(--sidebar-ink-faint);}
+
+  .nav-group{margin-top:6px;}
+  .nav-label{font-size:10.5px;letter-spacing:0.09em;text-transform:uppercase;color:var(--sidebar-ink-faint);padding:14px 22px 7px;font-weight:600;}
+  .nav-item{display:flex;align-items:center;gap:11px;padding:8px 22px;font-size:13.5px;color:var(--sidebar-ink);cursor:default;position:relative;}
+  .nav-item .ic{width:17px;height:17px;flex-shrink:0;opacity:.85;}
+  .nav-item.active{background:var(--sidebar-active);color:#fff;}
+  .nav-item.active::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--core);}
+  .nav-item .badge{margin-left:auto;background:#3a352b;color:#e8e3d6;font-size:10.5px;font-weight:600;padding:1px 7px;border-radius:20px;}
+  .nav-item .beta{margin-left:auto;background:#2f2a20;color:#b8b1a1;font-size:9.5px;font-weight:700;letter-spacing:.05em;padding:2px 6px;border-radius:5px;}
+  .side-foot{margin-top:22px;padding:14px 22px 0;border-top:1px solid #26221a;}
+  .side-foot .nav-item{padding-left:0;padding-right:0;}
+
+  /* ---------- Main ---------- */
+  .main{flex:1;min-width:0;display:flex;flex-direction:column;}
+  .topbar{display:flex;align-items:center;justify-content:center;gap:8px;padding:11px 30px;background:var(--panel);border-bottom:1px solid var(--line);position:relative;}
+  .tb-filters{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+  .segmented{display:inline-flex;background:var(--panel-soft);border:1px solid var(--line);border-radius:9px;padding:3px;}
+  .segmented button{border:none;background:transparent;font-family:var(--sans);font-size:13px;color:var(--ink-soft);padding:5px 15px;border-radius:6px;cursor:default;font-weight:500;}
+  .segmented button.on{background:var(--ink);color:#fff;font-weight:600;}
+
+  /* date range control */
+  .date-ctl{display:flex;align-items:center;gap:8px;}
+  .date-quick{display:inline-flex;background:var(--panel-soft);border:1px solid var(--line);border-radius:9px;padding:3px;}
+  .date-quick button{border:none;background:transparent;font-family:var(--sans);font-size:12.5px;color:var(--ink-soft);padding:5px 12px;border-radius:6px;cursor:default;font-weight:500;}
+  .date-quick button.on{background:var(--core);color:#fff;font-weight:600;}
+  .date-range{display:inline-flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:6px 12px;cursor:default;}
+  .date-range .dr-ic{font-size:13px;}
+  .date-range .dr-val{font-size:12.5px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;}
+  .date-range .dr-sep{font-size:12px;color:var(--ink-faint);}
+  .date-range .dr-caret{font-size:9px;color:var(--ink-faint);margin-left:2px;}
+  .date-range:hover{border-color:var(--core);}
+  .topbar .who{position:absolute;right:30px;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-soft);}
+  .topbar .who .av{width:24px;height:24px;border-radius:50%;background:var(--core-soft);color:var(--core);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;}
+
+  .sitebar{background:var(--amber-soft);border-bottom:1px solid #ecdcbf;padding:9px 30px;font-size:12.5px;color:#7a5713;text-align:center;}
+  .sitebar b{font-weight:650;}
+
+  .content{padding:26px 30px 48px;max-width:1500px;width:100%;}
+
+  .page-h{font-size:23px;font-weight:700;letter-spacing:-0.02em;}
+  .page-sub{font-size:13.5px;color:var(--ink-soft);margin-top:3px;}
+  .scope-tag{font-size:11.5px;color:var(--ink-faint);margin-top:16px;letter-spacing:.02em;}
+
+  .sec-label{font-size:14.5px;font-weight:650;letter-spacing:-0.01em;margin:26px 0 12px;display:flex;align-items:center;gap:10px;}
+  .sec-label .pill{font-size:11px;font-weight:500;color:var(--ink-soft);background:var(--panel);border:1px solid var(--line);padding:2px 9px;border-radius:20px;letter-spacing:0;}
+  .sec-label.core::after{content:"CORE FOCUS";font-size:9.5px;font-weight:700;letter-spacing:.08em;color:var(--core);background:var(--core-soft);padding:3px 8px;border-radius:5px;}
+
+  /* ---------- Cards grid ---------- */
+  .grid{display:grid;gap:16px;}
+  .g4{grid-template-columns:repeat(4,1fr);}
+  .g2{grid-template-columns:repeat(2,1fr);}
+  .g3{grid-template-columns:1.4fr 1fr;}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:18px 19px;}
+  .card.soft{background:var(--panel-soft);}
+
+  .kname{font-size:12.5px;color:var(--ink-soft);font-weight:550;display:flex;align-items:center;justify-content:space-between;}
+
+  /* info tooltip */
+  .info{position:relative;display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;border:1px solid var(--line);color:var(--ink-faint);font-size:9.5px;font-weight:700;cursor:help;flex-shrink:0;font-family:var(--sans);}
+  .info:hover{background:var(--core);color:#fff;border-color:var(--core);}
+  .info .tip{position:absolute;bottom:calc(100% + 9px);left:50%;transform:translateX(-50%) translateY(4px);width:250px;background:var(--sidebar);color:#e9e5db;font-size:11.5px;line-height:1.5;font-weight:400;letter-spacing:0;padding:11px 13px;border-radius:9px;box-shadow:0 8px 26px rgba(0,0,0,.22);opacity:0;visibility:hidden;transition:opacity .16s,transform .16s;z-index:40;text-align:left;pointer-events:none;}
+  .info:hover .tip{opacity:1;visibility:visible;transform:translateX(-50%) translateY(0);}
+  .info .tip::after{content:"";position:absolute;top:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:var(--sidebar);}
+  .info .tip b{color:#fff;font-weight:650;}
+  .info .tip .f{display:block;margin-top:6px;padding-top:6px;border-top:1px solid #322d24;color:#a8a297;font-family:var(--mono);font-size:10.5px;}
+  .info .tip.wide{width:270px;}
+  /* left-anchored variant to avoid clipping on the leftmost card */
+  .info .tip.left{left:0;transform:translateX(-4px) translateY(4px);}
+  .info:hover .tip.left{transform:translateX(-4px) translateY(0);}
+  .info .tip.left::after{left:16px;}
+  .kname .tagd{font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;padding:2px 7px;border-radius:5px;}
+  .tagd.warn{background:var(--red-soft);color:var(--red);}
+  .tagd.ok{background:var(--accent-soft);color:var(--accent);}
+  .tagd.neutral{background:var(--line-soft);color:var(--ink-faint);}
+  .kval{font-size:30px;font-weight:750;letter-spacing:-0.02em;margin-top:9px;line-height:1;display:flex;align-items:baseline;gap:2px;}
+  .kval .den{font-size:15px;font-weight:600;color:var(--ink-faint);}
+  .kval.red{color:var(--red);}
+  .kval.green{color:var(--accent);}
+  .kbar{height:5px;background:var(--line-soft);border-radius:4px;margin-top:12px;overflow:hidden;}
+  .kbar i{display:block;height:100%;border-radius:4px;}
+  .ksub{font-size:11.5px;color:var(--ink-faint);margin-top:9px;}
+
+  /* Nurturing pool — the hero card */
+  .hero{grid-column:span 4;background:linear-gradient(180deg,#ffffff,#fbfdff);border:1.5px solid #d3e2f0;border-radius:15px;padding:22px 24px;}
+  .hero-top{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:20px;}
+  .hero-title{font-size:15px;font-weight:700;letter-spacing:-0.01em;display:flex;align-items:center;gap:9px;}
+  .hero-title .dot{width:9px;height:9px;border-radius:50%;background:var(--core);}
+  .hero-desc{font-size:12px;color:var(--ink-soft);margin-top:4px;max-width:430px;}
+  .hero-stats{display:flex;gap:34px;flex-wrap:wrap;margin-top:20px;}
+  .hstat{min-width:120px;}
+  .hstat .hl{font-size:11.5px;color:var(--ink-soft);font-weight:550;}
+  .hstat .hv{font-size:34px;font-weight:780;letter-spacing:-0.02em;line-height:1;margin-top:6px;}
+  .hstat .hv small{font-size:14px;color:var(--ink-faint);font-weight:600;}
+  .hstat .hf{font-size:11px;color:var(--ink-faint);margin-top:5px;}
+  .hstat.ready .hv{color:var(--accent);}
+  .hstat.soon .hv{color:var(--core);}
+
+  /* maturity curve */
+  .curve{margin-top:22px;border-top:1px solid var(--line-soft);padding-top:16px;}
+  .curve-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+  .curve-h .ct{font-size:12px;font-weight:600;color:var(--ink);}
+  .curve-h .cn{font-size:11px;color:var(--ink-faint);}
+  .bars{display:flex;align-items:flex-end;gap:10px;height:96px;}
+  .bcol{flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;height:100%;justify-content:flex-end;}
+  .bcol .bwrap{width:100%;display:flex;align-items:flex-end;justify-content:center;height:100%;}
+  .bcol .bar{width:70%;border-radius:5px 5px 0 0;background:linear-gradient(180deg,#6fa3ce,#3f7dad);position:relative;}
+  .bcol.ready .bar{background:linear-gradient(180deg,#5cbd8a,#2f9463);}
+  .bcol .bnum{position:absolute;top:-18px;left:50%;transform:translateX(-50%);font-size:11px;font-weight:700;color:var(--ink);}
+  .bcol .blabel{font-size:10.5px;color:var(--ink-faint);font-weight:500;text-align:center;line-height:1.25;}
+  .bcol.ready .blabel{color:var(--accent);font-weight:600;}
+
+  /* standby (kept, no healthy line) */
+  .standby-note{font-size:11px;color:var(--ink-faint);font-style:italic;margin-top:2px;}
+
+  /* ban rate empty + rows */
+  .empty{background:var(--panel-soft);border:1px dashed var(--line);border-radius:11px;padding:22px;font-size:13px;color:var(--ink-faint);text-align:center;}
+  .stagerow{display:flex;align-items:center;gap:14px;padding:11px 0;border-bottom:1px solid var(--line-soft);}
+  .stagerow:last-child{border-bottom:none;}
+  .stagerow .sn{font-size:12.5px;font-weight:550;width:150px;color:var(--ink);}
+  .stagerow .track{flex:1;height:7px;background:var(--line-soft);border-radius:5px;overflow:hidden;}
+  .stagerow .track i{display:block;height:100%;border-radius:5px;background:var(--red);}
+  .stagerow .sv{font-size:12.5px;font-weight:650;width:64px;text-align:right;font-family:var(--mono);}
+
+  .recov{display:flex;align-items:baseline;gap:8px;}
+  .recov .big{font-size:36px;font-weight:780;letter-spacing:-0.02em;}
+  .recov .rl{font-size:12px;color:var(--ink-soft);}
+  .recov-sub{font-size:11.5px;color:var(--ink-faint);margin-top:6px;}
+  .recov-bar{height:6px;background:var(--line-soft);border-radius:5px;margin-top:14px;overflow:hidden;display:flex;}
+  .recov-bar i{height:100%;}
+
+  .simline{display:flex;gap:36px;margin-top:6px;}
+  .simitem{display:flex;flex-direction:column;gap:5px;}
+  .simitem .sd{width:34px;height:5px;border-radius:4px;}
+  .simitem .st{font-size:12px;color:var(--ink-soft);}
+  .simitem .sc{font-size:20px;font-weight:700;}
+
+  .kv{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line-soft);font-size:13px;}
+  .kv:last-child{border-bottom:none;}
+  .kv .k{color:var(--ink-soft);}
+  .kv .v{font-weight:650;font-family:var(--mono);}
+
+  .plug{display:flex;gap:14px;align-items:center;background:var(--panel-soft);border:1px solid var(--line);border-radius:12px;padding:16px 18px;}
+  .plug .picon{width:34px;height:34px;border-radius:9px;background:var(--core-soft);color:var(--core);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .plug .pt{font-size:13px;font-weight:650;}
+  .plug .ps{font-size:12px;color:var(--ink-soft);margin-top:2px;}
+
+  .note-strip{margin-top:30px;border:1px solid var(--line);background:var(--panel-soft);border-radius:11px;padding:14px 17px;font-size:12px;color:var(--ink-soft);}
+  .note-strip b{color:var(--ink);font-weight:650;}
+  .note-strip ul{margin:8px 0 0 4px;list-style:none;}
+  .note-strip li{padding:3px 0 3px 18px;position:relative;}
+  .note-strip li::before{content:"→";position:absolute;left:0;color:var(--core);font-weight:700;}
+
+  .mock-ribbon{position:fixed;top:0;right:0;background:var(--core);color:#fff;font-size:11px;font-weight:700;letter-spacing:.05em;padding:6px 16px;border-radius:0 0 0 10px;z-index:50;box-shadow:0 2px 10px rgba(0,0,0,.15);}
+
+  @media(max-width:1100px){.g4{grid-template-columns:repeat(2,1fr);}.hero{grid-column:span 2;}.g3{grid-template-columns:1fr;}.side{display:none;}}
+</style>
+</head>
+<body>
+<div class="mock-ribbon">REFERENCE MOCKUP · v2</div>
+<div class="app">
+
+  <!-- ================= SIDEBAR ================= -->
+  <aside class="side">
+    <div class="brand">
+      <div class="logo">A</div>
+      <div><div class="bt">AMS</div><div class="bs">Account Management</div></div>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-label">Feeding Engine</div>
+      <div class="nav-item"><span class="ic">💬</span> FeedFlow <span class="beta">BETA</span></div>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-label">Operator Actions</div>
+      <div class="nav-item"><span class="ic">▦</span> Control Center <span class="badge">4</span></div>
+      <div class="nav-item"><span class="ic">＋</span> Register <span class="badge">2</span></div>
+      <div class="nav-item"><span class="ic">⚡</span> Activation &amp; Nurturing</div>
+      <div class="nav-item"><span class="ic">↻</span> Account Recovery</div>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-label">Lookup</div>
+      <div class="nav-item"><span class="ic">▤</span> Resource Ledger</div>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-label">Delivery / Data</div>
+      <div class="nav-item"><span class="ic">🎫</span> Business Self-Service Delivery</div>
+      <div class="nav-item active"><span class="ic">📈</span> Dashboard (Governance)</div>
+      <div class="nav-item"><span class="ic">🗒</span> Audit Log</div>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-label">Settings</div>
+      <div class="nav-item"><span class="ic">📊</span> RM Supply Model</div>
+      <div class="nav-item"><span class="ic">👥</span> User Management</div>
+    </div>
+
+    <div class="side-foot">
+      <div class="nav-item"><span class="ic">⇥</span> Sign out</div>
+    </div>
+  </aside>
+
+  <!-- ================= MAIN ================= -->
+  <main class="main">
+    <div class="topbar">
+      <div class="tb-filters">
+        <div class="segmented">
+          <button class="on">All sites</button>
+          <button>Malaysia</button>
+          <button>Poipet</button>
+        </div>
+
+        <div class="date-ctl">
+          <div class="date-quick">
+            <button>Today</button>
+            <button>7D</button>
+            <button>30D</button>
+            <button class="on">Custom</button>
+          </div>
+          <div class="date-range">
+            <span class="dr-ic">🗓</span>
+            <span class="dr-val">01 Jun 2026</span>
+            <span class="dr-sep">→</span>
+            <span class="dr-val">24 Jun 2026</span>
+            <span class="dr-caret">▾</span>
+          </div>
+        </div>
+      </div>
+      <div class="who"><span class="av">B</span> Backend Operations</div>
+    </div>
+
+    <div class="sitebar"><b>Current Site: All sites</b> &nbsp;·&nbsp; <b>Range: 01–24 Jun 2026</b> &nbsp;Governance metrics below combine Malaysia and Poipet for the selected date range.</div>
+
+    <div class="content">
+      <div class="page-h">Dashboard (Governance)</div>
+      <div class="page-sub">Diagnostic view across supply, ban rates, and recovery.</div>
+      <div class="scope-tag">All sites</div>
+
+      <!-- ============ SUPPLY LEVELS ============ -->
+      <div class="sec-label">Supply Levels</div>
+      <div class="grid g4">
+
+        <!-- Registering -->
+        <div class="card">
+          <div class="kname">Registering
+            <span class="info">i<span class="tip left"><b>Target</b> = RM model's required daily registrations = daily output needed ÷ full-chain yield (reg-pass × warming-pass). This is how many raw accounts to register today so enough survive to usable.<span class="f">target = need ÷ ((1−Fr)×(1−Wf))</span></span></span>
+          </div>
+          <div class="kval red">0<span class="den">/2</span></div>
+          <div class="kbar"><i style="width:0%;background:var(--red);"></i></div>
+          <div class="ksub">0% of RM daily reg target</div>
+        </div>
+
+        <!-- Nurturing Pool -->
+        <div class="card">
+          <div class="kname">Nurturing Pool
+            <span class="info">i<span class="tip wide"><b>Target</b> = daily-into-warming × warming days (7). Derived from the ban rate: it back-calculates how many accounts must be warming now to cover the front line's net loss in 7 days.<br><br><b>When below target</b>, the shortfall becomes <b>today's registration count</b> — i.e. the gap here drives the Registering card.<span class="f">target = (need ÷ (1−Wf)) × W</span></span></span>
+          </div>
+          <div class="kval green">4<span class="den">/3</span></div>
+          <div class="kbar"><i style="width:100%;background:var(--accent);"></i></div>
+          <div class="ksub">133% of RM nurturing target</div>
+        </div>
+
+        <!-- Warmed accounts (was Standby Pool) — kept, NO healthy line -->
+        <div class="card soft">
+          <div class="kname">Warmed Accounts
+            <span class="info">i<span class="tip"><b>Current count only</b> — no target, no healthy line, no alert. Warmed accounts go straight to the front line; they are not stockpiled. This is a transient hand-off state, so nothing here should trigger procurement.<span class="f">display = live count · no calc</span></span></span>
+          </div>
+          <div class="kval green">6</div>
+          <div class="ksub">Current count only</div>
+        </div>
+
+        <!-- In Business Use -->
+        <div class="card">
+          <div class="kname">In Business Use
+            <span class="info">i<span class="tip"><b>Target</b> = business headcount × per-user concurrent cap. This is the hard floor the whole supply chain must keep filled — the demand everything else is calculated backwards from.<span class="f">target = B × C</span></span></span>
+          </div>
+          <div class="kval red">1<span class="den">/512</span></div>
+          <div class="kbar"><i style="width:1%;background:var(--core);"></i></div>
+          <div class="ksub">0% of target</div>
+        </div>
+      </div>
+
+      <!-- ============ BAN RATE ============ -->
+      <div class="sec-label">Ban Rate · By Stage <span class="pill">Overall 0% · 0 events</span></div>
+      <div class="card">
+        <div class="empty">No ban events recorded yet. When bans occur, this is the first place to look — a rising ban rate is addressed at its root (usage / IP / warming quality), not by adding devices or stock.</div>
+      </div>
+
+      <!-- ============ ACCOUNT RECOVERY ============ -->
+      <div class="sec-label">Account Recovery</div>
+      <div class="grid g3">
+        <div class="card">
+          <div class="kname" style="margin-bottom:10px;">Recovery Success Rate</div>
+          <div class="recov"><span class="big" style="color:var(--red)">0%</span></div>
+          <div class="recov-sub">1 attempt · 0 success · 1 failed</div>
+          <div class="recov-bar"><i style="width:100%;background:var(--red)"></i></div>
+          <div class="ksub" style="margin-top:8px;">Permanently banned · 100%</div>
+        </div>
+        <div class="card">
+          <div class="kname" style="margin-bottom:14px;">SIM Top-up</div>
+          <div class="simline">
+            <div class="simitem"><span class="sd" style="background:var(--red)"></span><span class="sc">—</span><span class="st">due for top-up</span></div>
+            <div class="simitem"><span class="sd" style="background:var(--amber)"></span><span class="sc">—</span><span class="st">expiring within 7 days</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ LOGOUT RATE ============ -->
+      <div class="sec-label">Logout Rate</div>
+      <div class="plug">
+        <div class="picon">🔌</div>
+        <div>
+          <div class="pt">Engine health sync active</div>
+          <div class="ps">Logged-out slots from FeedFlow bridge auto-update account status. Full logout analytics pending.</div>
+        </div>
+      </div>
+
+      <!-- ============ COLLABORATION / TICKETS ============ -->
+      <div class="sec-label">Collaboration · Tickets</div>
+      <div class="grid g2">
+        <div class="card">
+          <div class="kname" style="margin-bottom:6px;">Ticket Processing</div>
+          <div class="kv"><span class="k">Pending review</span><span class="v">1</span></div>
+          <div class="kv"><span class="k">Avg. handling time</span><span class="v">—</span></div>
+          <div class="kv"><span class="k">Backlog (&gt;30 min)</span><span class="v">—</span></div>
+        </div>
+        <div class="card">
+          <div class="kname" style="margin-bottom:6px;">Completed / Rejected</div>
+          <div class="kv"><span class="k">Completed</span><span class="v">1</span></div>
+          <div class="kv"><span class="k">Rejected</span><span class="v">0</span></div>
+          <div class="ksub" style="margin-top:10px;">No rejections recorded yet.</div>
+        </div>
+      </div>
+
+      <!-- ============ BUILD NOTES for the developer ============ -->
+      <div class="note-strip">
+        <b>Build note — v1 change</b>
+        <ul>
+          <li>Only change from the current build: rename <b>"Standby Pool" → "Warmed Accounts"</b>. Keep it showing current count only — no healthy line, no target %, no alert.</li>
+          <li>Confirm the backend has no residual "below healthy line" alert or auto-procurement trigger tied to this card.</li>
+          <li>Per-day warming breakdown (day 1…7) is intentionally <b>not</b> shown here — that lives on a separate nurturing detail page. Keep v1 simple; iterate later.</li>
+          <li>Each KPI card carries an <b>ⓘ info tooltip</b> stating exactly how its target is calculated (hover to view). These encode the RM supply logic so the calc is unambiguous during build — most important: the <b>Nurturing Pool shortfall feeds directly into today's Registering count</b>.</li>
+          <li><b>Date range control (top bar):</b> quick presets (Today / 7D / 30D) + a Custom range picker. Clicking "Custom" opens a two-calendar from–to picker. Note for build: <b>flow/event metrics</b> (ban events, recovery attempts, tickets, registrations) should re-aggregate over the selected range; <b>live-count snapshots</b> (Warmed Accounts current count, In Business Use) reflect the range's end date — label them clearly so a past range doesn't look like "now".</li>
+        </ul>
+      </div>
+
+    </div>
+  </main>
+</div>
+</body>
+</html>

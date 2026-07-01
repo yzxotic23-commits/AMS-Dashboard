@@ -1,12 +1,21 @@
 import { useQuery } from '@tanstack/react-query';
 import api from '../lib/api';
+import { apiDateParams } from '../lib/governanceDateRange';
 
-export function useBanStats(siteKey = 'all') {
+function dateQueryParams(dateRange) {
+  if (!dateRange?.from || !dateRange?.to) return {};
+  return apiDateParams(dateRange.from, dateRange.to);
+}
+
+export function useBanStats(siteKey = 'all', dateRange = null) {
   return useQuery({
-    queryKey: ['bans', 'stats', siteKey],
+    queryKey: ['bans', 'stats', siteKey, dateRange?.fromInput, dateRange?.toInput],
     queryFn: async () => {
       const { data } = await api.get('/bans/stats', {
-        params: siteKey !== 'all' ? { site: siteKey } : {},
+        params: {
+          ...(siteKey !== 'all' ? { site: siteKey } : {}),
+          ...dateQueryParams(dateRange),
+        },
       });
       return data;
     },

@@ -16,6 +16,11 @@ import {
   uploadTicketScreenshot,
 } from '../../lib/ticketScreenshots.js';
 import { enrichAccountsIpEmbed, normalizeIpJoin } from '../../lib/accountEnrich.js';
+import {
+  parseDateRangeQuery, inDateRange, rangeEvalAt,
+} from '../../lib/dateRange.js';
+
+const BACKLOG_MS = 30 * 60 * 1000;
 
 const router = Router();
 router.use(authenticate);
@@ -137,6 +142,27 @@ async function saveTicketReview({ ticketId, match, userId, req }) {
   return enriched;
 }
 
+function ticketSubmittedAt(ticket, meta) {
+  return meta.submitted_at || ticket.created_at;
+}
+
+function wasPendingAt(ticket, meta, evalAt) {
+  const sub = new Date(ticketSubmittedAt(ticket, meta));
+  if (Number.isNaN(sub.getTime()) || sub.getTime() > evalAt.getTime()) return false;
+  if (ticket.delivery_stage === 'submitted') return true;
+  const resolved = new Date(ticket.updated_at || ticket.created_at);
+  return resolved.getTime() > evalAt.getTime();
+}
+
+function formatAvgMinutes(ms) {
+  if (ms == null || ms <= 0) return null;
+  const mins = Math.round(ms / 60000);
+  if (mins < 60) return `${mins} min`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m ? `${h}h ${m}m` : `${h}h`;
+}
+
 function enrichRow(ticket, account, screenshotUrl = null, requesterName = '') {
   const meta = parseTicketMeta(ticket);
   const opMeta = account ? parseOperatorMeta(account) : {};
@@ -239,7 +265,9 @@ router.get('/', async (req, res, next) => {
 router.get('/stats', async (req, res, next) => {
   try {
     const siteKey = req.query.site || req.query.site_key;
-    const { data: tickets } = await supabaseAdmin.from('tickets').select('*').limit(200);
+    const range = parseDateRangeQuery(req.query);
+    const evalAt = rangeEvalAt(range);
+    const { data: tickets } = await supabaseAdmin.from('tickets').select('*').limit(500);
     const requesterMap = await loadRequesterNameMap((tickets || []).map((t) => t.requester_id));
     const rows = [];
     for (const t of tickets || []) {
@@ -252,13 +280,45 @@ router.get('/stats', async (req, res, next) => {
       rows.push(row);
     }
 
-    const pending = rows.filter((r) => r.delivery_stage === 'submitted').length;
+    const pendingRows = rows.filter((r) => {
+      const meta = parseTicketMeta(r);
+      return wasPendingAt(r, meta, evalAt);
+    });
+    const pending = pendingRows.length;
+
+    const backlogOver30 = pendingRows.filter((r) => {
+      const meta = parseTicketMeta(r);
+      const sub = new Date(ticketSubmittedAt(r, meta));
+      return (evalAt.getTime() - sub.getTime()) > BACKLOG_MS;
+    }).length;
+
     const inProg = rows.filter((r) => r.delivery_stage === 'posted').length;
-    const done = rows.filter((r) => r.delivery_stage === 'done').length;
-    const rejected = rows.filter((r) => r.reject_reason).length;
+    const done = rows.filter((r) => {
+      if (r.delivery_stage !== 'done') return false;
+      return !range || inDateRange(r.updated_at, range);
+    }).length;
+    const rejected = rows.filter((r) => {
+      if (!r.reject_reason) return false;
+      return !range || inDateRange(r.updated_at, range);
+    }).length;
+
+    const handled = rows.filter((r) => {
+      if (r.delivery_stage !== 'posted' && r.delivery_stage !== 'done') return false;
+      return !range || inDateRange(r.updated_at, range);
+    });
+    const durations = handled.map((r) => {
+      const meta = parseTicketMeta(r);
+      const start = new Date(ticketSubmittedAt(r, meta));
+      const end = new Date(r.updated_at || r.created_at);
+      return end.getTime() - start.getTime();
+    }).filter((ms) => ms > 0);
+    const avgHandlingMs = durations.length
+      ? durations.reduce((a, b) => a + b, 0) / durations.length
+      : null;
+    const avgHandlingTime = formatAvgMinutes(avgHandlingMs);
 
     const byReason = {};
-    rows.filter((r) => r.reject_reason).forEach((r) => {
+    rows.filter((r) => r.reject_reason && (!range || inDateRange(r.updated_at, range))).forEach((r) => {
       const label = r.reject_reason || 'IP mismatch';
       byReason[label] = (byReason[label] || 0) + 1;
     });
@@ -277,8 +337,12 @@ router.get('/stats', async (req, res, next) => {
       tkPending: pending,
       tkDone: done,
       tkReject: rejected,
+      backlogOver30,
+      avgHandlingTime,
       rejectReasons: rejReasons,
       detail: `${pending} awaiting review · ${inProg} awaiting business confirm · ${done} completed`,
+      date_range: range ? { from: range.from, to: range.to } : null,
+      eval_at: evalAt.toISOString(),
     });
   } catch (e) {
     next(e);
@@ -375,6 +439,7 @@ router.post('/', async (req, res, next) => {
     const meta = {
       site_key: opMeta.site_key || 'my',
       delivery_stage: 'submitted',
+      submitted_at: new Date().toISOString(),
       link_code: body.link_code,
       shot_proxy: body.shot_proxy,
       channel: opMeta.channel || 'WS Normal',
@@ -587,6 +652,7 @@ router.post('/:id/resubmit', async (req, res, next) => {
 
     const meta = parseTicketMeta(ticket);
     meta.delivery_stage = 'submitted';
+    meta.submitted_at = new Date().toISOString();
     meta.link_code = body.link_code;
     meta.shot_proxy = body.shot_proxy;
     meta.reject_reason = '';

@@ -474,6 +474,9 @@
     background-color: var(--ams-surface-card);
     box-shadow: var(--ams-shadow-card);
   }
+  .metric-card-head {
+    @apply flex items-center justify-between gap-2;
+  }
   .metric-val {
     @apply my-1.5 text-2xl font-bold leading-none tracking-tight;
     color: var(--ams-ink);
@@ -520,6 +523,95 @@
   .dash-stat-row span:last-child {
     @apply font-semibold;
     color: var(--ams-ink);
+  }
+
+  /* Governance date range (top bar) */
+  .governance-date-ctl {
+    @apply flex flex-wrap items-center gap-2;
+  }
+  .governance-date-quick {
+    @apply inline-flex rounded-lg border border-ams-line p-0.5;
+    background-color: var(--ams-surface-muted);
+  }
+  .governance-date-quick button {
+    @apply rounded-md px-3 py-1 text-xs font-medium transition-colors;
+    color: var(--ams-muted);
+  }
+  .governance-date-quick button.on {
+    background-color: var(--ams-blue);
+    color: #fff;
+    font-weight: 600;
+  }
+  .governance-date-picker-wrap {
+    @apply relative;
+  }
+  .governance-date-range {
+    @apply inline-flex items-center gap-2 rounded-lg border border-ams-line px-3 py-1.5 text-xs font-semibold transition-colors;
+    background-color: var(--ams-surface);
+    color: var(--ams-ink);
+  }
+  .governance-date-range:hover {
+    border-color: var(--ams-blue);
+  }
+  .governance-date-val {
+    font-variant-numeric: tabular-nums;
+  }
+  .governance-date-caret {
+    @apply text-[9px];
+    color: var(--ams-faint);
+  }
+  .governance-date-popover {
+    @apply absolute left-0 top-full z-50 mt-2 min-w-[240px] rounded-lg border border-ams-line p-3 shadow-lg;
+    background-color: var(--ams-surface);
+  }
+  .governance-date-fields {
+    @apply mb-3 grid gap-2;
+  }
+  .governance-date-field {
+    @apply flex flex-col gap-1 text-xs;
+    color: var(--ams-muted);
+  }
+  .governance-date-field input {
+    @apply rounded-md border border-ams-line px-2 py-1.5 text-sm;
+    color: var(--ams-ink);
+  }
+
+  /* KPI info tooltip */
+  .kpi-info {
+    @apply relative inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full border text-[10px] font-bold;
+    border-color: var(--ams-line);
+    color: var(--ams-faint);
+  }
+  .kpi-info:hover,
+  .kpi-info:focus-visible {
+    background-color: var(--ams-blue);
+    border-color: var(--ams-blue);
+    color: #fff;
+    outline: none;
+  }
+  .kpi-info-tip {
+    @apply flex flex-col gap-1.5 rounded-lg px-3 py-2.5 text-left;
+    background-color: var(--ams-sidebar);
+    color: #e9e5db;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.24);
+  }
+  .kpi-info-tip--portal {
+    position: fixed;
+    z-index: 9999;
+    pointer-events: none;
+  }
+  .kpi-info-title {
+    @apply block text-[11px] font-semibold leading-tight;
+    color: #fff;
+  }
+  .kpi-info-body {
+    @apply block text-[11px] leading-relaxed;
+    color: #d8d3c8;
+  }
+  .kpi-info-formula {
+    @apply mt-0.5 block border-t pt-2 font-mono text-[10px] leading-none;
+    border-color: rgba(255, 255, 255, 0.12);
+    color: #a8a297;
   }
 
   .site-box {

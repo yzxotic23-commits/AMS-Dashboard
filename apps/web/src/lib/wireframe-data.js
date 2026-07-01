@@ -148,7 +148,7 @@ export const GOVERNANCE_DATA = {
     supply: [
       { name: 'Registering', cur: 38, healthy: 50 },
       { name: 'Nurturing Pool', cur: 213, healthy: 240 },
-      { name: 'Standby Pool', cur: 486, countOnly: true },
+      { name: 'Warmed Accounts', cur: 486, countOnly: true },
       { name: 'In Business Use', cur: 512, healthy: 512 },
     ],
     ban: [
@@ -182,7 +182,7 @@ export const GOVERNANCE_DATA = {
     supply: [
       { name: 'Registering', cur: 26, healthy: 32 },
       { name: 'Nurturing Pool', cur: 140, healthy: 155 },
-      { name: 'Standby Pool', cur: 310, countOnly: true },
+      { name: 'Warmed Accounts', cur: 310, countOnly: true },
       { name: 'In Business Use', cur: 330, healthy: 330 },
     ],
     ban: [
@@ -216,7 +216,7 @@ export const GOVERNANCE_DATA = {
     supply: [
       { name: 'Registering', cur: 12, healthy: 18 },
       { name: 'Nurturing Pool', cur: 73, healthy: 85 },
-      { name: 'Standby Pool', cur: 176, countOnly: true },
+      { name: 'Warmed Accounts', cur: 176, countOnly: true },
       { name: 'In Business Use', cur: 182, healthy: 182 },
     ],
     ban: [

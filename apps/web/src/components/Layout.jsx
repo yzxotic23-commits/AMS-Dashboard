@@ -7,7 +7,9 @@ import { operatorSiteKey } from '../lib/operator-scope';
 import { readSidebarOpenMap, writeSidebarOpenMap } from '../lib/sidebar-prefs';
 import { useScrollRevealScrollbar } from '../hooks/useScrollRevealScrollbar';
 import { pathInGroup } from './SidebarNavGroup';
+import { useOptionalGovernanceDate } from '../context/GovernanceDateContext';
 import SiteSwitcher from './SiteSwitcher';
+import GovernanceDateControls from './GovernanceDateControls';
 import AppSidebar from './AppSidebar';
 import EngineBackgroundSync from './EngineBackgroundSync';
 
@@ -44,7 +46,9 @@ export default function Layout({ authBooting = false }) {
   const { site, setSite } = useSite();
   const navigate = useNavigate();
   const location = useLocation();
-  const siteBar = getSiteStripMessage(location.pathname, site);
+  const governanceDate = useOptionalGovernanceDate();
+  const isGovernance = location.pathname === '/governance';
+  const siteBar = getSiteStripMessage(location.pathname, site, isGovernance ? governanceDate : null);
   const showSiteBar = SITE_STRIP_PATHS.includes(location.pathname);
   const scrollPaneRef = useScrollRevealScrollbar();
   const initialOpenRef = useRef(readSidebarOpenMap());
@@ -102,7 +106,9 @@ export default function Layout({ authBooting = false }) {
         <header className="app-header-sticky w-full shrink-0 bg-ams-canvas">
           <div className="app-gutter app-header-toolbar pt-4 pb-3">
             <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
-              <div aria-hidden="true" />
+              <div className="flex items-center justify-start gap-3">
+                {isGovernance && <GovernanceDateControls />}
+              </div>
               <SiteSwitcher />
               <div className="flex justify-end">
                 <div className="header-user">

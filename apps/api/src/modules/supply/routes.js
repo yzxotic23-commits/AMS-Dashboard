@@ -85,6 +85,8 @@ router.get('/', async (req, res, next) => {
       site_key: siteKey,
       pools,
       rm: siteKey === 'all' ? rm.sites : rm,
+      is_live_snapshot: true,
+      snapshot_note: 'Live count as of now',
       summary: {
         total_current: totalCurrent,
         total_target: totalTarget,

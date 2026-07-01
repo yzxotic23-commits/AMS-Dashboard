@@ -1,6 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
 import { accountToOperatorRow } from '../lib/account-operator-meta';
+import { apiDateParams } from '../lib/governanceDateRange';
+
+function dateQueryParams(dateRange) {
+  if (!dateRange?.from || !dateRange?.to) return {};
+  return apiDateParams(dateRange.from, dateRange.to);
+}
 
 function mapStandbyRows(accounts, site = 'all') {
   return (accounts || [])
@@ -50,12 +56,15 @@ export function useTickets(site = 'all') {
   });
 }
 
-export function useTicketStats(site = 'all') {
+export function useTicketStats(site = 'all', dateRange = null) {
   return useQuery({
-    queryKey: ['tickets', 'stats', site],
+    queryKey: ['tickets', 'stats', site, dateRange?.fromInput, dateRange?.toInput],
     queryFn: async () => {
       const { data } = await api.get('/tickets/stats', {
-        params: site !== 'all' ? { site } : {},
+        params: {
+          ...(site !== 'all' ? { site } : {}),
+          ...dateQueryParams(dateRange),
+        },
       });
       return data;
     },

@@ -105,10 +105,19 @@ export default function RegisterPage() {
 
   const siteKey = drawer?.siteKey || 'my';
   const { list: freeIps, isLoading: ipsLoading } = useFreeIps({ enabled: drawerOpen });
-  const { list: devices, isLoading: devicesLoading } = useDeviceOptions(siteKey, { enabled: drawerOpen });
+  const { list: devices, isLoading: devicesLoading, expandMessage: devicesExpanded } = useDeviceOptions(siteKey, { enabled: drawerOpen });
   const { list: sims, isLoading: simsLoading } = useSimOptions(siteKey, { enabled: drawerOpen });
   const resourcesLoading = drawerOpen && (ledgerFetching || ipsLoading || devicesLoading || simsLoading);
   const drawerFormInit = useRef(null);
+  const expandToastShown = useRef('');
+
+  useEffect(() => {
+    if (!devicesExpanded || devicesExpanded === expandToastShown.current) return;
+    expandToastShown.current = devicesExpanded;
+    setToast(devicesExpanded);
+    const t = setTimeout(() => setToast(''), 4500);
+    return () => clearTimeout(t);
+  }, [devicesExpanded]);
 
   const availableSlots = useMemo(() => {
     if (!form.deviceId) return DEVICE_CHANNEL_SLOTS;

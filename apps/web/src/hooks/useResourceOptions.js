@@ -31,17 +31,28 @@ export function useFreeIps(options = {}) {
 export function useDeviceOptions(siteKey, options = {}) {
   const { enabled = true } = options;
   const { data, isLoading, isFetching } = useQuery({
-    queryKey: ['devices'],
+    queryKey: ['devices', siteKey],
     queryFn: async () => {
+      let expandMessage = '';
+      if (siteKey === 'my' || siteKey === 'pp') {
+        try {
+          const { data: expand } = await api.post('/devices/ensure-capacity', { site_key: siteKey });
+          if (expand?.expanded) {
+            expandMessage = expand.message || `Added devices: ${(expand.created || []).join(', ')}`;
+          }
+        } catch {
+          // still load ledger
+        }
+      }
       const res = await api.get('/devices', { params: { limit: 200 } });
-      return res.data?.data || [];
+      return { rows: res.data?.data || [], expandMessage };
     },
     enabled,
     staleTime: 30_000,
   });
 
   const list = useMemo(() => {
-    const rows = (data || [])
+    const rows = (data?.rows || [])
       .map((d) => ({
         id: d.id,
         device_name: d.device_name,
@@ -52,7 +63,11 @@ export function useDeviceOptions(siteKey, options = {}) {
     return filterDevicesBySite(rows, siteKey).sort(compareDeviceNames);
   }, [data, siteKey]);
 
-  return { list, isLoading: isLoading || isFetching };
+  return {
+    list,
+    expandMessage: data?.expandMessage || '',
+    isLoading: isLoading || isFetching,
+  };
 }
 
 /** Same SIM ledger as Resources → SIM page. */

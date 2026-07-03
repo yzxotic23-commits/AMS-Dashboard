@@ -26,6 +26,7 @@
     "seed:align-demo": "node scripts/seed-align-demo.js",
     "clear:data": "node scripts/clear-operational-data.js",
     "seed:devices": "node scripts/seed-devices.js",
+    "renumber:devices": "node scripts/renumber-device-codes.js",
     "create:admin": "node scripts/create-admin-user.js",
     "seed:operators": "node scripts/seed-operator-users.js",
     "test:activation": "node scripts/test-activation-flow.js"

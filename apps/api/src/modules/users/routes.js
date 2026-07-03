@@ -90,15 +90,6 @@ async function updateProfilePg(client, id, fields) {
   await client.query(`UPDATE profiles SET ${sets.join(', ')} WHERE id = $${i}`, vals);
 }
 
-async function getProfilePg(client, id) {
-  const { rows } = await client.query(
-    `SELECT id, email, username, full_name, role, site_key, is_active, password_hash, created_at, updated_at
-     FROM profiles WHERE id = $1`,
-    [id],
-  );
-  return rows[0] || null;
-}
-
 async function upsertProfilePg(client, row) {
   await client.query(
     `INSERT INTO profiles (id, email, username, full_name, role, site_key, is_active, password_hash)
@@ -188,13 +179,13 @@ router.post('/', async (req, res, next) => {
       password_hash: body.password,
     };
 
+    const { error: upsertErr } = await supabaseAdmin.from('profiles').upsert(profileRow);
+    if (upsertErr) throw upsertErr;
+
     if (dbUrl) {
       pgClient = new pg.Client({ connectionString: dbUrl, ssl: { rejectUnauthorized: false } });
       await pgClient.connect();
       await upsertProfilePg(pgClient, profileRow);
-    } else {
-      const { error } = await supabaseAdmin.from('profiles').upsert(profileRow);
-      if (error) throw error;
     }
 
     await writeAudit({
@@ -249,12 +240,7 @@ router.patch('/:id', async (req, res, next) => {
     }
 
     let data;
-    if (dbUrl && Object.keys(patch).length > 0) {
-      pgClient = new pg.Client({ connectionString: dbUrl, ssl: { rejectUnauthorized: false } });
-      await pgClient.connect();
-      await updateProfilePg(pgClient, req.params.id, patch);
-      data = await getProfilePg(pgClient, req.params.id);
-    } else if (Object.keys(patch).length > 0) {
+    if (Object.keys(patch).length > 0) {
       const { data: updated, error } = await supabaseAdmin
         .from('profiles')
         .update({ ...patch, updated_at: new Date().toISOString() })
@@ -263,6 +249,12 @@ router.patch('/:id', async (req, res, next) => {
         .single();
       if (error) throw error;
       data = updated;
+
+      if (dbUrl) {
+        pgClient = new pg.Client({ connectionString: dbUrl, ssl: { rejectUnauthorized: false } });
+        await pgClient.connect();
+        await updateProfilePg(pgClient, req.params.id, patch);
+      }
     } else {
       data = existing;
     }

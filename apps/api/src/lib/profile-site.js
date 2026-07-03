@@ -1,10 +1,8 @@
 import pg from 'pg';
 
 export function normalizeSiteKey(role, siteKey) {
-  const sk = siteKey === 'my' || siteKey === 'pp' || siteKey === 'all' ? siteKey : null;
-  if (role === 'admin') return sk || 'all';
-  if (sk === 'all') return 'all';
-  return sk === 'pp' ? 'pp' : 'my';
+  if (siteKey === 'my' || siteKey === 'pp' || siteKey === 'all') return siteKey;
+  return role === 'admin' ? 'all' : 'my';
 }
 
 export function pgConfig() {
@@ -36,22 +34,13 @@ export async function fetchSiteKeysByIds(client, ids) {
 
 export async function enrichProfilesSiteKey(rows) {
   if (!rows?.length) return rows || [];
-  const siteMap = await withPg((client) => fetchSiteKeysByIds(client, rows.map((r) => r.id)));
-  if (!siteMap) {
-    return rows.map((u) => ({
-      ...u,
-      site_key: normalizeSiteKey(u.role, u.site_key),
-    }));
-  }
   return rows.map((u) => ({
     ...u,
-    site_key: normalizeSiteKey(u.role, siteMap[u.id] ?? u.site_key),
+    site_key: normalizeSiteKey(u.role, u.site_key),
   }));
 }
 
 export async function enrichProfileSiteKey(profile) {
   if (!profile?.id) return profile;
-  const siteMap = await withPg((client) => fetchSiteKeysByIds(client, [profile.id]));
-  const raw = siteMap?.[profile.id] ?? profile.site_key;
-  return { ...profile, site_key: normalizeSiteKey(profile.role, raw) };
+  return { ...profile, site_key: normalizeSiteKey(profile.role, profile.site_key) };
 }

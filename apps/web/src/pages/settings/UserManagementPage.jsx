@@ -17,9 +17,9 @@ const ROLES = [
 ];
 
 const SITE_OPTIONS = [
+  { value: 'all', label: `${SITES.all.name} (All)` },
   { value: 'my', label: `${SITES.my.name} (MY)` },
   { value: 'pp', label: `${SITES.pp.name} (PP)` },
-  { value: 'all', label: SITES.all.name },
 ];
 
 function roleLabel(role) {
@@ -86,7 +86,7 @@ export default function UserManagementPage() {
       closeDialog();
       setToast('User account created');
     },
-    onError: (err) => setToast(err.message || 'Create failed'),
+    onError: (err) => setToast(err.response?.data?.error || err.message || 'Create failed'),
   });
 
   const patchMut = useMutation({
@@ -96,7 +96,7 @@ export default function UserManagementPage() {
       closeDialog();
       setToast('User updated');
     },
-    onError: (err) => setToast(err.message || 'Update failed'),
+    onError: (err) => setToast(err.response?.data?.error || err.message || 'Update failed'),
   });
 
   const deleteMut = useMutation({

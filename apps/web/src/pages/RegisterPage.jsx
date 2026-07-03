@@ -302,6 +302,7 @@ export default function RegisterPage() {
           device_id: form.deviceId || null,
           ip_id: form.ipId || null,
           remark: drawer.note || null,
+          owner: form.owner || ownerForDeviceSlot(),
           ...proxyLog,
         });
         qc.invalidateQueries({ queryKey: ['accounts'] });

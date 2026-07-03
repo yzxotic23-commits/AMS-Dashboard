@@ -34,6 +34,14 @@ export function formatSimLabel(simRow) {
   return `${simRow.carrier || 'SIM'} · ${simRow.phone_number}`;
 }
 
+function inferSiteFromDevice(deviceName) {
+  if (!deviceName) return null;
+  const code = String(deviceName).toUpperCase();
+  if (code.startsWith('PP-')) return 'pp';
+  if (code.startsWith('MYR-') || code.startsWith('MY-')) return 'my';
+  return null;
+}
+
 export function accountToOperatorRow(account) {
   const meta = parseOperatorMeta(account);
   const simJoin = account.sims || null;
@@ -46,6 +54,7 @@ export function accountToOperatorRow(account) {
     status: account.status,
     wsaf_slot: account.wsaf_slot ?? null,
     siteKey: meta.site_key
+      || inferSiteFromDevice(deviceJoin?.device_name)
       || inferSiteFromIp(ipJoin?.ip_address)
       || inferSiteFromSim(simJoin)
       || 'my',

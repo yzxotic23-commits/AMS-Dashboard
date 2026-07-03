@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { accountToOperatorRow } from '../lib/account-operator-meta';
 import { filterRosterForProfile } from '../lib/operator-scope';
 import { countRegNeededFromQueue } from '../lib/register-queue';
+import { canonicalHubOwner, ownerMatchesOperator } from '../lib/hub-operators';
 import { usePreparedQueue } from './usePreparedQueue';
 import { useOperatorRoster, operatorDisplayName } from './useOperatorRoster';
 import { isManualScanDue } from '../lib/nurturing-day';
@@ -43,11 +44,27 @@ function hubCountsFromAccounts(owned, tickets, site) {
   return counts;
 }
 
-export function resolveAccountOwner(account, regOwnerByAccountId = {}) {
-  const fromMeta = String(account.owner || '').trim();
-  if (fromMeta) return fromMeta;
-  const fromLog = String(regOwnerByAccountId[account.id] || '').trim();
-  return fromLog;
+export function resolveAccountOwner(account, regOwnerByAccountId = {}, roster = []) {
+  const fromMeta = canonicalHubOwner(account.owner, roster);
+  const fromLog = canonicalHubOwner(regOwnerByAccountId[account.id], roster);
+  const metaKnown = fromMeta && roster.some((op) => ownerMatchesOperator(fromMeta, op));
+  if (metaKnown) return fromMeta;
+  if (fromLog) return fromLog;
+  return fromMeta || fromLog;
+}
+
+function operatorSiteKey(op) {
+  if (op.site_key === 'pp') return 'pp';
+  if (op.site_key === 'all') return 'all';
+  return 'my';
+}
+
+export function accountBelongsToOperator(account, op, roster, regOwnerByAccountId = {}) {
+  const owner = resolveAccountOwner(account, regOwnerByAccountId, roster);
+  if (!owner || !ownerMatchesOperator(owner, op)) return false;
+  const sk = operatorSiteKey(op);
+  if (sk !== 'all') return (account.siteKey || 'my') === sk;
+  return true;
 }
 
 export function computeHubCounts(accounts, tickets, preparedQueue, site) {
@@ -63,23 +80,17 @@ export function computeHubCountsByOperator(
   tickets,
   preparedQueue,
   site,
-  owner,
+  op,
   regOwnerByAccountId = {},
-  ownerSiteKey = null,
+  roster = [],
 ) {
   const scoped = filterSite(accounts, site);
-  const owned = scoped.filter((a) => {
-    if (resolveAccountOwner(a, regOwnerByAccountId) !== owner) return false;
-    if (ownerSiteKey && ownerSiteKey !== 'all') {
-      return (a.siteKey || 'my') === ownerSiteKey;
-    }
-    return true;
-  });
+  const owned = scoped.filter((a) => accountBelongsToOperator(a, op, roster, regOwnerByAccountId));
   return hubCountsFromAccounts(owned, tickets, site);
 }
 
 function rosterSiteLabel(op, siteFilter) {
-  const sk = op.site_key === 'pp' ? 'pp' : op.site_key === 'all' ? 'all' : 'my';
+  const sk = operatorSiteKey(op);
   if (siteFilter !== 'all') return SITES[siteFilter].name;
   return SITES[sk]?.name || sk;
 }
@@ -98,30 +109,48 @@ export function buildOperatorHubRows(
   regOwnerByAccountId = {},
   roster = [],
 ) {
-  const rows = roster
-    .filter((op) => rosterMatchesSiteFilter(op, site))
-    .map((op) => {
-      const name = operatorDisplayName(op);
-      const ownerSiteKey = op.site_key === 'pp' ? 'pp' : op.site_key === 'all' ? 'all' : 'my';
-      return {
-        code: op.username || op.id,
-        name,
-        site: ownerSiteKey,
-        siteLabel: rosterSiteLabel(op, site),
-        ...computeHubCountsByOperator(
-          accounts,
-          tickets,
-          preparedQueue,
-          site,
-          name,
-          regOwnerByAccountId,
-          ownerSiteKey,
-        ),
-      };
-    })
-    .sort((a, b) => a.name.localeCompare(b.name) || a.siteLabel.localeCompare(b.siteLabel));
+  const scopedRoster = roster.filter((op) => rosterMatchesSiteFilter(op, site));
+  const claimedIds = new Set();
 
-  return rows;
+  const rows = scopedRoster.map((op) => {
+    const name = operatorDisplayName(op);
+    const owned = filterSite(accounts, site).filter((a) => {
+      if (!accountBelongsToOperator(a, op, roster, regOwnerByAccountId)) return false;
+      claimedIds.add(a.id);
+      return true;
+    });
+    const counts = hubCountsFromAccounts(owned, tickets, site);
+    return {
+      code: op.username || op.id,
+      name,
+      site: operatorSiteKey(op),
+      siteLabel: rosterSiteLabel(op, site),
+      unassigned: false,
+      ...counts,
+    };
+  });
+
+  const unassignedAccounts = filterSite(accounts, site).filter((a) => {
+    if (claimedIds.has(a.id)) return false;
+    return hubCountsFromAccounts([a], tickets, site).total > 0;
+  });
+
+  if (unassignedAccounts.length > 0) {
+    rows.push({
+      code: '__unassigned__',
+      name: 'Unassigned',
+      site: site === 'all' ? 'all' : site,
+      siteLabel: 'Needs operator',
+      unassigned: true,
+      ...hubCountsFromAccounts(unassignedAccounts, tickets, site),
+    });
+  }
+
+  return rows.sort((a, b) => {
+    if (a.unassigned) return 1;
+    if (b.unassigned) return -1;
+    return a.name.localeCompare(b.name) || a.siteLabel.localeCompare(b.siteLabel);
+  });
 }
 
 export function useHubCountsBySite() {
@@ -187,7 +216,7 @@ export function useHubOperators(site = 'all') {
   const { data: regLog = [] } = useQuery({
     queryKey: ['registrations', 'log', 'hub-owners'],
     queryFn: async () => {
-      const res = await api.get('/registrations', { params: { limit: 200 } });
+      const res = await api.get('/registrations', { params: { limit: 500 } });
       return res.data?.data || [];
     },
     staleTime: 30_000,
@@ -197,7 +226,7 @@ export function useHubOperators(site = 'all') {
     const map = {};
     regLog.forEach((row) => {
       if (row.result !== 'ok' || !row.account_id) return;
-      const op = String(row.operator || '').trim();
+      const op = String(row.assigned_owner || row.operator || '').trim();
       if (op && op !== '—') map[row.account_id] = op;
     });
     return map;

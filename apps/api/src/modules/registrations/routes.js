@@ -27,6 +27,7 @@ const logSchema = z.object({
   proxy_port: z.string().optional().nullable(),
   proxy_username: z.string().optional().nullable(),
   proxy_password: z.string().optional().nullable(),
+  owner: z.string().optional().nullable(),
 });
 
 const META_PREFIX = '_ams_prep:';
@@ -303,7 +304,12 @@ router.get('/', async (req, res, next) => {
       proxy_username: row.metadata?.proxy_username,
       proxy_password: row.metadata?.proxy_password,
       created_at: row.created_at,
-      operator: row.profiles?.full_name || row.profiles?.email || '—',
+      assigned_owner: row.metadata?.assigned_owner || null,
+      submitted_by: row.profiles?.full_name || row.profiles?.email || '—',
+      operator: row.metadata?.assigned_owner
+        || row.profiles?.full_name
+        || row.profiles?.email
+        || '—',
     }));
 
     res.json(paginatedResponse(rows, count || 0, page, limit));
@@ -394,6 +400,7 @@ router.post('/', async (req, res, next) => {
       proxy_port: body.proxy_port,
       proxy_username: body.proxy_username,
       proxy_password: body.proxy_password,
+      assigned_owner: body.owner ? String(body.owner).trim() || null : null,
     };
 
     await writeAudit({

@@ -6,6 +6,8 @@ import IconTooltip from '../components/IconTooltip';
 import NurturingPanels from '../components/NurturingPanels';
 import Toast from '../components/Toast';
 import { useSite } from '../context/SiteContext';
+import { useAuth } from '../context/AuthContext';
+import { operatorDisplayLabel } from '../lib/operator-scope';
 import { SITES, getSiteChipClass } from '../lib/sites';
 import { useAccountsByStatus, useAccountMutations } from '../hooks/useOperatorAccounts';
 import { toastCopy } from '../lib/operator-copy';
@@ -66,6 +68,7 @@ function resourceSummary(row) {
 
 export default function ActivationDeskPage() {
   const { site } = useSite();
+  const { profile } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = searchParams.get('tab') === 'nurturing' ? 'nurturing' : 'activation';
   const [busyId, setBusyId] = useState(null);
@@ -124,12 +127,14 @@ export default function ActivationDeskPage() {
     }
     setBusyId(row.id);
     try {
+      const owner = row.owner || operatorDisplayLabel(profile);
       await patchAccount.mutateAsync({
         id: row.id,
         row,
         patch: {
           nurturing_phase: 'manual',
           nurturing_started_at: new Date().toISOString(),
+          ...(owner ? { owner } : {}),
         },
       });
       await transitionAccount.mutateAsync({

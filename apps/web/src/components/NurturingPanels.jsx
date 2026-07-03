@@ -101,8 +101,7 @@ export default function NurturingPanels() {
     return map;
   }, [allAccounts, scanRow?.id]);
 
-  const scanSite = scanRow?.siteKey || 'my';
-  const { list: freeIps } = useFreeIps(scanSite);
+  const { list: freeIps } = useFreeIps();
 
   const ipBindings = useMemo(() => buildIpBindings(allAccounts), [allAccounts]);
 
@@ -519,7 +518,7 @@ export default function NurturingPanels() {
                 onChange={(e) => setScanIpId(e.target.value)}
               >
                 {freeIps.length === 0 ? (
-                  <option value="">No proxies for this site</option>
+                  <option value="">No active IPs in ledger</option>
                 ) : freeIps.map((ip) => {
                   const bound = ipBindingCount(ip, ipBindings);
                   const selectable = isIpSelectableForAccount(ip, ipBindings, scanRow.ip_id);

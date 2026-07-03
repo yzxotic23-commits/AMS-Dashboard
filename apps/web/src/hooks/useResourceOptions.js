@@ -3,15 +3,14 @@ import { useQuery } from '@tanstack/react-query';
 import api from '../lib/api';
 import {
   filterDevicesBySite,
-  filterIpsBySite,
   filterSimsBySite,
   mapIpRow,
   simOptionFromRow,
 } from '../lib/resource-mappers';
 import { compareDeviceNames } from '../lib/device-location';
 
-/** Same IP ledger as Resources → IP page (active rows, site-scoped). */
-export function useFreeIps(siteKey, options = {}) {
+/** Same IP ledger as Resources → IP page (all active rows — proxies are site-agnostic). */
+export function useFreeIps(options = {}) {
   const { enabled = true } = options;
   const { data, isLoading, isFetching } = useQuery({
     queryKey: ['ips'],
@@ -23,10 +22,7 @@ export function useFreeIps(siteKey, options = {}) {
     staleTime: 30_000,
   });
 
-  const list = useMemo(() => {
-    const active = (data || []).filter((ip) => ip.active);
-    return filterIpsBySite(active, siteKey);
-  }, [data, siteKey]);
+  const list = useMemo(() => (data || []).filter((ip) => ip.active), [data]);
 
   return { list, isLoading: isLoading || isFetching };
 }

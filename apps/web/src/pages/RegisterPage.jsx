@@ -103,7 +103,7 @@ export default function RegisterPage() {
   const { data: regLog = [] } = useRegistrationLog(15, { enabled: tab === 'log' });
 
   const siteKey = drawer?.siteKey || 'my';
-  const { list: freeIps, isLoading: ipsLoading } = useFreeIps(siteKey, { enabled: drawerOpen });
+  const { list: freeIps, isLoading: ipsLoading } = useFreeIps({ enabled: drawerOpen });
   const { list: devices, isLoading: devicesLoading } = useDeviceOptions(siteKey, { enabled: drawerOpen });
   const { list: sims, isLoading: simsLoading } = useSimOptions(siteKey, { enabled: drawerOpen });
   const resourcesLoading = drawerOpen && (ledgerFetching || ipsLoading || devicesLoading || simsLoading);
@@ -612,7 +612,7 @@ export default function RegisterPage() {
                   onChange={(e) => setForm((f) => ({ ...f, ipId: e.target.value }))}
                 >
                   {freeIps.length === 0 ? (
-                    <option value="">No free IPs for this site</option>
+                    <option value="">No active IPs in ledger</option>
                   ) : freeIps.map((ip) => {
                     const inUse = (ip.in_use ?? 0) > 0 && ip.id !== form.ipId;
                     return (

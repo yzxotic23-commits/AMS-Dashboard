@@ -14,7 +14,8 @@ export function useRegistrationStats(siteKey = 'all') {
   });
 }
 
-export function useRegistrationLog(limit = 20) {
+export function useRegistrationLog(limit = 20, options = {}) {
+  const { enabled = true } = options;
   return useQuery({
     queryKey: ['registrations', 'log', limit],
     queryFn: async () => {
@@ -22,5 +23,6 @@ export function useRegistrationLog(limit = 20) {
       return data?.data || [];
     },
     staleTime: 15_000,
+    enabled,
   });
 }

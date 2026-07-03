@@ -142,6 +142,15 @@ function countByStatus(accounts, siteKey) {
   return counts;
 }
 
+const RM_FLAGS_TTL_MS = 30_000;
+let rmFlagsCache = null;
+let rmFlagsCacheAt = 0;
+
+export function invalidateRmSupplyFlagsCache() {
+  rmFlagsCache = null;
+  rmFlagsCacheAt = 0;
+}
+
 export async function loadRmSupplyModel(siteKey = 'all') {
   const sites = siteKey === 'all' ? ['my', 'pp'] : [siteKey];
   const accounts = await loadAccounts();
@@ -243,9 +252,15 @@ export async function loadRmSupplyModel(siteKey = 'all') {
 }
 
 export async function loadRmSupplyFlagsBySite() {
+  const now = Date.now();
+  if (rmFlagsCache && now - rmFlagsCacheAt < RM_FLAGS_TTL_MS) {
+    return rmFlagsCache;
+  }
   const { sites } = await loadRmSupplyModel('all');
-  return {
+  rmFlagsCache = {
     my: sites.my,
     pp: sites.pp,
   };
+  rmFlagsCacheAt = now;
+  return rmFlagsCache;
 }

@@ -5,7 +5,7 @@ import { supabaseAdmin } from '../../lib/supabase.js';
 import { writeAudit } from '../../lib/audit.js';
 import { parsePagination, paginatedResponse } from '../../lib/pagination.js';
 import { isPreparedQueueSim } from '../../lib/simMeta.js';
-import { loadRmSupplyFlagsBySite } from '../../lib/rmSupplyData.js';
+import { loadRmSupplyFlagsBySite, invalidateRmSupplyFlagsCache } from '../../lib/rmSupplyData.js';
 import { rankPreparedNeedFlags } from '../../lib/rmSupplyModel.js';
 
 const router = Router();
@@ -171,6 +171,7 @@ router.post('/prepared', async (req, res, next) => {
       note: meta.note,
       siteKey: sk,
     });
+    invalidateRmSupplyFlagsCache();
     res.status(201).json(row);
   } catch (e) {
     next(e);
@@ -219,6 +220,7 @@ router.patch('/prepared/:id', async (req, res, next) => {
       note: nextMeta.note || '',
       siteKey: sk,
     });
+    invalidateRmSupplyFlagsCache();
     res.json(row);
   } catch (e) {
     next(e);
@@ -262,6 +264,7 @@ router.delete('/prepared/:id', async (req, res, next) => {
       req,
     });
 
+    invalidateRmSupplyFlagsCache();
     res.json({ ok: true, phone_number: sim.phone_number });
   } catch (e) {
     next(e);
@@ -313,28 +316,50 @@ router.get('/', async (req, res, next) => {
 router.get('/stats', async (req, res, next) => {
   try {
     const siteKey = req.query.site || req.query.site_key;
-    let q = supabaseAdmin
+
+    function regLogQuery() {
+      let q = supabaseAdmin
+        .from('audit_logs')
+        .select('id', { count: 'exact', head: true })
+        .eq('entity_type', 'account')
+        .contains('metadata', { registration_log: true });
+      if (siteKey && siteKey !== 'all') {
+        q = q.eq('metadata->>site_key', siteKey);
+      }
+      return q;
+    }
+
+    const [totalRes, successRes, failedRes] = await Promise.all([
+      regLogQuery(),
+      regLogQuery().eq('metadata->>result', 'ok'),
+      regLogQuery().eq('metadata->>result', 'fail'),
+    ]);
+    if (totalRes.error) throw totalRes.error;
+    if (successRes.error) throw successRes.error;
+    if (failedRes.error) throw failedRes.error;
+
+    const total = totalRes.count || 0;
+    const success = successRes.count || 0;
+    const failed = failedRes.count || 0;
+    const rate = total > 0 ? Math.round((success / total) * 1000) / 10 : 0;
+
+    let failQ = supabaseAdmin
       .from('audit_logs')
       .select('metadata')
       .eq('entity_type', 'account')
-      .contains('metadata', { registration_log: true });
-
-    const { data, error } = await q;
-    if (error) throw error;
-
-    let rows = (data || []).map((r) => r.metadata).filter(Boolean);
+      .contains('metadata', { registration_log: true })
+      .eq('metadata->>result', 'fail')
+      .order('created_at', { ascending: false })
+      .limit(500);
     if (siteKey && siteKey !== 'all') {
-      rows = rows.filter((m) => m.site_key === siteKey);
+      failQ = failQ.eq('metadata->>site_key', siteKey);
     }
-
-    const total = rows.length;
-    const success = rows.filter((m) => m.result === 'ok').length;
-    const failed = rows.filter((m) => m.result === 'fail').length;
-    const rate = total > 0 ? Math.round((success / total) * 1000) / 10 : 0;
+    const { data: failRows, error: failErr } = await failQ;
+    if (failErr) throw failErr;
 
     const byReason = {};
-    rows.filter((m) => m.result === 'fail').forEach((m) => {
-      const r = m.fail_reason || 'Other';
+    (failRows || []).forEach((row) => {
+      const r = row.metadata?.fail_reason || 'Other';
       byReason[r] = (byReason[r] || 0) + 1;
     });
 

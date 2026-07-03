@@ -16,13 +16,16 @@ export function useAccountsByStatus(status, options = {}) {
   });
 }
 
-export function useAllAccounts() {
+export function useAllAccounts(options = {}) {
+  const { enabled = true } = options;
   return useQuery({
     queryKey: ['accounts', 'all'],
     queryFn: async () => {
       const res = await api.get('/accounts', { params: { limit: 500 } });
       return (res.data?.data || []).map(accountToOperatorRow);
     },
+    enabled,
+    staleTime: 30_000,
   });
 }
 

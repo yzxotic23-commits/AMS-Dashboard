@@ -20,7 +20,6 @@ const AMS_BRIDGE_SYNC_PATHS = [
   '/feedflow',
   '/link',
   '/nurturing',
-  '/register',
   '/recovery',
 ];
 

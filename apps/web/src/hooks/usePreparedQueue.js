@@ -11,7 +11,7 @@ export function usePreparedQueue(site = 'all') {
       });
       return res.data?.data || { my: [], pp: [] };
     },
-    staleTime: 15_000,
+    staleTime: 30_000,
   });
 }
 

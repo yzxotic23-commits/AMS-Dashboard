@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import PageHead from '../components/PageHead';
@@ -34,9 +34,13 @@ import { formatProxyOptionLabel, proxyFieldsFromIp, formatProxyOneLine } from '.
 import { useAllAccounts } from '../hooks/useOperatorAccounts';
 import { toastCopy } from '../lib/operator-copy';
 import { dismissPreparedRow, usePreparedQueue, addPreparedNumber, deletePreparedNumber } from '../hooks/usePreparedQueue';
+import {
+  defaultTelco,
+  normalizeTelco,
+  TELCO_OPTIONS,
+} from '../lib/telco-options';
 
 const FAIL_REASONS = ['Number rejected', 'IP flagged', 'No verification code', 'Other'];
-const TELCO_OPTIONS = ['Outsource', 'Tunetalk', 'Celcom', 'Digi', 'Maxis', 'U Mobile'];
 const TABS = [
   { id: 'prepared', label: 'Prepared Numbers' },
   { id: 'log', label: 'Registration Log' },
@@ -72,7 +76,7 @@ export default function RegisterPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [addForm, setAddForm] = useState({
     phone: '',
-    telco: TELCO_OPTIONS[0],
+    telco: defaultTelco(),
     site_key: 'my',
     note: '',
   });
@@ -87,7 +91,8 @@ export default function RegisterPage() {
   );
   const defaultOperator = operatorDisplayLabel(profile)
     || (operators[0] ? operatorDisplayName(operators[0]) : '');
-  const { data: ledgerAccounts = [] } = useAllAccounts();
+  const drawerOpen = !!drawer;
+  const { data: ledgerAccounts = [], isFetching: ledgerFetching } = useAllAccounts({ enabled: drawerOpen });
   const [toast, setToast] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
@@ -95,12 +100,14 @@ export default function RegisterPage() {
   const [tab, setTab] = useState('prepared');
   const { createAccount, logRegistration } = useAccountMutations();
   const { data: regStats } = useRegistrationStats(site);
-  const { data: regLog = [] } = useRegistrationLog(15);
+  const { data: regLog = [] } = useRegistrationLog(15, { enabled: tab === 'log' });
 
   const siteKey = drawer?.siteKey || 'my';
-  const freeIps = useFreeIps(siteKey);
-  const devices = useDeviceOptions(siteKey);
-  const sims = useSimOptions(siteKey);
+  const { list: freeIps, isLoading: ipsLoading } = useFreeIps(siteKey, { enabled: drawerOpen });
+  const { list: devices, isLoading: devicesLoading } = useDeviceOptions(siteKey, { enabled: drawerOpen });
+  const { list: sims, isLoading: simsLoading } = useSimOptions(siteKey, { enabled: drawerOpen });
+  const resourcesLoading = drawerOpen && (ledgerFetching || ipsLoading || devicesLoading || simsLoading);
+  const drawerFormInit = useRef(null);
 
   const availableSlots = useMemo(() => {
     if (!form.deviceId) return DEVICE_CHANNEL_SLOTS;
@@ -128,10 +135,11 @@ export default function RegisterPage() {
   }, [rows, site]);
 
   function openAddPrepared() {
+    const siteKey = preparedSiteKeyForAdd(site, profile);
     setAddForm({
       phone: '',
-      telco: TELCO_OPTIONS[0],
-      site_key: preparedSiteKeyForAdd(site, profile),
+      telco: defaultTelco(),
+      site_key: siteKey,
       note: '',
     });
     setAddOpen(true);
@@ -204,6 +212,17 @@ export default function RegisterPage() {
   }
 
   function openReg(row) {
+    setDrawer(row);
+  }
+
+  useEffect(() => {
+    if (!drawer) {
+      drawerFormInit.current = null;
+      return;
+    }
+    if (resourcesLoading) return;
+    if (drawerFormInit.current === drawer.id) return;
+
     const deviceWithSlot = devices.find(
       (d) => deviceSlotAvailability(d.id, ledgerAccounts).free > 0,
     );
@@ -219,12 +238,12 @@ export default function RegisterPage() {
       slot,
       ipId: freeIps.find((ip) => (ip.in_use ?? 0) === 0)?.id || freeIps[0]?.id || '',
       accountName: '',
-      owner: ownerForDeviceSlot(),
+      owner: defaultOperator,
       result: 'ok',
       failReason: FAIL_REASONS[0],
     });
-    setDrawer(row);
-  }
+    drawerFormInit.current = drawer.id;
+  }, [drawer, resourcesLoading, devices, ledgerAccounts, freeIps, defaultOperator]);
 
   async function submitReg() {
     if (!drawer || submitting) return;
@@ -480,13 +499,15 @@ export default function RegisterPage() {
         footer={(
           <>
             <button type="button" className="btn btn-ghost" onClick={() => setDrawer(null)}>Cancel</button>
-            <button type="button" className="btn btn-primary" onClick={submitReg} disabled={submitting}>
+            <button type="button" className="btn btn-primary" onClick={submitReg} disabled={submitting || resourcesLoading}>
               {submitting ? 'Saving…' : 'Submit Result'}
             </button>
           </>
         )}
       >
-        {drawer && (
+        {drawer && resourcesLoading ? (
+          <p className="py-6 text-center text-sm text-ams-muted">Loading devices and proxy options…</p>
+        ) : drawer && (
           <>
             <p className="drawer-hint">
               Log the registration result from the device. Proxy/IP is chosen here — not when adding a prepared number.
@@ -686,7 +707,7 @@ export default function RegisterPage() {
             <span className="drawer-label">Telco</span>
             <select
               className="input"
-              value={addForm.telco}
+              value={normalizeTelco(addForm.telco)}
               onChange={(e) => setAddForm((f) => ({ ...f, telco: e.target.value }))}
             >
               {TELCO_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
@@ -698,7 +719,10 @@ export default function RegisterPage() {
               <select
                 className="input"
                 value={addForm.site_key}
-                onChange={(e) => setAddForm((f) => ({ ...f, site_key: e.target.value }))}
+                onChange={(e) => {
+                  const site_key = e.target.value === 'pp' ? 'pp' : 'my';
+                  setAddForm((f) => ({ ...f, site_key }));
+                }}
               >
                 <option value="my">{SITES.my.name}</option>
                 <option value="pp">{SITES.pp.name}</option>

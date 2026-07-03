@@ -11,6 +11,7 @@ import api from '../lib/api';
 import { mapSimRow } from '../lib/resource-mappers';
 import { expiryFromChargeDate } from '../lib/sim-meta';
 import { toastCopy } from '../lib/operator-copy';
+import { telcoFilterOptionsForSite } from '../lib/telco-options';
 import { useScrollRevealScrollbar } from '../hooks/useScrollRevealScrollbar';
 import { usePhoneSyncMutation, usePhoneSyncRows } from '../hooks/useSupply';
 
@@ -51,6 +52,9 @@ export default function SimsPage() {
   const [chargeDate, setChargeDate] = useState('');
   const [toast, setToast] = useState('');
   const [page, setPage] = useState(1);
+
+  const telcoSegOptions = useMemo(() => telcoFilterOptionsForSite(), []);
+
   const [onlyMismatch, setOnlyMismatch] = useState(false);
   const [syncBusyId, setSyncBusyId] = useState(null);
   const tableScrollRef = useScrollRevealScrollbar();
@@ -239,11 +243,7 @@ export default function SimsPage() {
           onChange={(v) => setTelco(v)}
           size="sm"
           variant="notion"
-          options={[
-            { value: 'all', label: 'All Telco' },
-            { value: 'Tunetalk', label: 'Tunetalk' },
-            { value: 'Outsource', label: 'Outsource' },
-          ]}
+          options={telcoSegOptions}
         />
         <label className="flex items-center gap-2 text-[13px] text-ams-muted">
           <input

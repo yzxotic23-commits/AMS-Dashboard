@@ -100,7 +100,7 @@ export default function NurturingPanels() {
   }, [allAccounts, scanRow?.id]);
 
   const scanSite = scanRow?.siteKey || 'my';
-  const freeIps = useFreeIps(scanSite);
+  const { list: freeIps } = useFreeIps(scanSite);
 
   const ipBindings = useMemo(() => buildIpBindings(allAccounts), [allAccounts]);
 

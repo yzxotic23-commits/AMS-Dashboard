@@ -102,7 +102,7 @@ export function buildOperatorHubRows(
     .filter((op) => rosterMatchesSiteFilter(op, site))
     .map((op) => {
       const name = operatorDisplayName(op);
-      const ownerSiteKey = op.site_key === 'pp' ? 'pp' : 'my';
+      const ownerSiteKey = op.site_key === 'pp' ? 'pp' : op.site_key === 'all' ? 'all' : 'my';
       return {
         code: op.username || op.id,
         name,

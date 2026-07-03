@@ -26,9 +26,8 @@ function roleLabel(role) {
   return ROLES.find((r) => r.value === role)?.label || role;
 }
 
-function siteOptionsForRole(role) {
-  if (role === 'admin') return SITE_OPTIONS;
-  return SITE_OPTIONS.filter((o) => o.value !== 'all');
+function siteOptionsForRole() {
+  return SITE_OPTIONS;
 }
 
 function resolveSiteKey(siteKey, role) {
@@ -152,13 +151,12 @@ export default function UserManagementPage() {
   function handleRoleChange(role) {
     setForm((f) => {
       const next = { ...f, role };
-      if (role !== 'admin' && next.site_key === 'all') next.site_key = 'my';
       if (role === 'admin') next.site_key = 'all';
       return next;
     });
   }
 
-  const formSiteOptions = siteOptionsForRole(form.role);
+  const formSiteOptions = siteOptionsForRole();
   const dialogBusy = createMut.isPending || patchMut.isPending;
 
   return (

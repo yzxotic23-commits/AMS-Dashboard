@@ -3,6 +3,7 @@ import pg from 'pg';
 export function normalizeSiteKey(role, siteKey) {
   const sk = siteKey === 'my' || siteKey === 'pp' || siteKey === 'all' ? siteKey : null;
   if (role === 'admin') return sk || 'all';
+  if (sk === 'all') return 'all';
   return sk === 'pp' ? 'pp' : 'my';
 }
 

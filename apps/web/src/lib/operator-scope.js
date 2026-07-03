@@ -2,18 +2,20 @@ export function isAdminProfile(profile) {
   return profile?.role === 'admin';
 }
 
-/** Site filter locked for operators; admin may use all/my/pp. */
+/** Site filter: admin and all-site operators may use all/my/pp; others locked to assigned site. */
 export function operatorSiteKey(profile) {
+  const sk = profile?.site_key;
   if (isAdminProfile(profile)) {
-    const sk = profile?.site_key;
     if (sk === 'my' || sk === 'pp') return sk;
     return 'all';
   }
-  return profile?.site_key === 'pp' ? 'pp' : 'my';
+  if (sk === 'pp' || sk === 'my' || sk === 'all') return sk;
+  return 'my';
 }
 
 export function siteOptionsForProfile(profile) {
   if (isAdminProfile(profile)) return ['all', 'my', 'pp'];
+  if (profile?.site_key === 'all') return ['all', 'my', 'pp'];
   return [operatorSiteKey(profile)];
 }
 

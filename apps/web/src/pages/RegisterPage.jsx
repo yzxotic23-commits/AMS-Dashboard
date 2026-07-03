@@ -31,6 +31,12 @@ import {
   normalizeDeviceChannel,
 } from '../lib/device-location';
 import { formatProxyOptionLabel, proxyFieldsFromIp, formatProxyOneLine } from '../lib/proxy-display';
+import {
+  buildIpBindings,
+  ipBindingCount,
+  isIpSelectableForAccount,
+  proxyBindingSuffix,
+} from '../lib/ip-ready';
 import { useAllAccounts } from '../hooks/useOperatorAccounts';
 import { toastCopy } from '../lib/operator-copy';
 import { dismissPreparedRow, usePreparedQueue, addPreparedNumber, deletePreparedNumber } from '../hooks/usePreparedQueue';
@@ -108,6 +114,7 @@ export default function RegisterPage() {
   const { list: devices, isLoading: devicesLoading, expandMessage: devicesExpanded } = useDeviceOptions(siteKey, { enabled: drawerOpen });
   const { list: sims, isLoading: simsLoading } = useSimOptions(siteKey, { enabled: drawerOpen });
   const resourcesLoading = drawerOpen && (ledgerFetching || ipsLoading || devicesLoading || simsLoading);
+  const ipBindings = useMemo(() => buildIpBindings(ledgerAccounts), [ledgerAccounts]);
   const drawerFormInit = useRef(null);
   const expandToastShown = useRef('');
 
@@ -246,14 +253,15 @@ export default function RegisterPage() {
     setForm({
       deviceId,
       slot,
-      ipId: freeIps.find((ip) => (ip.in_use ?? 0) === 0)?.id || freeIps[0]?.id || '',
+      ipId: freeIps.find((ip) => isIpSelectableForAccount(ip, ipBindings, null))?.id
+        || freeIps[0]?.id || '',
       accountName: '',
       owner: defaultOperator,
       result: 'ok',
       failReason: FAIL_REASONS[0],
     });
     drawerFormInit.current = drawer.id;
-  }, [drawer, resourcesLoading, devices, ledgerAccounts, freeIps, defaultOperator]);
+  }, [drawer, resourcesLoading, devices, ledgerAccounts, freeIps, ipBindings, defaultOperator]);
 
   async function submitReg() {
     if (!drawer || submitting) return;
@@ -624,10 +632,12 @@ export default function RegisterPage() {
                   {freeIps.length === 0 ? (
                     <option value="">No active IPs in ledger</option>
                   ) : freeIps.map((ip) => {
-                    const inUse = (ip.in_use ?? 0) > 0 && ip.id !== form.ipId;
+                    const bound = ipBindingCount(ip, ipBindings);
+                    const selectable = isIpSelectableForAccount(ip, ipBindings, null);
+                    const suffix = proxyBindingSuffix(bound, null, ip.id);
                     return (
-                      <option key={ip.id} value={ip.id} disabled={inUse}>
-                        {formatProxyOptionLabel(ip)}{inUse ? ' (in use)' : ''}
+                      <option key={ip.id} value={ip.id} disabled={!selectable}>
+                        {formatProxyOptionLabel(ip)}{suffix}
                       </option>
                     );
                   })}

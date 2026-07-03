@@ -29,3 +29,14 @@ export function proxyFieldsFromIp(ip) {
     proxy_password: ip.password || null,
   };
 }
+
+/** Build socks5 URL for FeedFlow proxies.txt / slot proxy API. */
+export function proxyUrlFromIp(ip) {
+  if (!ip?.ip_address) return null;
+  const host = String(ip.ip_address).trim();
+  const port = normPort(ip.port);
+  const user = ip.username != null ? String(ip.username) : '';
+  const pass = ip.password != null ? String(ip.password) : '';
+  if (!user && !pass) return `socks5://${host}:${port}`;
+  return `socks5://${encodeURIComponent(user)}:${encodeURIComponent(pass)}@${host}:${port}`;
+}

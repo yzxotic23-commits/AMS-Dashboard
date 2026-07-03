@@ -14,7 +14,9 @@ import {
   isAutoGraduationDue, isManualScanDue, nurturingDay,
 } from '../lib/nurturing-day';
 import { NURT_STATUS, toastCopy } from '../lib/operator-copy';
-import { formatProxyOptionLabel } from '../lib/proxy-display';
+import { formatProxyOptionLabel, proxyUrlFromIp } from '../lib/proxy-display';
+import { feedflowSlotLabelBody } from '../lib/feeding-audit';
+import api from '../lib/api';
 import {
   buildIpBindings,
   isIpSelectableForAccount,
@@ -194,11 +196,12 @@ export default function NurturingPanels() {
     setBusy(true);
     try {
       const ipRow = freeIps.find((ip) => ip.id === scanIpId);
+      const nextIp = ipRow?.ip_address || scanRow.ip;
       await patchAccount.mutateAsync({
         id: scanRow.id,
         row: scanRow,
         patch: {
-          ip: ipRow?.ip_address || scanRow.ip,
+          ip: nextIp,
           ip_id: ipRow?.id || null,
           nurturing_phase: 'auto',
           linked_override: true,
@@ -206,8 +209,31 @@ export default function NurturingPanels() {
         },
         extra: { wsaf_slot: scanSlot },
       });
+
+      let proxySyncFailed = false;
+      const proxyUrl = proxyUrlFromIp(ipRow);
+      if (proxyUrl && scanSlot != null) {
+        try {
+          await api.post(`/bridge/slots/${scanSlot}/proxy`, { proxyUrl });
+          await api.post(
+            `/bridge/slots/${scanSlot}/display-label`,
+            feedflowSlotLabelBody({
+              ...scanRow,
+              account_name: scanRow.acct || scanRow.account_name,
+              ip: nextIp,
+            }),
+          ).catch(() => {});
+        } catch {
+          proxySyncFailed = true;
+        }
+      }
+
       setScanRow(null);
-      showToast(toastCopy.nurturingScanIn(scanRow.acct));
+      showToast(
+        proxySyncFailed
+          ? `${toastCopy.nurturingScanIn(scanRow.acct)} — FeedFlow proxy sync failed; set manually in engine settings.`
+          : toastCopy.nurturingScanIn(scanRow.acct),
+      );
     } catch (e) {
       showToast(e.message || 'Scan-in failed');
     } finally {
@@ -471,7 +497,7 @@ export default function NurturingPanels() {
         {scanRow && (
           <div className="drawer-form scan-drawer-form">
             <p className="drawer-hint drawer-hint--compact">
-              Day 3 on device farm — link FeedFlow for engine monitoring (days 4–7), then confirm scan-in.
+              Day 3 on device farm — pick proxy, link FeedFlow, then confirm scan-in. Proxy is pushed to FeedFlow automatically (no manual Settings → Proxy).
             </p>
 
             <div className="drawer-summary-card">

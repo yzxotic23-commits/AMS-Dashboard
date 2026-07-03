@@ -71,3 +71,11 @@ export async function postLocalAuditSync() {
 export async function postLocalProfileRefresh() {
   return localFetch('/api/profile/refresh', { method: 'POST', timeout: 8000 });
 }
+
+export async function postLocalSlotProxy(slot, proxyUrl) {
+  return localFetch(`/api/slots/${slot}/proxy`, {
+    method: 'POST',
+    body: JSON.stringify({ proxyUrl }),
+    timeout: 15_000,
+  });
+}

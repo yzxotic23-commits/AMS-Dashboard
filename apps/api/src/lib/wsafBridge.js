@@ -128,6 +128,14 @@ export async function postWsafSlotDisplayLabel(slot, payload = {}) {
   });
 }
 
+export async function postWsafSlotProxy(slot, proxyUrl) {
+  return wsafRequest(`/api/slots/${slot}/proxy`, {
+    method: 'POST',
+    body: JSON.stringify({ proxyUrl }),
+    timeout: 15_000,
+  });
+}
+
 export async function postWsafAuditSync() {
   return wsafRequest('/api/audit/sync', { method: 'POST', timeout: 12_000 });
 }

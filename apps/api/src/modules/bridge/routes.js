@@ -7,6 +7,7 @@ import {
   postWsafConnect,
   postWsafDisconnect,
   postWsafSlotDisplayLabel,
+  postWsafSlotProxy,
   postWsafAuditSync,
   postWsafStartFeeding,
   postWsafStopFeeding,
@@ -157,6 +158,27 @@ router.post('/slots/:slot/display-label', authenticate, async (req, res) => {
     res.json(data);
   } catch (e) {
     res.status(502).json({ error: e.message || 'Could not sync slot label' });
+  }
+});
+
+router.post('/slots/:slot/proxy', authenticate, async (req, res) => {
+  try {
+    const slot = parseInt(req.params.slot, 10);
+    if (Number.isNaN(slot) || slot < 0) {
+      return res.status(400).json({ error: 'Invalid slot' });
+    }
+    const proxyUrl = req.body?.proxyUrl || req.body?.proxy_url;
+    if (!proxyUrl) {
+      return res.status(400).json({ error: 'proxyUrl required' });
+    }
+    const ready = await ensureWsafEngineReady();
+    if (!ready) {
+      return res.status(503).json({ error: 'FeedFlow engine is not running.' });
+    }
+    const data = await postWsafSlotProxy(slot, proxyUrl);
+    res.json(data);
+  } catch (e) {
+    res.status(502).json({ error: e.message || 'Could not sync slot proxy' });
   }
 });
 

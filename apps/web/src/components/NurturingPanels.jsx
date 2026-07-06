@@ -16,7 +16,7 @@ import {
 import { NURT_STATUS, toastCopy } from '../lib/operator-copy';
 import { formatProxyOptionLabel, proxyUrlFromIp } from '../lib/proxy-display';
 import { feedflowSlotLabelBody } from '../lib/feeding-audit';
-import api from '../lib/api';
+import { syncSlotDisplayLabelToEngine, syncSlotProxyToEngine } from '../lib/bridge-client';
 import {
   buildIpBindings,
   isIpSelectableForAccount,
@@ -229,9 +229,9 @@ export default function NurturingPanels() {
       const proxyUrl = proxyUrlFromIp(ipRow);
       if (proxyUrl && scanSlot != null) {
         try {
-          await api.post(`/bridge/slots/${scanSlot}/proxy`, { proxyUrl });
-          await api.post(
-            `/bridge/slots/${scanSlot}/display-label`,
+          await syncSlotProxyToEngine(scanSlot, proxyUrl);
+          await syncSlotDisplayLabelToEngine(
+            scanSlot,
             feedflowSlotLabelBody({
               ...scanRow,
               account_name: scanRow.acct || scanRow.account_name,

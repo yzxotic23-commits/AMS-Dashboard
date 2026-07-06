@@ -72,6 +72,14 @@ export async function postLocalProfileRefresh() {
   return localFetch('/api/profile/refresh', { method: 'POST', timeout: 8000 });
 }
 
+export async function postLocalSlotDisplayLabel(slot, body = {}) {
+  return localFetch(`/api/slots/${slot}/display-label`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+    timeout: 8000,
+  });
+}
+
 export async function postLocalSlotProxy(slot, proxyUrl) {
   return localFetch(`/api/slots/${slot}/proxy`, {
     method: 'POST',

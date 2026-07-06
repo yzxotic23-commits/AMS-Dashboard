@@ -8,6 +8,8 @@ import {
   postLocalConnect,
   postLocalDisconnect,
   postLocalProfileRefresh,
+  postLocalSlotDisplayLabel,
+  postLocalSlotProxy,
   probeLocalEngine,
 } from './wsafLocalBridge';
 
@@ -105,6 +107,42 @@ export async function disconnectBridgeSlot(slot) {
     return data;
   } catch {
     return postLocalDisconnect(slot);
+  }
+}
+
+/** Push slot proxy to FeedFlow — direct engine URL first on cloud (Vercel API may lack WSAF_BRIDGE_URL). */
+export async function syncSlotProxyToEngine(slot, proxyUrl) {
+  if (!proxyUrl) throw new Error('proxyUrl required');
+  if (!isLocalBridge()) {
+    try {
+      return await postLocalSlotProxy(slot, proxyUrl);
+    } catch {
+      const { data } = await api.post(`/bridge/slots/${slot}/proxy`, { proxyUrl });
+      return data;
+    }
+  }
+  try {
+    const { data } = await api.post(`/bridge/slots/${slot}/proxy`, { proxyUrl });
+    return data;
+  } catch {
+    return postLocalSlotProxy(slot, proxyUrl);
+  }
+}
+
+export async function syncSlotDisplayLabelToEngine(slot, body = {}) {
+  if (!isLocalBridge()) {
+    try {
+      return await postLocalSlotDisplayLabel(slot, body);
+    } catch {
+      const { data } = await api.post(`/bridge/slots/${slot}/display-label`, body);
+      return data;
+    }
+  }
+  try {
+    const { data } = await api.post(`/bridge/slots/${slot}/display-label`, body);
+    return data;
+  } catch {
+    return postLocalSlotDisplayLabel(slot, body);
   }
 }
 

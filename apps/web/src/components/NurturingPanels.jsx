@@ -319,11 +319,15 @@ export default function NurturingPanels() {
     }
   }
 
-  const scanAccount = scanRow ? {
-    ...scanRow,
-    account_name: scanRow.acct || scanRow.account_name,
-    phone_number: scanRow.phone_number,
-  } : null;
+  const scanAccount = useMemo(() => (
+    scanRow
+      ? {
+        ...scanRow,
+        account_name: scanRow.acct || scanRow.account_name,
+        phone_number: scanRow.phone_number,
+      }
+      : null
+  ), [scanRow]);
 
   return (
     <div>

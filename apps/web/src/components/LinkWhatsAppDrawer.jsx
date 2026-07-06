@@ -25,6 +25,21 @@ function slotsFromPayload(payload) {
   return payload?.accounts || payload?.slots || [];
 }
 
+/** Railway/cloud: pairing code only. Local dev may still use QR. */
+function defaultLinkMethod() {
+  return isLocalBridge() ? 'qr' : 'pairing';
+}
+
+function linkMethodOptions() {
+  if (isLocalBridge()) {
+    return [
+      { key: 'qr', label: 'QR Scan' },
+      { key: 'pairing', label: 'Pairing Code' },
+    ];
+  }
+  return [{ key: 'pairing', label: 'Pairing Code' }];
+}
+
 export default function LinkWhatsAppDrawer({
   open,
   account,
@@ -41,7 +56,7 @@ export default function LinkWhatsAppDrawer({
   hideAccountRow = false,
 }) {
   const canvasRef = useRef(null);
-  const [method, setMethod] = useState('qr');
+  const [method, setMethod] = useState(defaultLinkMethod);
   const [phone, setPhone] = useState('');
   const [pairingCode, setPairingCode] = useState(null);
   const [qrVisible, setQrVisible] = useState(false);
@@ -127,16 +142,24 @@ export default function LinkWhatsAppDrawer({
     return () => { cancelled = true; };
   }, [open, account, engineReachable, onEngineRefresh]);
 
+  const accountId = account?.id ?? null;
+
   useEffect(() => {
-    if (!open || !account) return;
-    setMethod('qr');
-    setPhone(account.phone_number || '');
+    if (!open || accountId == null) return;
+    setMethod(defaultLinkMethod());
+    setPhone(account?.phone_number || '');
     setPairingCode(null);
     setQrVisible(false);
     setLinking(false);
     setLinked(false);
     setMessage('');
-  }, [open, account]);
+  }, [open, accountId, account?.phone_number]);
+
+  function selectMethod(next) {
+    setMethod(next);
+    if (next === 'pairing') setQrVisible(false);
+    if (next === 'qr') setPairingCode(null);
+  }
 
   useWsafSocket('qr', (data) => {
     if (!open || !slotMatches(data.slot, slot)) return;
@@ -171,7 +194,7 @@ export default function LinkWhatsAppDrawer({
     const acc = slotsFromPayload(status).find((a) => slotMatches(a.slot, slot));
     if (acc?.connected) {
       markLinked();
-    } else if (acc?.pairingCode && method === 'pairing') {
+    } else if (acc?.pairingCode && (method === 'pairing' || acc?.loginMethod === 'pairing')) {
       setPairingCode(formatPairingCodeDisplay(acc.pairingCode));
       setLinking(true);
     }
@@ -206,7 +229,7 @@ export default function LinkWhatsAppDrawer({
         if (cancelled) return;
         if (acc?.connected) {
           markLinked();
-        } else if (acc?.pairingCode && method === 'pairing') {
+        } else if (acc?.pairingCode && (method === 'pairing' || acc?.loginMethod === 'pairing')) {
           setPairingCode(formatPairingCodeDisplay(acc.pairingCode));
           setLinking(true);
         }
@@ -419,17 +442,14 @@ export default function LinkWhatsAppDrawer({
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-2">
-        {[
-          { key: 'qr', label: 'QR Scan' },
-          { key: 'pairing', label: 'Pairing Code' },
-        ].map(({ key, label }) => (
+      <div className={linkMethodOptions().length > 1 ? 'grid grid-cols-2 gap-2' : ''}>
+        {linkMethodOptions().map(({ key, label }) => (
           <button
             key={key}
             type="button"
             disabled={linked}
             className={`drawer-radio ${method === key ? 'drawer-radio-on' : ''}`}
-            onClick={() => setMethod(key)}
+            onClick={() => selectMethod(key)}
           >
             {label}
           </button>

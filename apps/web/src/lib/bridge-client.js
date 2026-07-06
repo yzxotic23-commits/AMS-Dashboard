@@ -44,6 +44,28 @@ export async function getBridgeStatus() {
   }
 }
 
+/** Slots from either /bridge/summary or /bridge/status payload. */
+export function engineSlotsFromPayload(data) {
+  return data?.slots || data?.accounts || [];
+}
+
+export function findEngineSlot(data, slot) {
+  if (data == null || slot == null) return null;
+  return engineSlotsFromPayload(data).find((s) => Number(s.slot) === Number(slot)) || null;
+}
+
+export async function getEngineSlotState(slot) {
+  const summary = await getBridgeSummary();
+  const fromSummary = findEngineSlot(summary, slot);
+  if (fromSummary?.connected) return { ...fromSummary, reachable: summary?.reachable !== false };
+  const status = await getBridgeStatus();
+  const fromStatus = findEngineSlot(status, slot);
+  return {
+    ...(fromStatus || fromSummary),
+    reachable: (status?.reachable !== false) || (summary?.reachable === true),
+  };
+}
+
 export async function startBridgeEngine() {
   const fromApi = await tryApi(() => api.post('/bridge/engine/start'));
   if (fromApi?.reachable) return fromApi;

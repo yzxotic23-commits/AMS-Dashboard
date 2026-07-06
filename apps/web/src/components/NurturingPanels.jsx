@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Ban, CheckCircle2, Clock, ScanLine } from 'lucide-react';
 import Drawer from './Drawer';
@@ -7,7 +7,7 @@ import Toast from './Toast';
 import LinkWhatsAppDrawer from './LinkWhatsAppDrawer';
 import { useSite } from '../context/SiteContext';
 import { SITES, getSiteChipClass } from '../lib/sites';
-import { useEngineBridgeStatus } from '../hooks/useBridgeConnect';
+import { useEngineStatus } from '../hooks/useEngineStatus';
 import { useAccountsByStatus, useAccountMutations, useAllAccounts } from '../hooks/useOperatorAccounts';
 import { useFreeIps } from '../hooks/useResourceOptions';
 import {
@@ -87,10 +87,10 @@ export default function NurturingPanels() {
   const { data: nurturing = [], isLoading } = useAccountsByStatus('NURTURING');
   const { data: allAccounts = [] } = useAllAccounts();
   const { patchAccount, transitionAccount, banAccount } = useAccountMutations();
-  const { data: engineStatus, refetch: refetchEngine } = useEngineBridgeStatus();
+  const { data: engineData, refetch: refetchEngine } = useEngineStatus();
 
-  const engineReachable = engineStatus?.reachable !== false && engineStatus?.ok !== false;
-  const engineSlots = engineStatus?.accounts || engineStatus?.slots || [];
+  const engineReachable = engineData?.reachable === true;
+  const engineSlots = engineData?.slots || [];
 
   const slotTakenBy = useMemo(() => {
     const map = {};
@@ -152,12 +152,28 @@ export default function NurturingPanels() {
 
   function openScan(row) {
     const defaultIp = pickDefaultScanIp(row);
+    const slot = row.wsaf_slot ?? null;
     setScanIpId(defaultIp?.id || '');
     setScanOk(false);
-    setScanSlot(row.wsaf_slot ?? null);
-    setFeedflowLinked(false);
+    setScanSlot(slot);
+    const slotState = engineSlots.find((s) => Number(s.slot) === Number(slot));
+    setFeedflowLinked(Boolean(slotState?.connected));
     setScanRow(row);
+    refetchEngine().then(({ data }) => {
+      if (slot == null) return;
+      const live = (data?.slots || []).find((s) => Number(s.slot) === Number(slot));
+      if (live?.connected) setFeedflowLinked(true);
+    });
   }
+
+  useEffect(() => {
+    if (!scanRow || scanSlot == null) return undefined;
+    const slotState = engineSlots.find((s) => Number(s.slot) === Number(scanSlot));
+    if (slotState?.connected) setFeedflowLinked(true);
+    refetchEngine();
+    const timer = setInterval(() => refetchEngine(), 4000);
+    return () => clearInterval(timer);
+  }, [scanRow, scanSlot, engineSlots, refetchEngine]);
 
   async function changeScanSlot(slot) {
     if (!scanRow) return;
@@ -543,7 +559,7 @@ export default function NurturingPanels() {
                 engineSlots={engineSlots}
                 slotTakenBy={slotTakenBy}
                 engineReachable={engineReachable}
-                engineStatus={engineStatus}
+                engineStatus={engineData}
                 onEngineRefresh={refetchEngine}
                 onSlotChange={changeScanSlot}
                 onLinked={async () => {

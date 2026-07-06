@@ -7,7 +7,7 @@ import { useWsafSocket } from '../lib/wsafSocket';
 import { useBridgeConnect, startBridgeEngine } from '../hooks/useBridgeConnect';
 import { normalizePairingPhone } from '../lib/pairing-phone';
 import { feedflowSlotLabelBody } from '../lib/feeding-audit';
-import { getBridgeStatus } from '../lib/bridge-client';
+import { getBridgeStatus, getBridgeSummary, findEngineSlot } from '../lib/bridge-client';
 import api from '../lib/api';
 
 function formatPairingCodeDisplay(code) {
@@ -51,21 +51,23 @@ export default function LinkWhatsAppDrawer({
   const markLinked = useCallback(() => {
     if (linkedRef.current) return;
     linkedRef.current = true;
+    setLinked(true);
     setLinking(false);
+    setQrVisible(false);
+    setPairingCode(null);
     setMessage('WhatsApp linked successfully.');
     void (async () => {
       try {
-        if (slot != null && account?.account_name) {
-          await api.post(`/bridge/slots/${slot}/display-label`, feedflowSlotLabelBody(account));
-          await api.post('/bridge/audit/sync').catch(() => {});
-        }
         await onLinked?.();
-        if (!embedded) onClose?.();
       } catch (e) {
-        linkedRef.current = false;
-        setLinked(false);
-        setMessage(e?.message || 'Could not save link status.');
+        setMessage(e?.message || 'Linked on engine — could not save to AMS.');
+        return;
       }
+      if (slot != null && account?.account_name) {
+        await api.post(`/bridge/slots/${slot}/display-label`, feedflowSlotLabelBody(account)).catch(() => {});
+        await api.post('/bridge/audit/sync').catch(() => {});
+      }
+      if (!embedded) onClose?.();
     })();
   }, [onLinked, onClose, slot, account, embedded]);
 
@@ -160,14 +162,32 @@ export default function LinkWhatsAppDrawer({
   }, open && slot != null);
 
   useEffect(() => {
+    if (!open || slot == null || linked) return;
+    const acc = (engineSlots || []).find((s) => slotMatches(s.slot, slot));
+    if (acc?.connected) markLinked();
+  }, [open, slot, engineSlots, linked, markLinked]);
+
+  useEffect(() => {
+    if (engineReachable && !linked) {
+      setMessage((m) => (
+        /not running|offline|could not start/i.test(m) ? '' : m
+      ));
+    }
+  }, [engineReachable, linked]);
+
+  useEffect(() => {
     if (!open || slot == null || linked) return undefined;
     let cancelled = false;
 
     async function pollStatus() {
       try {
-        const data = await getBridgeStatus();
-        if (cancelled || !data?.reachable) return;
-        const acc = (data.accounts || []).find((a) => slotMatches(a.slot, slot));
+        const summary = await getBridgeSummary();
+        let acc = findEngineSlot(summary, slot);
+        if (!acc?.connected) {
+          const status = await getBridgeStatus();
+          acc = findEngineSlot(status, slot);
+        }
+        if (cancelled) return;
         if (acc?.connected) {
           markLinked();
         } else if (acc?.pairingCode && method === 'pairing') {
@@ -179,16 +199,13 @@ export default function LinkWhatsAppDrawer({
       }
     }
 
-    if (linking || pairingCode) {
-      pollStatus();
-      const timer = setInterval(pollStatus, 2500);
-      return () => {
-        cancelled = true;
-        clearInterval(timer);
-      };
-    }
-    return undefined;
-  }, [open, slot, linked, linking, pairingCode, method, markLinked]);
+    pollStatus();
+    const timer = setInterval(pollStatus, 2500);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [open, slot, linked, method, markLinked]);
 
   async function cancelBlockingLink() {
     if (blockingSlot == null) return;

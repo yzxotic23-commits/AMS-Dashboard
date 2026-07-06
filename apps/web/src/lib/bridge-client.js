@@ -75,10 +75,19 @@ export async function startBridgeEngine() {
 }
 
 export async function connectBridgeSlot(slot, body = {}) {
+  const localUp = await probeLocalEngine().catch(() => false);
+  if (localUp) {
+    try {
+      return await postLocalConnect(slot, body);
+    } catch {
+      /* fall through to API */
+    }
+  }
   try {
     const { data } = await api.post(`/bridge/connect/${slot}`, body);
     return data;
-  } catch {
+  } catch (e) {
+    if (localUp) throw e;
     return postLocalConnect(slot, body);
   }
 }
@@ -94,11 +103,14 @@ export async function disconnectBridgeSlot(slot) {
 
 export async function getFeedingAudit(limit = 100) {
   const fromApi = await tryApi(() => api.get('/bridge/audit', { params: { limit } }));
-  if (fromApi?.entries) return fromApi;
+  if (fromApi) {
+    return { ...fromApi, entries: fromApi.entries || [] };
+  }
   try {
-    return await fetchLocalFeedingAudit(limit);
+    const local = await fetchLocalFeedingAudit(limit);
+    return { ...local, entries: local?.entries || [] };
   } catch {
-    return fromApi || { entries: [] };
+    return { ok: false, reachable: false, entries: [] };
   }
 }
 

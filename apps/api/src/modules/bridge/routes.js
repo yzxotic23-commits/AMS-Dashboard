@@ -208,9 +208,14 @@ router.get('/audit', authenticate, async (req, res) => {
         /* keep empty */
       }
     }
-    res.json({ ok: true, ...data });
+    res.json({ ok: true, reachable: true, entries: data?.entries || [], ...data });
   } catch (e) {
-    res.status(502).json({ ok: false, error: e.message || 'Feeding audit unavailable' });
+    res.status(200).json({
+      ok: false,
+      reachable: false,
+      entries: [],
+      error: e.message || 'Feeding audit unavailable',
+    });
   }
 });
 

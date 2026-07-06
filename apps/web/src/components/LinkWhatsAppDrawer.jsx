@@ -20,6 +20,10 @@ function slotMatches(dataSlot, slot) {
   return Number(dataSlot) === Number(slot);
 }
 
+function slotsFromPayload(payload) {
+  return payload?.accounts || payload?.slots || [];
+}
+
 export default function LinkWhatsAppDrawer({
   open,
   account,
@@ -46,7 +50,12 @@ export default function LinkWhatsAppDrawer({
   const [engineBooting, setEngineBooting] = useState(false);
   const linkedRef = useRef(false);
   const linkInflightRef = useRef(false);
+  const pairingCodeRef = useRef(null);
   const { connect, disconnect, loading: connectLoading, error: connectError } = useBridgeConnect();
+
+  useEffect(() => {
+    pairingCodeRef.current = pairingCode;
+  }, [pairingCode]);
 
   const markLinked = useCallback(() => {
     if (linkedRef.current) return;
@@ -68,8 +77,9 @@ export default function LinkWhatsAppDrawer({
         await api.post('/bridge/audit/sync').catch(() => {});
       }
       if (!embedded) onClose?.();
+      onEngineRefresh?.();
     })();
-  }, [onLinked, onClose, slot, account, embedded]);
+  }, [onLinked, onClose, slot, account, embedded, onEngineRefresh]);
 
   useEffect(() => {
     linkedRef.current = false;
@@ -152,7 +162,7 @@ export default function LinkWhatsAppDrawer({
 
   useWsafSocket('status', (status) => {
     if (!open || slot == null) return;
-    const acc = (status.accounts || []).find((a) => slotMatches(a.slot, slot));
+    const acc = slotsFromPayload(status).find((a) => slotMatches(a.slot, slot));
     if (acc?.connected) {
       markLinked();
     } else if (acc?.pairingCode && method === 'pairing') {
@@ -207,6 +217,26 @@ export default function LinkWhatsAppDrawer({
     };
   }, [open, slot, linked, method, markLinked]);
 
+  async function checkConnection() {
+    if (slot == null || linked) return;
+    setMessage('Checking link status…');
+    try {
+      const summary = await getBridgeSummary();
+      let acc = findEngineSlot(summary, slot);
+      if (!acc?.connected) {
+        const status = await getBridgeStatus();
+        acc = findEngineSlot(status, slot);
+      }
+      if (acc?.connected) {
+        markLinked();
+      } else {
+        setMessage('Not linked yet — enter the code on your phone, wait a few seconds, then tap Check again.');
+      }
+    } catch (e) {
+      setMessage(e?.message || 'Could not reach FeedFlow engine.');
+    }
+  }
+
   async function cancelBlockingLink() {
     if (blockingSlot == null) return;
     setMessage('');
@@ -231,26 +261,30 @@ export default function LinkWhatsAppDrawer({
     }
 
     linkInflightRef.current = true;
-    setMessage('');
     if (!refreshingCode) {
       setPairingCode(null);
       setQrVisible(false);
     }
     setLinking(true);
 
+    const failLink = (msg) => {
+      if (!pairingCodeRef.current) {
+        setLinking(false);
+        setMessage(msg);
+      }
+    };
+
     try {
       const body = { method };
       if (method === 'pairing') {
         const pairingPhone = (account.phone_number || phone).trim();
         if (!pairingPhone) {
-          setLinking(false);
-          setMessage('Enter a phone number for pairing code.');
+          failLink('Enter a phone number for pairing code.');
           return;
         }
         body.phoneNumber = normalizePairingPhone(pairingPhone);
         if (!body.phoneNumber) {
-          setLinking(false);
-          setMessage('Invalid phone number format.');
+          failLink('Invalid phone number format.');
           return;
         }
         if (refreshingCode) {
@@ -260,16 +294,23 @@ export default function LinkWhatsAppDrawer({
           body.clearIncomplete = true;
         }
         setMessage('Requesting pairing code…');
+      } else {
+        setMessage('');
       }
-      await connect(slot, body);
-      setMessage(method === 'qr'
-        ? 'Waiting for QR from engine…'
-        : pairingCode
-          ? 'New pairing code requested — enter it on your phone within 2 minutes.'
-          : 'Requesting pairing code… Keep this drawer open and do not click again.');
+      const result = await connect(slot, body);
+      const codeFromResult = result?.pairingCode || result?.code || result?.pairingCodeDisplay;
+      if (method === 'pairing' && codeFromResult) {
+        setPairingCode(formatPairingCodeDisplay(codeFromResult));
+        setLinking(true);
+        setMessage('Enter this code on your phone: WhatsApp → Linked devices → Link with phone number');
+      } else if (method === 'qr') {
+        setMessage('Waiting for QR from engine…');
+      } else if (!pairingCodeRef.current) {
+        setMessage('Requesting pairing code… Keep this drawer open and do not click again.');
+      }
+      onEngineRefresh?.();
     } catch (e) {
-      setLinking(false);
-      setMessage(e.message || connectError || 'Could not start link. Is the engine running?');
+      failLink(e.message || connectError || 'Could not start link. Is the engine running?');
     } finally {
       linkInflightRef.current = false;
     }
@@ -462,6 +503,13 @@ export default function LinkWhatsAppDrawer({
                   >
                     <Copy size={14} />
                     Copy code
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={checkConnection}
+                  >
+                    Check connection
                   </button>
                   {linkStartButton}
                 </div>

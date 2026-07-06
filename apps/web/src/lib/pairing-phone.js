@@ -11,6 +11,10 @@ export function normalizePairingPhone(phoneNumber) {
     const local = p.slice(2).replace(/^0+/, '');
     if (local.length >= 8) return `60${local}`;
   }
+  if (p.startsWith('855')) {
+    const local = p.slice(3).replace(/^0+/, '');
+    if (local.length >= 8) return `855${local}`;
+  }
   const m = p.match(
     /^(1\d{2}|2\d{1,2}|3\d{2}|4\d{2}|5\d{2}|6\d{1,2}|7\d{1,2}|8\d{2}|9\d{1,2})(0+)(\d{6,})$/,
   );

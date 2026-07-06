@@ -8,6 +8,7 @@ import { useBridgeConnect, startBridgeEngine } from '../hooks/useBridgeConnect';
 import { normalizePairingPhone } from '../lib/pairing-phone';
 import { feedflowSlotLabelBody } from '../lib/feeding-audit';
 import { getBridgeStatus, getBridgeSummary, findEngineSlot } from '../lib/bridge-client';
+import { bridgeEngineLabel, isLocalBridge } from '../lib/wsafEmbed';
 import api from '../lib/api';
 
 function formatPairingCodeDisplay(code) {
@@ -100,6 +101,11 @@ export default function LinkWhatsAppDrawer({
 
   useEffect(() => {
     if (!open || !account || engineReachable) return undefined;
+    if (!isLocalBridge()) {
+      setMessage(`Waiting for ${bridgeEngineLabel()} — confirm Live on the FeedFlow page, then request a code.`);
+      onEngineRefresh?.();
+      return undefined;
+    }
     let cancelled = false;
     (async () => {
       setEngineBooting(true);
@@ -358,8 +364,12 @@ export default function LinkWhatsAppDrawer({
           : 'rounded-lg border border-ams-warn/40 bg-ams-warn/10 px-3 py-2 text-[12px] text-ams-warn'}
         >
           {embedded
-            ? 'FeedFlow engine offline — AMS will try to start it automatically.'
-            : 'FeedFlow engine is offline. AMS will try to start it automatically when this panel opens.'}
+            ? (isLocalBridge()
+              ? 'FeedFlow engine offline — AMS will try to start it automatically.'
+              : 'FeedFlow cloud offline — check Railway is Live on the FeedFlow page, then retry.')
+            : (isLocalBridge()
+              ? 'FeedFlow engine is offline. AMS will try to start it automatically when this panel opens.'
+              : 'FeedFlow cloud engine is offline. Open the FeedFlow page and confirm status is Live (Railway).')}
         </p>
       )}
 

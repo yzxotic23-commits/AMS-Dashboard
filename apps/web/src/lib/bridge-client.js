@@ -1,4 +1,5 @@
 import api from './api';
+import { bridgeEngineLabel, isLocalBridge } from './wsafEmbed';
 import {
   fetchLocalBridgeSummary,
   fetchLocalBridgeStatus,
@@ -29,7 +30,7 @@ export async function getBridgeSummary() {
     return fromApi || {
       ok: false,
       reachable: false,
-      error: e.message || 'FeedFlow engine is not running on this computer.',
+      error: e.message || `FeedFlow ${bridgeEngineLabel()} is not reachable.`,
     };
   }
 }
@@ -67,6 +68,11 @@ export async function getEngineSlotState(slot) {
 }
 
 export async function startBridgeEngine() {
+  if (!isLocalBridge()) {
+    const live = await probeLocalEngine().catch(() => false);
+    if (live) return fetchLocalBridgeStatus();
+    throw new Error('FeedFlow cloud engine is offline. Check Railway service status, then refresh.');
+  }
   const fromApi = await tryApi(() => api.post('/bridge/engine/start'));
   if (fromApi?.reachable) return fromApi;
   const live = await probeLocalEngine();
@@ -74,20 +80,21 @@ export async function startBridgeEngine() {
   throw new Error('FeedFlow engine is not running. Start npm run dev on this PC.');
 }
 
+/** Browser → configured engine URL (Railway or localhost), then AMS API proxy. */
 export async function connectBridgeSlot(slot, body = {}) {
-  const localUp = await probeLocalEngine().catch(() => false);
-  if (localUp) {
+  const engineUp = await probeLocalEngine().catch(() => false);
+  if (engineUp) {
     try {
       return await postLocalConnect(slot, body);
     } catch {
-      /* fall through to API */
+      /* fall through to API proxy */
     }
   }
   try {
     const { data } = await api.post(`/bridge/connect/${slot}`, body);
     return data;
   } catch (e) {
-    if (localUp) throw e;
+    if (engineUp) throw e;
     return postLocalConnect(slot, body);
   }
 }

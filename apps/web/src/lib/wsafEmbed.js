@@ -5,6 +5,16 @@ export function wsafBridgeBase() {
   return raw.replace(/\/$/, '');
 }
 
+/** True when VITE_WSAF_BRIDGE_URL points at this machine (not Railway/cloud). */
+export function isLocalBridge() {
+  const base = wsafBridgeBase().toLowerCase();
+  return base.includes('127.0.0.1') || base.includes('localhost');
+}
+
+export function bridgeEngineLabel() {
+  return isLocalBridge() ? 'local FeedFlow engine' : 'FeedFlow cloud engine (Railway)';
+}
+
 /** Standalone FeedFlow console (new tab). */
 export function wsafConsoleUrl() {
   return `${wsafBridgeBase()}/`;

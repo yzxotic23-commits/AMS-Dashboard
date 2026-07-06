@@ -1,15 +1,25 @@
 #!/usr/bin/env node
 /**
  * Push AMS account IP bindings → FeedFlow engine slot proxies.
- * Usage: node scripts/sync-feedflow-proxies.js [--apply] [--account Larry]
+ * Usage:
+ *   node scripts/sync-feedflow-proxies.js [--apply]
+ *   node scripts/sync-feedflow-proxies.js --apply --production
+ *   node scripts/sync-feedflow-proxies.js --apply --engine https://your-railway-url
  */
 import fs from 'fs';
 import pg from 'pg';
 
+const PRODUCTION_ENGINE = 'https://wsaf-bo-production.up.railway.app';
+
 const APPLY = process.argv.includes('--apply');
+const USE_PRODUCTION = process.argv.includes('--production');
 const accountFilter = (() => {
   const i = process.argv.indexOf('--account');
   return i >= 0 ? String(process.argv[i + 1] || '').toLowerCase() : '';
+})();
+const engineArg = (() => {
+  const i = process.argv.indexOf('--engine');
+  return i >= 0 ? String(process.argv[i + 1] || '').trim() : '';
 })();
 
 function loadEnv() {
@@ -36,11 +46,24 @@ function proxyUrlFromIp(ip) {
 
 loadEnv();
 
-const engine = (process.env.WSAF_BRIDGE_URL || process.env.VITE_WSAF_BRIDGE_URL || '').replace(/\/$/, '');
+let engine = (engineArg
+  || (USE_PRODUCTION ? PRODUCTION_ENGINE : '')
+  || process.env.WSAF_BRIDGE_URL
+  || process.env.VITE_WSAF_BRIDGE_URL
+  || '').replace(/\/$/, '');
+
 if (!engine) {
-  console.error('Set WSAF_BRIDGE_URL or VITE_WSAF_BRIDGE_URL in .env');
+  console.error('Set WSAF_BRIDGE_URL in .env, or pass --production / --engine <url>');
   process.exit(1);
 }
+
+if (/127\.0\.0\.1|localhost/i.test(engine)) {
+  console.error(`Engine URL is local (${engine}) — nothing is listening there for cloud FeedFlow.`);
+  console.error('Re-run with: node scripts/sync-feedflow-proxies.js --apply --production');
+  process.exit(1);
+}
+
+console.log(`Engine: ${engine}`);
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 const { rows } = await pool.query(`

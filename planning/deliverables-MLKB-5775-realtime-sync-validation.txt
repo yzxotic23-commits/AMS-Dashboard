@@ -1,0 +1,131 @@
+================================================================================
+JIRA TICKET : MLKB-5775
+TASK TITLE  : 07/07/2026 - Real-time Data Synchronization Validation
+CATEGORY    : Do
+DUE         : 07/07/2026 — 3:00 PM (GMT+7)
+STORY       : Account Management System (AMS)
+TOOLS       : AMS Dashboard
+DESCRIPTION : Monitor dashboard availability, service status, API health, and
+              production operations.
+EXPECTED    : Dashboard operates normally with stable production service health.
+================================================================================
+
+DELIVERABLES
+------------
+
+1. Production service health — availability confirmed (07/07/2026)
+
+   | Surface              | URL / endpoint                         | Result (07/07)                    |
+   |----------------------|----------------------------------------|-----------------------------------|
+   | AMS Dashboard (web)  | https://ams-dashboard-weld.vercel.app  | Loads OK; login + site switcher   |
+   | AMS API health       | /api/v1/health                         | OK                                |
+   | FeedFlow engine      | wsaf-bo-production.up.railway.app    | Reachable; bridge summary OK      |
+   | FeedFlow ↔ AMS bridge| /bridge/summary, /bridge/audit       | Sync path validated on production |
+
+   Scope: live MY + PP production accounts (~10 accounts, low volume intentional
+   for first-pass validation). No sample/dev seed data used for sign-off.
+
+2. Real-time sync paths validated — AMS ↔ FeedFlow
+
+   | Sync channel                    | Direction        | Validation result                         |
+   |---------------------------------|------------------|-------------------------------------------|
+   | Engine status / slot online     | FeedFlow → AMS   | Control Center + FeedFlow panel reflect slot connected state after manual reconnect |
+   | Display label (name, site, IP)  | AMS → FeedFlow   | Scan-in / Refresh engine pushes account label to slot |
+   | Proxy assignment                | AMS → FeedFlow   | Direct Railway proxy route on scan-in; restore script with --production |
+   | Feeding audit log               | FeedFlow → AMS   | Per-account outcomes visible in Feeding audit panel |
+   | Account status on slot offline  | FeedFlow → AMS   | useEngineHealthSync transitions IN_USE → LOGGED_OUT when engine reports offline |
+   | Auto-ban from feeding audit     | FeedFlow → AMS   | Banned entries trigger account ban API (day 4+ rule) |
+
+   Manual reconnect required after Railway redeploy (engine does not auto-reconnect
+   WhatsApp sockets on startup) — documented as known ops step, not data loss.
+
+3. T01.1–T01.6 live validation — first pass (MY / PP)
+
+   | Task ref | Area                    | Status (07/07)                                      |
+   |----------|-------------------------|-----------------------------------------------------|
+   | T01.1    | Account Ledger          | Spot-checked live bindings (device / SIM / IP)      |
+   | T01.2    | State machine           | Nurturing → In Use flow observed on production      |
+   | T01.3    | Tickets / work orders   | Not yet fully tested (planned next)                 |
+   | T01.4    | IP Gate                 | Proxy binding on scan-in validated (PP accounts)    |
+   | T01.5    | QR / pairing & bridge   | Pairing + slot link on Railway FeedFlow validated   |
+   | T01.6    | Governance / supply     | KPIs load on live data                            |
+
+   Operator pass with Bryan: auto nurturing functional; detection accuracy reviewed
+   on feeding audit outcomes.
+
+4. Production findings & fixes (07/07/2026)
+
+   | Finding                                         | Impact                         | Resolution (same day)                          |
+   |-------------------------------------------------|--------------------------------|------------------------------------------------|
+   | Larry & Lilly marked Restrict in feeding audit  | False strict — not real WA ban | Root cause: 401 on redeploy treated as strict logout; fix in engine (wa-policy-detector, whatsapp-session, audit-log, bridge, index.js) — pending push |
+   | FeedFlow 0/2 online after Railway redeploy    | Dashboard showed offline slots | Auth preserved (authSaved); manual reconnect — not re-pairing |
+   | Proxy not syncing AMS → Railway FeedFlow        | Scan-in used localhost bridge  | bridge-client direct Railway path; sync-feedflow-proxies.js --production |
+   | Active: direct despite saved proxy              | UI misleading post-redeploy    | loadProxies() on bridge startup (aab7854)      |
+   | FeedFlow console API URL localhost after deploy | 0/0 linked in cloud UI         | client/dist apiUrl = location.origin (6bce5ee) |
+
+5. Code ready for push (post-validation)
+
+   WSAF-BO (FeedFlow engine):
+   - Fake strict fix: confirmed strict only when strictScanPossible; infra 401 retries;
+     audit Restrict only on confirmed policy events; relink resets Restrict → Active
+
+   AMS-Dashboard (pending local changes):
+   - bridge-client / wsafLocalBridge / NurturingPanels proxy sync hardening
+
+6. Evidence for review (screenshots to attach in Jira)
+
+   1. AMS Control Center — live MY/PP counts on production
+   2. FeedFlow engine panel — bridge reachable + slot status
+   3. Feeding audit log — Larry/Lilly Restrict finding (before fix deploy)
+   4. Nurturing scan-in — proxy + label synced to Railway slot
+   5. Governance — supply KPIs on production build
+   6. Post-reconnect — slots online 2/2 (after manual reconnect)
+
+   AMS production: https://ams-dashboard-weld.vercel.app
+   FeedFlow production: https://wsaf-bo-production.up.railway.app
+   Repos: AMS-Dashboard (main), WSAF-BO (main + fake-strict fix uncommitted)
+
+7. Outstanding / next shift
+
+   - Push & deploy fake-strict fix; audit sync → Larry/Lilly back to Active
+   - Full T01.3 ticket workflow verification
+   - Scale test after MY devices ready (~10 July)
+   - Optional: auto-reconnect WhatsApp sockets on engine startup
+
+================================================================================
+QUICK COPY — paste into Jira "Deliverables" field
+================================================================================
+
+Validated real-time data synchronization on production AMS + Railway FeedFlow
+(live MY/PP, ~10 accounts). Confirmed service health: Vercel dashboard loads,
+API health OK, FeedFlow bridge reachable. Sync paths tested: engine status → AMS,
+display labels + proxy AMS → FeedFlow slots, feeding audit → AMS panel, slot
+offline → account LOGGED_OUT transition. T01.1–T01.2, T01.4–T01.6 first-pass OK
+with Bryan (auto nurturing functional, detection accuracy reviewed). T01.3 tickets
+not yet fully tested. Logged production issues: fake Restrict on Larry/Lilly
+(401/redeploy misclassified as strict — engine fix ready to push), post-redeploy
+manual reconnect required, proxy sync to Railway via direct bridge path. Evidence
+screenshots attached from production. Dashboard operates normally; stable ops
+with documented reconnect step after engine redeploy.
+
+================================================================================
+OPTIONAL — Retrospective Summary (Jira field)
+================================================================================
+
+First structured pass on AMS ↔ FeedFlow real-time sync on live production.
+Most sync channels work when bridge URL points to Railway; main gap is engine
+cold-start (no auto-reconnect) and overly aggressive strict/Restrict detection
+on infra disconnects. Fake strict finding shows detection logic must distinguish
+WA policy events from redeploy noise — fixed before push. Ticket module (T01.3)
+deferred to next validation cycle.
+
+================================================================================
+OPTIONAL — Interruption Log (Jira field)
+================================================================================
+
+- Railway redeploy debugging (FeedFlow 0/2 online, proxy overwrite during diag)
+- Larry/Lilly fake strict investigation (~30 min)
+
+================================================================================
+END — MLKB-5775
+================================================================================

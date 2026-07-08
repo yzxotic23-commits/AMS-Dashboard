@@ -62,6 +62,12 @@ export const toastCopy = {
   },
   ipSaved: () => 'IP updated',
   ipCreated: (addr) => `${addr} · added to ledger`,
+  ipImported: (imported, skipped, errorCount) => {
+    let msg = `${imported} IP${imported === 1 ? '' : 's'} imported`;
+    if (skipped > 0) msg += ` · ${skipped} skipped`;
+    if (errorCount > 0) msg += ` · ${errorCount} row errors`;
+    return msg;
+  },
 
   preparedAdded: (phone) => `${phone} · added to register queue`,
   preparedDeleted: (phone) => `${phone} · removed from queue`,

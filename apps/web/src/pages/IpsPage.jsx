@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Eye, EyeOff, Pencil, Plus, Search, Trash2 } from 'lucide-react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Eye, EyeOff, FileSpreadsheet, Pencil, Plus, Search, Trash2, Upload } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import PageHead from '../components/PageHead';
 import ConfirmDialog from '../components/ConfirmDialog';
 import Drawer from '../components/Drawer';
@@ -9,6 +9,7 @@ import Toast from '../components/Toast';
 import api from '../lib/api';
 import { mapIpRow } from '../lib/resource-mappers';
 import { toastCopy } from '../lib/operator-copy';
+import { downloadIpImportTemplate, parseIpCsvPreview } from '../lib/ip-import';
 
 function riskTone(count) {
   if (count >= 8) return 'text-ams-danger';
@@ -58,10 +59,15 @@ export default function IpsPage() {
   });
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [toast, setToast] = useState('');
+  const [importOpen, setImportOpen] = useState(false);
+  const [importCsv, setImportCsv] = useState('');
+  const [importFileName, setImportFileName] = useState('');
+  const [importPreview, setImportPreview] = useState(null);
+  const importInputRef = useRef(null);
 
   const searchQuery = search.trim();
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isFetching } = useQuery({
     queryKey: ['ips', page, searchQuery],
     queryFn: async () => {
       const params = { page, limit: IP_PAGE_SIZE };
@@ -72,6 +78,7 @@ export default function IpsPage() {
         total: res.data?.pagination?.total ?? 0,
       };
     },
+    placeholderData: keepPreviousData,
   });
 
   const rows = data?.rows ?? [];
@@ -94,8 +101,9 @@ export default function IpsPage() {
   }, [searchQuery]);
 
   useEffect(() => {
-    if (page > totalPages) setPage(Math.max(1, totalPages));
-  }, [page, totalPages]);
+    if (!data) return;
+    if (page > totalPages) setPage(totalPages);
+  }, [data, page, totalPages]);
 
   useEffect(() => {
     setSelected(new Set());
@@ -144,6 +152,11 @@ export default function IpsPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['ips'] }),
   });
 
+  const importMut = useMutation({
+    mutationFn: (csv) => api.post('/ips/import', { csv, skipDuplicates: true }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['ips'] }),
+  });
+
   const allSelected = rows.length > 0 && rows.every((r) => selected.has(r.id));
 
   function showToast(msg) {
@@ -172,6 +185,61 @@ export default function IpsPage() {
 
   function closeCreate() {
     setCreateOpen(false);
+  }
+
+  function openImport() {
+    setImportCsv('');
+    setImportFileName('');
+    setImportPreview(null);
+    setImportOpen(true);
+  }
+
+  function closeImport() {
+    setImportOpen(false);
+    setImportCsv('');
+    setImportFileName('');
+    setImportPreview(null);
+  }
+
+  async function handleImportFile(event) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      setImportCsv(text);
+      setImportFileName(file.name);
+      setImportPreview(parseIpCsvPreview(text));
+    } catch {
+      showToast('Could not read CSV file');
+      setImportCsv('');
+      setImportFileName('');
+      setImportPreview(null);
+    }
+  }
+
+  function runImport() {
+    if (!importCsv.trim()) {
+      showToast('Choose a CSV file first');
+      return;
+    }
+    if (!importPreview?.validCount) {
+      showToast('No valid rows to import');
+      return;
+    }
+
+    importMut.mutate(importCsv, {
+      onSuccess: (res) => {
+        const { imported = 0, skipped = [], errors = [] } = res.data || {};
+        showToast(toastCopy.ipImported(imported, skipped.length, errors.length));
+        closeImport();
+        setPage(1);
+      },
+      onError: (e) => {
+        showToast(e.response?.data?.error || e.message || 'Import failed');
+      },
+    });
   }
 
   function saveCreate() {
@@ -398,6 +466,10 @@ export default function IpsPage() {
               aria-label="Search IP ledger"
             />
           </div>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={openImport}>
+            <Upload size={15} strokeWidth={2} />
+            Import
+          </button>
           <button type="button" className="btn btn-primary btn-sm" onClick={openCreate}>
             <Plus size={15} strokeWidth={2} />
             Add IP
@@ -406,10 +478,10 @@ export default function IpsPage() {
       </div>
 
       <div className="data-panel card overflow-hidden">
-        {isLoading ? (
+        {isLoading && !data ? (
           <p className="p-8 text-center text-sm text-ams-faint">Loading…</p>
         ) : (
-          <div className="data-table-wrap">
+          <div className={`data-table-wrap${isFetching ? ' opacity-70' : ''}`}>
             <table className="data-table">
               <thead>
                 <tr>
@@ -647,6 +719,110 @@ export default function IpsPage() {
             </div>
           </>
         )}
+      </Drawer>
+
+      <Drawer
+        open={importOpen}
+        title="Import IPs"
+        onClose={closeImport}
+        footer={(
+          <>
+            <button type="button" className="btn btn-ghost" onClick={closeImport}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={runImport}
+              disabled={importMut.isPending || !importPreview?.validCount}
+            >
+              {importMut.isPending ? 'Importing…' : `Import ${importPreview?.validCount || 0} IP${importPreview?.validCount === 1 ? '' : 's'}`}
+            </button>
+          </>
+        )}
+      >
+        <p className="drawer-hint">
+          Upload a CSV file to add many IPs at once. Download the template below if you need the correct format.
+        </p>
+        <div className="drawer-fields">
+          <div className="drawer-field">
+            <div className="ip-import-picker">
+              <input
+                ref={importInputRef}
+                className="sr-only"
+                type="file"
+                accept=".csv,text/csv"
+                onChange={handleImportFile}
+              />
+              <button
+                type="button"
+                className="ip-import-dropzone"
+                onClick={() => importInputRef.current?.click()}
+              >
+                <FileSpreadsheet size={22} strokeWidth={1.75} className="text-ams-faint" />
+                <span className="ip-import-dropzone-name">
+                  {importFileName || 'Choose CSV file'}
+                </span>
+                <span className="ip-import-dropzone-hint">
+                  {importFileName ? 'Click to replace file' : 'Use the template for the correct columns'}
+                </span>
+              </button>
+            </div>
+          </div>
+          <div className="ip-import-actions">
+            <button type="button" className="btn btn-ghost btn-sm" onClick={downloadIpImportTemplate}>
+              Download template
+            </button>
+          </div>
+          {importPreview && (
+            <div className="ip-import-preview">
+              <p className="ip-import-summary">
+                <span className="font-semibold text-ams-ink">{importPreview.validCount}</span>
+                {' '}valid row{importPreview.validCount === 1 ? '' : 's'}
+                {importPreview.errors.length > 0 && (
+                  <>
+                    {' · '}
+                    <span className="text-ams-warn">{importPreview.errors.length} row error{importPreview.errors.length === 1 ? '' : 's'}</span>
+                  </>
+                )}
+              </p>
+              {importPreview.sample.length > 0 && (
+                <div className="ip-import-sample">
+                  <p className="drawer-label">Preview</p>
+                  <ul>
+                    {importPreview.sample.map((row) => (
+                      <li key={`${row.proxy_provider}-${row.ip_address}`}>
+                        <span className="font-mono">{row.proxy_provider || '—'}</span>
+                        {' · '}
+                        <span className="font-mono">{row.ip_address}</span>
+                        {row.port ? `:${row.port}` : ''}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {importPreview.errors.length > 0 && (
+                <div className="ip-import-errors">
+                  <p className="drawer-label">Row errors</p>
+                  <ul>
+                    {importPreview.errors.slice(0, 5).map((err) => (
+                      <li key={`${err.line}-${err.message}`}>
+                        Line {err.line}: {err.message}
+                        {err.ip_address ? ` (${err.ip_address})` : ''}
+                      </li>
+                    ))}
+                    {importPreview.errors.length > 5 && (
+                      <li>…and {importPreview.errors.length - 5} more</li>
+                    )}
+                  </ul>
+                </div>
+              )}
+              <p className="drawer-hint ip-import-note">
+                Duplicate IP addresses already in the ledger are skipped automatically.
+              </p>
+            </div>
+          )}
+        </div>
       </Drawer>
 
       <Drawer

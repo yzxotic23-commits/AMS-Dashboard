@@ -1657,6 +1657,46 @@
     @apply h-8 py-1 pl-9 text-xs;
   }
 
+  .ip-import-picker {
+    @apply block;
+  }
+  .ip-import-dropzone {
+    @apply flex w-full cursor-pointer flex-col items-center gap-1.5 rounded-card border border-dashed border-ams-line px-4 py-5 text-center transition-colors;
+    background-color: var(--ams-surface);
+  }
+  .ip-import-dropzone:hover {
+    @apply border-ams-blue;
+    background-color: var(--ams-surface-muted);
+  }
+  .ip-import-dropzone:focus-visible {
+    @apply outline-none ring-2 ring-ams-blue ring-offset-2;
+  }
+  .ip-import-dropzone-name {
+    @apply text-[13px] font-medium text-ams-ink;
+  }
+  .ip-import-dropzone-hint {
+    @apply text-[11px] text-ams-faint;
+  }
+  .ip-import-actions {
+    @apply -mt-1 flex justify-end;
+  }
+  .ip-import-file-name {
+    @apply text-xs text-ams-muted;
+  }
+  .ip-import-preview {
+    @apply space-y-3 rounded-lg border border-ams-line bg-ams-surface/60 p-3;
+  }
+  .ip-import-summary {
+    @apply text-sm text-ams-muted;
+  }
+  .ip-import-sample ul,
+  .ip-import-errors ul {
+    @apply mt-1 space-y-1 text-xs text-ams-muted;
+  }
+  .ip-import-note {
+    @apply mb-0 text-[11px];
+  }
+
   .ams-check {
     @apply h-4 w-4 shrink-0 cursor-pointer rounded;
     accent-color: var(--ams-accent);

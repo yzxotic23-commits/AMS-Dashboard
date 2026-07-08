@@ -5,7 +5,14 @@ import { supabaseAdmin } from './supabase.js';
 import { writeAudit } from './audit.js';
 import { parsePagination, paginatedResponse } from './pagination.js';
 
-export function createCrudRouter({ table, entityType, createSchema, updateSchema, searchFields = [] }) {
+export function createCrudRouter({
+  table,
+  entityType,
+  createSchema,
+  updateSchema,
+  searchFields = [],
+  listOrder = { column: 'updated_at', ascending: false },
+}) {
   const router = Router();
   router.use(authenticate);
   router.use(requireRole('admin', 'operator'));
@@ -22,7 +29,7 @@ export function createCrudRouter({ table, entityType, createSchema, updateSchema
       }
 
       const { data, error, count } = await q
-        .order('updated_at', { ascending: false })
+        .order(listOrder.column, { ascending: listOrder.ascending, nullsFirst: false })
         .range(offset, offset + limit - 1);
 
       if (error) throw error;

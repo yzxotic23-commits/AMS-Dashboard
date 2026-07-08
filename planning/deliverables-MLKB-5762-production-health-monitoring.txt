@@ -1,0 +1,137 @@
+================================================================================
+JIRA TICKET : MLKB-5762
+TASK TITLE  : Production Dashboard Health Monitoring
+CATEGORY    : Plan
+DUE         : 06/07/2026 — 4:00 PM (GMT+7)
+STORY       : Account Management System (AMS)
+TOOLS       : AMS Dashboard
+DESCRIPTION : Review monitoring scope, production checklist, dashboard metrics,
+              and daily monitoring schedule.
+EXPECTED    : Daily production monitoring scope is confirmed and operational
+              priorities are aligned.
+================================================================================
+
+DELIVERABLES
+------------
+
+1. Production monitoring scope — T01.1–T01.6 mapped to live AMS surfaces
+
+   Confirmed daily health checks use production data only (live MY + PP accounts;
+   no sample or development seed data).
+
+   | Task ref | Monitoring area              | AMS screen / path                    | What to verify daily                          |
+   |----------|------------------------------|--------------------------------------|-----------------------------------------------|
+   | T01.1    | Account Ledger               | Resource Ledger (Accounts)           | Device/SIM/IP bindings correct per account    |
+   | T01.2    | Account State Machine        | Activation Desk, Nurturing, Recovery | REGISTERING → NURTURING → AVAILABLE/IN_USE transitions valid |
+   | T01.3    | Tickets / work orders        | Tickets                              | Submitted → delivered / rejected flow         |
+   | T01.4    | IP Gate                      | Register, Nurturing scan-in, Tickets| Proxy binding limits (max 2/IP), IP selectable rules |
+   | T01.5    | QR activation & linking      | Activation Desk, FeedFlow bridge     | Engine reachable; slot link / cancel linking  |
+   | T01.6    | Supply model & Governance    | Governance, Control Center           | Supply KPIs, ban/recovery stats, operator workload |
+
+   Site scope: Malaysia (MY), Poipet (PP), and All sites switcher reviewed for
+   each check above.
+
+2. Daily production checklist — operator + supervisor pass
+
+   | # | Check                                      | Pass criteria                                      |
+   |---|--------------------------------------------|----------------------------------------------------|
+   | 1 | AMS loads on production (Vercel)           | Login OK, no blank screen, site switcher works     |
+   | 2 | API health                                 | /api/v1/health returns OK                          |
+   | 3 | FeedFlow bridge                            | Bridge summary reachable (local or Railway URL)    |
+   | 4 | Control Center counts                      | Header pending = sum of operator rows (+ unassigned if any) |
+   | 5 | Register → Activation pipeline             | Prepared queue, registration log, REGISTERING queue |
+   | 6 | Nurturing counts                           | Control Center Device Farm + Scan In = Activation tab total |
+   | 7 | Operator assignment                        | Register log Operator = assigned owner; hub row not Unassigned |
+   | 8 | Ledger integrity                           | No orphan SIM/device/IP bindings on active accounts |
+   | 9 | Tickets backlog                            | Submitted tickets visible per owner on Control Center |
+   | 10| Governance KPIs                            | Supply, ban rate, recovery load without empty errors |
+
+3. Dashboard metrics — confirmed monitoring signals
+
+   | Metric surface        | Signal monitored                          | Healthy indicator                          |
+   |-----------------------|-------------------------------------------|--------------------------------------------|
+   | Control Center        | Per-operator pending (reg/link/man/scan/rec/tk) | Lit cells match Activation/Nurturing queues |
+   | Register badge        | Prepared numbers needing registration     | Count matches prepared queue               |
+   | Activation Desk       | REGISTERING queue + Nurturing tab badge   | Counts align with Control Center           |
+   | Governance            | Nurturing / In Use / Standby vs target    | Percentages load; date filter works        |
+   | Governance            | Ban rate by stage, recovery success       | Charts render on live data                 |
+   | FeedFlow bridge       | Engine status, slot online count          | reachable=true; slots reflect engine       |
+   | Audit Log             | Recent registration + status changes      | Actor and timestamp present                |
+
+4. Daily monitoring schedule — agreed cadence
+
+   | Time (GMT+7) | Activity                                              | Owner        |
+   |----------------|-------------------------------------------------------|--------------|
+   | Start of shift | Run production checklist items 1–3 (uptime + bridge)  | Operator     |
+   | Morning        | T01.1–T01.4 ledger, state, tickets, IP gate spot-check| Operator     |
+   | Midday         | Control Center + Activation/Nurturing count alignment | Operator     |
+   | Afternoon      | T01.5–T01.6 Governance + FeedFlow slot review         | Supervisor   |
+   | End of shift   | Log blockers in Jira; Slack daily progress update     | Assignee     |
+
+   Escalation: any count mismatch, bridge offline >15 min, or invalid state
+   transition → log in Interruption Log and flag in Slack blockers.
+
+5. Production findings & fixes (06/07/2026)
+
+   | Finding                                      | Impact                          | Resolution                                      |
+   |----------------------------------------------|---------------------------------|-------------------------------------------------|
+   | Control Center showed 6 pending but operator row showed 5 Device Farm | Operator workload misreported | Owner resolution aligned to register-assigned operator; assigned_owner stored on registration log; site inferred from device code (PP-SB-*) |
+   | 6 nurturing accounts in Unassigned row       | Bryan not credited on hub       | Owner backfilled to Bryan in production DB; verify post-deploy |
+   | Hub header vs operator row orphan accounts   | Sum mismatch                    | Unassigned row added; roster matching (full_name / username) |
+   | Black screen on local dev after hub change   | Dev blocked                     | Syntax fix in useHubCounts.js; pushed main 438555f |
+
+6. Operational priorities aligned (next 24–48 h)
+
+   - Verify post-deploy: Control Center counts = Activation/Nurturing on live MY/PP
+   - Confirm new registrations write assigned_owner and appear on correct operator row
+   - Continue T01.1–T01.6 live monitoring per checklist above
+   - Monitor FeedFlow cloud slot readiness (Railway trial) alongside desktop path
+
+7. Evidence for review (screenshots to attach in Jira)
+
+   1. Control Center — All sites, operator row with Device Farm counts aligned
+   2. Activation Desk — Nurturing tab count matching Control Center
+   3. Register — Registration Log Operator column showing assigned operator
+   4. Resource Ledger — live MY/PP account with correct device/SIM/IP bindings
+   5. Governance — supply KPIs and date filter on production build
+   6. FeedFlow bridge — summary reachable (health v1.0.65 or current)
+   7. Tickets — submitted queue with owner filter from Control Center link
+
+   AMS production: https://ams-dashboard-weld.vercel.app
+   Repo: https://github.com/yzxotic23-commits/AMS-Dashboard (main, 438555f)
+
+================================================================================
+QUICK COPY — paste into Jira "Deliverables" field
+================================================================================
+
+Reviewed and confirmed AMS production dashboard health monitoring scope for
+live MY + PP (T01.1–T01.6). Mapped each task to AMS screens: Resource Ledger,
+Activation/Nurturing, Tickets, IP Gate, FeedFlow bridge, Governance, and
+Control Center. Published daily production checklist (10 checks), dashboard
+metrics table (pending counts, supply KPIs, bridge status, audit trail), and
+shift monitoring schedule with escalation rules. Validated on production data
+only (no sample/dev seed). Logged and resolved Control Center hub count mismatch
+(operator owner from register log, assigned_owner on registration, site from
+device code, Unassigned row) — pushed to main (438555f). Operational priorities
+aligned: verify post-deploy count alignment, new registration operator assignment,
+and continued live MY/PP monitoring. Screenshots attached from production AMS.
+
+================================================================================
+OPTIONAL — Retrospective Summary (Jira field)
+================================================================================
+
+Confirmed daily monitoring scope across all six critical paths on live AMS.
+Production checklist and schedule give operators a repeatable pass/fail routine.
+Hub count mismatch during monitoring exposed a gap between register-assigned
+operator and Control Center grouping — fixed same day and documented for
+follow-up verification on Vercel production.
+
+================================================================================
+OPTIONAL — Interruption Log (Jira field)
+================================================================================
+
+(none)
+
+================================================================================
+END — MLKB-5762
+================================================================================

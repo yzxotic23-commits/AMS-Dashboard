@@ -87,37 +87,61 @@ DELIVERABLES
 
 7. Outstanding / next shift
 
-   - Push & deploy fake-strict fix; audit sync → Larry/Lilly back to Active
-   - Full T01.3 ticket workflow verification
+   - Push & deploy fake-strict fix; audit sync → Larry/Lilly back to Active — DONE (6694cc3)
+   - Full T01.3 ticket workflow verification — carry to monitoring pass 08/07
    - Scale test after MY devices ready (~10 July)
    - Optional: auto-reconnect WhatsApp sockets on engine startup
+
+8. Continuous monitoring conclusion (07–08/07/2026)
+
+   Monitoring scope: production AMS Vercel + FeedFlow Railway, live Poipet
+   (~10 accounts in Auto nurturing Day 4–7, System Monitoring). No sample/dev
+   data. Daily observe: dashboard availability, API health, bridge sync, feeding
+   audit outcomes, nurturing stability (logout / strict / state mismatch).
+
+   Audit trail monitored daily:
+   - AMS Audit Log — account status changes, bans, operator actions
+   - Feeding audit (FeedFlow → AMS) — per-account Active / Restrict / Banned
+   - Registration log — success/fail per registration attempt
+   - Engine ↔ AMS sync — slot online, labels, proxy, audit sync after reconnect
+
+   Monitoring results (08/07):
+   - Nurturing Day 4–7 stable on 10 PP accounts — no logout during active runs
+   - Core paths usable on production: Register, Activation/Nurturing, scan-in,
+     IP Gate, cloud pairing, bridge, Governance KPIs, feeding audit
+   - Known ops step only: manual reconnect after Railway redeploy (auth on volume)
+   - False Restrict on Larry/Lilly fixed in engine (6694cc3) — not real WA strict
+
+   Timeline assessment (response to supervisor):
+   - No major timeline adjustment needed
+   - Overall system is usable on production for current operator scope
+   - Only remaining validation gap: full live ticket business/operator workflow
+     (T01.3 — submit → review → deliver/reject on production)
+   - MY scale-up volume not a timeline change — depends on device readiness (~10 Jul)
+   - SinYee dependency (IP list + ops SOP draft) is documentation/handover, not
+     AMS development blocker
 
 ================================================================================
 QUICK COPY — paste into Jira "Deliverables" field
 ================================================================================
 
-Validated real-time data synchronization on production AMS + Railway FeedFlow
-(live MY/PP, ~10 accounts). Confirmed service health: Vercel dashboard loads,
-API health OK, FeedFlow bridge reachable. Sync paths tested: engine status → AMS,
-display labels + proxy AMS → FeedFlow slots, feeding audit → AMS panel, slot
-offline → account LOGGED_OUT transition. T01.1–T01.2, T01.4–T01.6 first-pass OK
-with Bryan (auto nurturing functional, detection accuracy reviewed). T01.3 tickets
-not yet fully tested. Logged production issues: fake Restrict on Larry/Lilly
-(401/redeploy misclassified as strict — engine fix ready to push), post-redeploy
-manual reconnect required, proxy sync to Railway via direct bridge path. Evidence
-screenshots attached from production. Dashboard operates normally; stable ops
-with documented reconnect step after engine redeploy.
+Validated real-time data synchronization and continuous production monitoring on
+AMS + Railway FeedFlow (live PP, ~10 accounts, Day 4–7 nurturing). Service health
+OK; sync paths OK (engine status, labels, proxy, feeding audit, audit trail).
+Audit trail monitored daily (AMS Audit Log, feeding audit, registration log).
+Nurturing stable — no logout during runs. False Restrict fix deployed (6694cc3).
+Timeline: no major adjustment needed — overall system usable on production; only
+remaining item is full live ticket business/operator workflow verification (T01.3).
+Known ops: manual reconnect after redeploy. Evidence screenshots attached.
 
 ================================================================================
 OPTIONAL — Retrospective Summary (Jira field)
 ================================================================================
 
-First structured pass on AMS ↔ FeedFlow real-time sync on live production.
-Most sync channels work when bridge URL points to Railway; main gap is engine
-cold-start (no auto-reconnect) and overly aggressive strict/Restrict detection
-on infra disconnects. Fake strict finding shows detection logic must distinguish
-WA policy events from redeploy noise — fixed before push. Ticket module (T01.3)
-deferred to next validation cycle.
+Continuous monitoring on live production confirmed AMS + FeedFlow are operationally
+usable. Audit trail reviewed daily. Nurturing Day 4–7 stable with no logout.
+No major timeline adjustment needed — only T01.3 live ticket business/operator
+workflow remains for full sign-off. MY scale waits on devices, not AMS code.
 
 ================================================================================
 OPTIONAL — Interruption Log (Jira field)

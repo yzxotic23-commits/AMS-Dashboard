@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Eye, EyeOff, Pencil, Plus, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Eye, EyeOff, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import PageHead from '../components/PageHead';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -37,8 +37,12 @@ function mapRow(row) {
   return mapIpRow(row);
 }
 
+const IP_PAGE_SIZE = 15;
+
 export default function IpsPage() {
   const qc = useQueryClient();
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState('');
   const [selected, setSelected] = useState(new Set());
   const [shownPw, setShownPw] = useState({});
   const [drawer, setDrawer] = useState(null);
@@ -55,13 +59,47 @@ export default function IpsPage() {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [toast, setToast] = useState('');
 
-  const { data: rows = [], isLoading } = useQuery({
-    queryKey: ['ips'],
+  const searchQuery = search.trim();
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['ips', page, searchQuery],
     queryFn: async () => {
-      const res = await api.get('/ips', { params: { limit: 100 } });
-      return (res.data?.data || []).map(mapRow);
+      const params = { page, limit: IP_PAGE_SIZE };
+      if (searchQuery) params.search = searchQuery;
+      const res = await api.get('/ips', { params });
+      return {
+        rows: (res.data?.data || []).map(mapRow),
+        total: res.data?.pagination?.total ?? 0,
+      };
     },
   });
+
+  const rows = data?.rows ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / IP_PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pageStart = total === 0 ? 0 : (safePage - 1) * IP_PAGE_SIZE + 1;
+  const pageEnd = Math.min(safePage * IP_PAGE_SIZE, total);
+
+  const { data: activeTotal = 0 } = useQuery({
+    queryKey: ['ips', 'stats', 'active'],
+    queryFn: async () => {
+      const res = await api.get('/ips', { params: { limit: 1, status: 'ACTIVE' } });
+      return res.data?.pagination?.total ?? 0;
+    },
+  });
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(Math.max(1, totalPages));
+  }, [page, totalPages]);
+
+  useEffect(() => {
+    setSelected(new Set());
+  }, [page, searchQuery]);
 
   const { data: accounts = [] } = useQuery({
     queryKey: ['accounts', 'all'],
@@ -106,7 +144,7 @@ export default function IpsPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['ips'] }),
   });
 
-  const allSelected = rows.length > 0 && selected.size === rows.length;
+  const allSelected = rows.length > 0 && rows.every((r) => selected.has(r.id));
 
   function showToast(msg) {
     setToast(msg);
@@ -285,7 +323,7 @@ export default function IpsPage() {
     setSelected(on ? new Set(rows.map((r) => r.id)) : new Set());
   }
 
-  const activeCount = useMemo(() => rows.filter((r) => r.active).length, [rows]);
+  const activeCount = activeTotal;
 
   return (
     <div>
@@ -294,7 +332,7 @@ export default function IpsPage() {
         description="Procured IPs are entered here. Active status is maintained by procurement; risk count and in-use status sync from the system. Per SOP, each IP supports up to 2 accounts."
         actions={(
           <div className="page-meta-bubble">
-            <span className="font-semibold text-ams-ink">{rows.length}</span>
+            <span className="font-semibold text-ams-ink">{total}</span>
             <span>IPs ·</span>
             <span className="font-semibold text-ams-success">{activeCount}</span>
             <span>active</span>
@@ -349,6 +387,17 @@ export default function IpsPage() {
               Bulk Delete
             </button>
           </div>
+          <div className="ip-bulkbar-search">
+            <Search size={15} className="ip-bulkbar-search-icon" strokeWidth={2} />
+            <input
+              className="input ip-bulkbar-search-input"
+              type="search"
+              placeholder="Search IP, provider…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              aria-label="Search IP ledger"
+            />
+          </div>
           <button type="button" className="btn btn-primary btn-sm" onClick={openCreate}>
             <Plus size={15} strokeWidth={2} />
             Add IP
@@ -380,7 +429,11 @@ export default function IpsPage() {
               </thead>
               <tbody>
                 {rows.length === 0 ? (
-                  <tr><td colSpan={12} className="empty-cell">No IPs recorded.</td></tr>
+                  <tr>
+                    <td colSpan={12} className="empty-cell">
+                      {searchQuery ? 'No IPs match your search.' : 'No IPs recorded.'}
+                    </td>
+                  </tr>
                 ) : rows.map((row) => (
                   <tr key={row.id}>
                     <td className="col-check">
@@ -476,6 +529,34 @@ export default function IpsPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+        {!isLoading && total > IP_PAGE_SIZE && (
+          <div className="tk-pager px-4 pb-4">
+            <p className="tk-pager-meta">
+              Showing {pageStart}–{pageEnd} of {total}
+            </p>
+            <div className="tk-pager-actions">
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                disabled={safePage <= 1}
+                onClick={() => setPage(safePage - 1)}
+              >
+                Previous
+              </button>
+              <span className="tk-pager-page">
+                Page {safePage} / {totalPages}
+              </span>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                disabled={safePage >= totalPages}
+                onClick={() => setPage(safePage + 1)}
+              >
+                Next
+              </button>
+            </div>
           </div>
         )}
       </div>

@@ -1647,6 +1647,15 @@
   .ip-bulkbar-end {
     @apply ml-auto flex shrink-0 items-center gap-2;
   }
+  .ip-bulkbar-search {
+    @apply relative w-52 min-w-[11rem] sm:w-60;
+  }
+  .ip-bulkbar-search-icon {
+    @apply pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-ams-faint;
+  }
+  .ip-bulkbar-search-input {
+    @apply h-8 py-1 pl-9 text-xs;
+  }
 
   .ams-check {
     @apply h-4 w-4 shrink-0 cursor-pointer rounded;

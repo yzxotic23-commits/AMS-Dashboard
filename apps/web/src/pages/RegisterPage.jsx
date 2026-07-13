@@ -105,9 +105,21 @@ export default function RegisterPage() {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [tab, setTab] = useState('prepared');
+  const [logPage, setLogPage] = useState(1);
+  const [logPageSize, setLogPageSize] = useState(20);
   const { createAccount, logRegistration } = useAccountMutations();
   const { data: regStats } = useRegistrationStats(site);
-  const { data: regLog = [] } = useRegistrationLog(15, { enabled: tab === 'log' });
+  const { data: regLogData, isFetching: regLogFetching } = useRegistrationLog(
+    logPage,
+    logPageSize,
+    { enabled: tab === 'log' },
+  );
+  const regLog = regLogData?.rows ?? [];
+  const regLogTotal = regLogData?.total ?? 0;
+  const regLogTotalPages = Math.max(1, Math.ceil(regLogTotal / logPageSize));
+  const regLogSafePage = Math.min(logPage, regLogTotalPages);
+  const regLogStart = regLogTotal === 0 ? 0 : (regLogSafePage - 1) * logPageSize + 1;
+  const regLogEnd = Math.min(regLogSafePage * logPageSize, regLogTotal);
 
   const siteKey = drawer?.siteKey || 'my';
   const { list: freeIps, isLoading: ipsLoading } = useFreeIps({ enabled: drawerOpen });
@@ -125,6 +137,15 @@ export default function RegisterPage() {
     const t = setTimeout(() => setToast(''), 4500);
     return () => clearTimeout(t);
   }, [devicesExpanded]);
+
+  useEffect(() => {
+    setLogPage(1);
+  }, [tab, site, logPageSize]);
+
+  useEffect(() => {
+    if (!regLogData) return;
+    if (logPage > regLogTotalPages) setLogPage(regLogTotalPages);
+  }, [regLogData, logPage, regLogTotalPages]);
 
   const availableSlots = useMemo(() => {
     if (!form.deviceId) return DEVICE_CHANNEL_SLOTS;
@@ -471,7 +492,7 @@ export default function RegisterPage() {
       )}
 
       <div className="data-panel card overflow-hidden">
-        <div className="data-table-wrap">
+        <div className={`data-table-wrap${regLogFetching ? ' opacity-70' : ''}`}>
           <table className="data-table">
             <thead>
               <tr>
@@ -507,6 +528,47 @@ export default function RegisterPage() {
             </tbody>
           </table>
         </div>
+        {regLogTotal > 0 && (
+          <div className="tk-pager px-4 pb-4">
+            <label className="tk-pager-size">
+              <span>Rows</span>
+              <select
+                className="input tk-pager-size-select"
+                value={logPageSize}
+                onChange={(e) => setLogPageSize(Number(e.target.value))}
+                aria-label="Rows per page"
+              >
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </label>
+            <div className="tk-pager-actions">
+              <span className="tk-pager-meta">
+                Showing {regLogStart}–{regLogEnd} of {regLogTotal}
+              </span>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                disabled={regLogSafePage <= 1}
+                onClick={() => setLogPage(regLogSafePage - 1)}
+              >
+                Previous
+              </button>
+              <span className="tk-pager-page">
+                Page {regLogSafePage} / {regLogTotalPages}
+              </span>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                disabled={regLogSafePage >= regLogTotalPages}
+                onClick={() => setLogPage(regLogSafePage + 1)}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
         </>
       )}

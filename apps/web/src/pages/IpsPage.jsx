@@ -38,11 +38,11 @@ function mapRow(row) {
   return mapIpRow(row);
 }
 
-const IP_PAGE_SIZE = 15;
-
 export default function IpsPage() {
   const qc = useQueryClient();
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [statusFilter, setStatusFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState(new Set());
   const [shownPw, setShownPw] = useState({});
@@ -68,10 +68,11 @@ export default function IpsPage() {
   const searchQuery = search.trim();
 
   const { data, isLoading, isFetching } = useQuery({
-    queryKey: ['ips', page, searchQuery],
+    queryKey: ['ips', page, pageSize, searchQuery, statusFilter],
     queryFn: async () => {
-      const params = { page, limit: IP_PAGE_SIZE };
+      const params = { page, limit: pageSize };
       if (searchQuery) params.search = searchQuery;
+      if (statusFilter !== 'all') params.status = statusFilter;
       const res = await api.get('/ips', { params });
       return {
         rows: (res.data?.data || []).map(mapRow),
@@ -83,10 +84,10 @@ export default function IpsPage() {
 
   const rows = data?.rows ?? [];
   const total = data?.total ?? 0;
-  const totalPages = Math.max(1, Math.ceil(total / IP_PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const safePage = Math.min(page, totalPages);
-  const pageStart = total === 0 ? 0 : (safePage - 1) * IP_PAGE_SIZE + 1;
-  const pageEnd = Math.min(safePage * IP_PAGE_SIZE, total);
+  const pageStart = total === 0 ? 0 : (safePage - 1) * pageSize + 1;
+  const pageEnd = Math.min(safePage * pageSize, total);
 
   const { data: activeTotal = 0 } = useQuery({
     queryKey: ['ips', 'stats', 'active'],
@@ -98,7 +99,7 @@ export default function IpsPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [searchQuery]);
+  }, [searchQuery, pageSize, statusFilter]);
 
   useEffect(() => {
     if (!data) return;
@@ -107,7 +108,7 @@ export default function IpsPage() {
 
   useEffect(() => {
     setSelected(new Set());
-  }, [page, searchQuery]);
+  }, [page, pageSize, searchQuery, statusFilter]);
 
   const { data: accounts = [] } = useQuery({
     queryKey: ['accounts', 'all'],
@@ -409,23 +410,23 @@ export default function IpsPage() {
       />
 
       <div className="ip-bulkbar mb-3">
-        <label className="ip-bulkbar-check">
-          <input
-            type="checkbox"
-            className="ams-check"
-            checked={allSelected}
-            onChange={(e) => toggleAll(e.target.checked)}
-          />
-          Select all
-        </label>
-        <span
-          className={`ip-bulkbar-meta${selected.size > 0 ? ' is-visible' : ''}`}
-          aria-hidden={selected.size === 0}
-        >
-          <span className="ip-bulkbar-count">{selected.size}</span>
-          selected
-        </span>
-        <div className="ip-bulkbar-end">
+        <div className="ip-bulkbar-start">
+          <label className="ip-bulkbar-check">
+            <input
+              type="checkbox"
+              className="ams-check"
+              checked={allSelected}
+              onChange={(e) => toggleAll(e.target.checked)}
+            />
+            Select all
+          </label>
+          <span
+            className={`ip-bulkbar-meta${selected.size > 0 ? ' is-visible' : ''}`}
+            aria-hidden={selected.size === 0}
+          >
+            <span className="ip-bulkbar-count">{selected.size}</span>
+            selected
+          </span>
           <div
             className={`ip-bulkbar-actions${selected.size > 0 ? ' is-visible' : ''}`}
             aria-hidden={selected.size === 0}
@@ -455,6 +456,8 @@ export default function IpsPage() {
               Bulk Delete
             </button>
           </div>
+        </div>
+        <div className="ip-bulkbar-end">
           <div className="ip-bulkbar-search">
             <Search size={15} className="ip-bulkbar-search-icon" strokeWidth={2} />
             <input
@@ -491,7 +494,18 @@ export default function IpsPage() {
                   <th>Port</th>
                   <th>Username</th>
                   <th>Password</th>
-                  <th>Active</th>
+                  <th className="ip-th-filter">
+                    <select
+                      className="ip-th-filter-select"
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                      aria-label="Filter by status"
+                    >
+                      <option value="all">Status</option>
+                      <option value="ACTIVE">Active</option>
+                      <option value="INACTIVE">Inactive</option>
+                    </select>
+                  </th>
                   <th>Risk</th>
                   <th className="col-center">In Use</th>
                   <th>Bound Accounts</th>
@@ -503,7 +517,9 @@ export default function IpsPage() {
                 {rows.length === 0 ? (
                   <tr>
                     <td colSpan={12} className="empty-cell">
-                      {searchQuery ? 'No IPs match your search.' : 'No IPs recorded.'}
+                      {searchQuery || statusFilter !== 'all'
+                        ? 'No IPs match your filters.'
+                        : 'No IPs recorded.'}
                     </td>
                   </tr>
                 ) : rows.map((row) => (
@@ -603,12 +619,25 @@ export default function IpsPage() {
             </table>
           </div>
         )}
-        {!isLoading && total > IP_PAGE_SIZE && (
+        {!isLoading && total > 0 && (
           <div className="tk-pager px-4 pb-4">
-            <p className="tk-pager-meta">
-              Showing {pageStart}–{pageEnd} of {total}
-            </p>
+            <label className="tk-pager-size">
+              <span>Rows</span>
+              <select
+                className="input tk-pager-size-select"
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value))}
+                aria-label="Rows per page"
+              >
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </label>
             <div className="tk-pager-actions">
+              <span className="tk-pager-meta">
+                Showing {pageStart}–{pageEnd} of {total}
+              </span>
               <button
                 type="button"
                 className="btn btn-ghost btn-sm"

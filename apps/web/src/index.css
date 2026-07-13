@@ -1606,17 +1606,20 @@
   }
 
   .ip-bulkbar {
-    @apply relative flex items-center gap-x-4;
+    @apply relative flex flex-wrap items-center justify-between gap-x-4 gap-y-2;
     min-height: 2rem;
     padding-left: var(--ams-table-gutter-x);
     padding-right: var(--ams-table-gutter-x);
   }
+  .ip-bulkbar-start {
+    @apply flex h-8 shrink-0 items-center gap-4;
+  }
   .ip-bulkbar-check {
-    @apply flex shrink-0 cursor-pointer select-none items-center gap-2 text-[13px] font-medium;
+    @apply flex h-8 shrink-0 cursor-pointer select-none items-center gap-2 text-[13px] font-medium;
     color: var(--ams-muted);
   }
   .ip-bulkbar-meta {
-    @apply flex items-center gap-1.5 text-[13px] font-medium;
+    @apply flex h-8 items-center gap-1.5 text-[13px] font-medium;
     color: var(--ams-ink-sub);
     opacity: 0;
     visibility: hidden;
@@ -1645,7 +1648,7 @@
     pointer-events: auto;
   }
   .ip-bulkbar-end {
-    @apply ml-auto flex shrink-0 items-center gap-2;
+    @apply ml-auto flex h-8 shrink-0 items-center gap-2;
   }
   .ip-bulkbar-search {
     @apply relative w-52 min-w-[11rem] sm:w-60;
@@ -1655,6 +1658,20 @@
   }
   .ip-bulkbar-search-input {
     @apply h-8 py-1 pl-9 text-xs;
+  }
+
+  .ip-th-filter {
+    @apply whitespace-nowrap;
+  }
+  .ip-th-filter-select {
+    @apply h-auto min-w-0 cursor-pointer appearance-none border-0 bg-transparent p-0 pr-3 text-[11px] font-semibold uppercase tracking-wide text-ams-faint outline-none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right center;
+  }
+  .ip-th-filter-select:hover,
+  .ip-th-filter-select:focus {
+    color: var(--ams-ink);
   }
 
   .ip-import-picker {
@@ -2199,6 +2216,12 @@
   }
   .tk-pager-page {
     @apply min-w-[5.5rem] text-center text-xs font-medium tabular-nums text-ams-muted;
+  }
+  .tk-pager-size {
+    @apply inline-flex items-center gap-1.5 text-xs text-ams-muted;
+  }
+  .tk-pager-size-select {
+    @apply h-7 w-auto min-w-[4.25rem] py-0 pl-2 pr-7 text-xs;
   }
   .tkgroup-fold {
     @apply ml-auto border-none bg-transparent text-xs font-semibold cursor-pointer;

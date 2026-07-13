@@ -1,0 +1,439 @@
+================================================================================
+CONFLUENCE — AMS Technical Document Archive
+Paste from h1. into Confluence. Do not paste secrets or .env values.
+================================================================================
+
+
+h1. AMS Technical Document Archive
+
+h2. 1. Document Information
+
+| Item | Content |
+| System Name | AMS (Account Management System) |
+| Owner | @Sinyee |
+| Version | v1.0.0 |
+| Updated Date | Jul 9, 2026 |
+| Source Code (AMS) | https://github.com/yzxotic23-commits/AMS-Dashboard |
+| Source Code (FeedFlow) | https://github.com/yzxotic23-commits/WSAF-BO |
+
+----
+
+
+h2. 2. Purpose of this document
+
+This is the technical handoff for AMS + FeedFlow.
+
+A new Owner should be able to:
+
+* Understand how the system is built
+* Run it locally and in production
+* Maintain daily operations
+* Change and improve the system without asking the previous Owner
+
+----
+
+
+h2. 3. What is AMS?
+
+AMS (Account Management System) is the dashboard used to manage WhatsApp
+accounts end-to-end:
+
+* Register number
+* Activate / link WhatsApp
+* Nurture account
+* Deliver to business (ticket)
+* Track Device, SIM, and IP
+* Monitor health, bans, and recovery
+
+FeedFlow (WSAF) is the WhatsApp engine. AMS talks to FeedFlow for QR/pairing,
+session status, proxy, and feeding audit.
+
+
+----
+
+
+h2. 4. Simple system picture
+
+{code}
+Operator
+   |
+   v
+AMS Website (React) ---- on Vercel
+   |
+   v
+AMS API (Express) ------ on Vercel
+   |
+   +-----> Database + Login (Supabase)
+   |
+   +-----> FeedFlow engine (Railway)
+              |
+              +---- WhatsApp sessions stored on volume /app/data
+{code}
+
+| Part | Technology | Where it runs |
+| Website | React | Vercel |
+| API | Node / Express | Vercel |
+| Database / Auth | PostgreSQL + Supabase Auth | Supabase |
+| WhatsApp engine | FeedFlow (WSAF-BO) | Railway |
+
+
+----
+
+
+h2. 5. Production links
+
+| Item | Link |
+| AMS Dashboard | https://ams-dashboard-weld.vercel.app |
+| AMS Health Check | https://ams-dashboard-weld.vercel.app/api/v1/health |
+| FeedFlow | https://wsaf-bo-production.up.railway.app |
+| FeedFlow Health | https://wsaf-bo-production.up.railway.app/api/health |
+
+Source code:
+
+* AMS: https://github.com/yzxotic23-commits/AMS-Dashboard
+* FeedFlow (WSAF-BO): https://github.com/yzxotic23-commits/WSAF-BO
+
+
+----
+
+
+h2. 6. Where code lives (AMS-Dashboard)
+
+You only need to know these folders:
+
+| Folder / file | Meaning |
+| apps/web/ | Website (UI) |
+| apps/web/src/pages/ | Each screen (Register, Tickets, etc.) |
+| apps/web/src/App.jsx | Website routes |
+| apps/api/ | Backend API |
+| apps/api/src/modules/ | API features (accounts, tickets, bridge...) |
+| apps/api/src/lib/stateMachine.js | Account status rules |
+| apps/api/src/lib/wsafBridge.js | Connection to FeedFlow |
+| apps/api/src/lib/resourceBindings.js | Device / SIM / IP binding |
+| api/index.mjs | Entry for Vercel API |
+| supabase/migrations/ | Database structure |
+| scripts/ | Maintenance scripts |
+| .env.example | List of required settings (names only) |
+
+Rule of thumb:
+
+* UI change → apps/web/
+* Business rule / API change → apps/api/
+* Database change → new file in supabase/migrations/
+
+
+----
+
+
+h2. 7. How to run locally (first time)
+
+# Clone AMS-Dashboard
+# Copy .env.example to .env and fill values from the secrets vault (ask admin)
+# Run database migrations in Supabase (files 001 to 008, in order)
+# npm install
+# npm run setup:supabase
+# npm run create:admin
+# npm run dev
+# Open http://localhost:3000
+# Check API: http://localhost:4000/api/v1/health
+
+Important env names (do not put real values in Confluence):
+
+Website:
+* VITE_DEMO_MODE
+* VITE_SUPABASE_URL
+* VITE_SUPABASE_ANON_KEY
+* VITE_WSAF_BRIDGE_URL
+
+API:
+* SUPABASE_URL
+* SUPABASE_ANON_KEY
+* SUPABASE_SERVICE_ROLE_KEY
+* WSAF_BRIDGE_URL
+* WSAF_AUTO_START
+
+Production note:
+* On Vercel, set WSAF_AUTO_START=false
+* Point WSAF_BRIDGE_URL and VITE_WSAF_BRIDGE_URL to Railway FeedFlow URL
+
+
+----
+
+
+h2. 8. Main screens (what each page does)
+
+| Page | URL | Purpose |
+| Login | /login | Sign in |
+| Control Center | / | Daily work overview |
+| Register | /register | Prepare and register numbers |
+| Activation / Nurturing | /link | Link WhatsApp + warm-up accounts |
+| Recovery | /recovery | Recover banned accounts |
+| FeedFlow | /feedflow | Engine status + feeding audit |
+| Accounts | /accounts | Account ledger |
+| Devices | /devices | Device inventory |
+| SIM Cards | /sims | SIM ledger + phone align |
+| IPs | /ips | Proxy/IP ledger + import |
+| Tickets | /tickets | Deliver account to business |
+| Governance | /governance | Supply / ban / recovery KPIs |
+| Audit Log | /audit | Who changed what |
+| Settings | /settings | Admin only |
+| Users | /settings/users | Admin only |
+
+
+----
+
+
+h2. 9. Account lifecycle (most important business rule)
+
+Every account has one status.
+
+| Status | Meaning |
+| REGISTERING | Being registered |
+| NURTURING | Warming up |
+| AVAILABLE | Standby, ready for business |
+| IN_USE | Used by business |
+| LOGGED_OUT | WhatsApp disconnected |
+| BANNED | Banned |
+| RECOVERING | In recovery |
+| RECYCLED | Closed forever |
+
+Allowed moves only:
+
+| From | Can move to |
+| REGISTERING | NURTURING, RECYCLED |
+| NURTURING | AVAILABLE, BANNED, RECYCLED |
+| AVAILABLE | IN_USE, NURTURING, RECYCLED |
+| IN_USE | LOGGED_OUT, BANNED, AVAILABLE |
+| LOGGED_OUT | NURTURING, RECOVERING, RECYCLED |
+| BANNED | RECOVERING, RECYCLED |
+| RECOVERING | NURTURING, AVAILABLE, RECYCLED |
+| RECYCLED | none |
+
+Code that controls this:
+* apps/api/src/lib/stateMachine.js
+
+If you change lifecycle rules, update this file first, then UI labels, then test.
+
+
+----
+
+
+h2. 10. Resource rules (Device / SIM / IP)
+
+| Resource | Rule |
+| Device | Max 2 accounts (WS Normal + WS Business) |
+| IP | Max 2 accounts |
+| SIM | Linked after successful registration |
+| Account | Has 1 device + 1 SIM + 1 IP |
+
+Normal flow:
+
+# Register number (with device + IP)
+# Activate: complete checklist + link WhatsApp
+# Nurture until ready
+# Create ticket → review IP/proxy → go live → IN_USE
+
+
+----
+
+
+h2. 11. API overview
+
+All APIs start with: /api/v1
+
+| API group | Used for |
+| /health | Is API alive? |
+| /auth | Login |
+| /accounts | Account CRUD + status change + ban |
+| /devices /sims /ips | Resource ledgers |
+| /registrations | Register queue and logs |
+| /tickets | Business delivery |
+| /bridge | Talk to FeedFlow |
+| /recovery /bans | Ban and recovery |
+| /governance data via /dashboard /supply /settings | KPIs and settings |
+| /audit | Audit trail |
+| /users | User admin |
+
+Full route list is in:
+* apps/api/src/routes/v1/index.js
+
+
+----
+
+
+h2. 12. Database (simple view)
+
+Main tables:
+
+| Table | Stores |
+| profiles | Users and roles |
+| accounts | WhatsApp accounts |
+| devices | Phones / devices |
+| sims | SIM cards |
+| ips | Proxies |
+| tickets | Business delivery tickets |
+| audit_logs | Change history |
+| ip_gate_reviews | IP screenshot reviews |
+| app_settings | System settings |
+
+Schema files:
+* supabase/migrations/001_initial_schema.sql (start here)
+* then 002, 003, 004, 005, 006, 007, 008
+
+How to change database safely:
+
+# Create a new migration file (example: 009_your_change.sql)
+# Test on staging
+# Apply to production
+# Update API/UI if needed
+# Do not edit old migrations already used in production
+
+
+----
+
+
+h2. 13. FeedFlow connection
+
+AMS does not host WhatsApp itself. It calls FeedFlow.
+
+| Direction | What is synced |
+| AMS → FeedFlow | Account label, proxy, start/stop feeding |
+| FeedFlow → AMS | Online/offline, feeding audit (Active / Restrict / Banned) |
+
+Important production rule:
+
+* After Railway redeploy, WhatsApp auth may still exist on volume
+* Operator must still *manually reconnect* slots to bring them online
+
+If AMS cannot reach FeedFlow:
+
+# Open FeedFlow health URL
+# Check WSAF_BRIDGE_URL on Vercel
+# Redeploy AMS if URL changed
+# Reconnect WhatsApp slots
+
+
+----
+
+
+h2. 14. Deploy guide (short)
+
+h3. AMS (Vercel)
+
+# Push code to AMS-Dashboard main
+# Vercel auto-builds from vercel.json
+# Confirm env vars are set
+# Test login + /api/v1/health
+
+h3. FeedFlow (Railway)
+
+# Deploy WSAF-BO
+# Keep volume mounted at /app/data
+# Set AMS_FRAME_ORIGINS to AMS website URL
+# Copy public Railway URL into AMS bridge env vars
+# Reconnect WhatsApp after deploy
+
+
+----
+
+
+h2. 15. How to change the system (new Owner playbook)
+
+h3. Change a screen
+
+# Edit file in apps/web/src/pages/
+# Route is in apps/web/src/App.jsx
+# Menu is in apps/web/src/components/AppSidebar.jsx
+
+h3. Change API / business logic
+
+# Edit apps/api/src/modules/.../routes.js
+# For status rules: edit stateMachine.js
+# For Device/SIM/IP binding: edit resourceBindings.js / deviceSlots.js
+# Write audit log for important changes
+
+h3. Connect new FeedFlow server
+
+# Deploy new engine + volume
+# Update WSAF_BRIDGE_URL and VITE_WSAF_BRIDGE_URL
+# Update AMS_FRAME_ORIGINS on engine
+# Redeploy AMS
+# Reconnect all slots
+
+
+----
+
+
+h2. 16. Troubleshooting
+
+| Problem | What to check |
+| Website blank | Vercel deploy + env vars |
+| Cannot login | Supabase keys + user is_active |
+| FeedFlow offline | Railway health + bridge URL |
+| Slot shows offline after redeploy | Manual reconnect |
+| Cannot assign device | Device already has 2 accounts |
+| Cannot use IP | IP inactive / flagged / already full |
+| Ticket cannot go live | IP review not matched |
+| Control Center numbers look wrong | Check account owner assignment |
+
+
+----
+
+
+h2. 17. Roles
+
+| Role | Can do |
+| admin | Everything + settings + users |
+| operator | Daily operations (register, link, tickets review, ledgers) |
+| business | Request / confirm delivery tickets |
+| reviewer | Review flows (as configured) |
+
+
+----
+
+
+h2. 18. Useful commands
+
+| Command | Purpose |
+| npm run dev | Start local website + API |
+| npm run build | Build website |
+| npm run setup:supabase | Test database connection |
+| npm run migrate:supabase | Apply migrations |
+| npm run create:admin | Create admin user |
+| npm run prune:device-slots | Check/fix device overflow |
+
+Warning:
+* Do not run sample seed scripts on production live data
+
+
+----
+
+
+h2. 19. Open items for next Owner
+
+* Full business ticket handover practice still needs final sign-off
+* Operations SOP for day-to-day operators is owned separately
+* Consider locking down public FeedFlow URL (security hardening)
+* Optional: auto-reconnect WhatsApp after engine restart
+
+
+----
+
+
+h2. 20. Document control
+
+Update Document Information (section 1) whenever this archive changes.
+
+| Item | Content |
+| System Name | AMS (Account Management System) |
+| Owner | @Sinyee |
+| Version | v1.0.0 |
+| Updated Date | Jul 9, 2026 |
+| Source Code (AMS) | https://github.com/yzxotic23-commits/AMS-Dashboard |
+| Source Code (FeedFlow) | https://github.com/yzxotic23-commits/WSAF-BO |
+| Goal | New Owner can maintain AMS using this document + source code only |
+| Update rule | When architecture / deploy / lifecycle / API changes, update this page |
+
+================================================================================
+END
+================================================================================

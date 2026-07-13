@@ -1,0 +1,85 @@
+================================================================================
+JIRA TICKET : MLKB-5829
+TASK TITLE  : 09/07/2026 - Production Issue Investigation & Analysis
+CATEGORY    : Check
+DUE         : 09/07/2026 — 6:00 PM (GMT+7)
+STORY       : Account Management System (AMS)
+TOOLS       : AMS Dashboard
+DESCRIPTION : Review monitoring results, verify dashboard consistency, and
+              validate operational findings.
+EXPECTED    : Production monitoring findings are verified and documented.
+================================================================================
+
+DELIVERABLES
+------------
+
+1. Monitoring review — production (09/07/2026)
+
+   Reviewed latest monitoring pass on AMS Vercel + FeedFlow Railway (live PP
+   scope, ~10 accounts). No new production issues identified in this window.
+
+   | Check                         | Result (09/07) |
+   |-------------------------------|----------------|
+   | AMS Dashboard availability    | OK             |
+   | API health                    | OK             |
+   | FeedFlow bridge reachability  | OK             |
+   | Dashboard vs live operations  | Consistent     |
+
+2. Dashboard consistency verification
+
+   Spot-checked that on-screen counts and statuses match live operational state:
+   - Control Center pending counts align with Activation/Nurturing queues
+   - Governance KPIs load without errors on production data
+   - Feeding audit and audit log entries present for recent activity
+
+   Result: **consistent — no mismatch found.**
+
+3. Operational findings validation
+
+   Cross-checked open items from prior monitoring passes. No regression or new
+   blocker observed on 09/07. System remains **healthy OK** for current operator
+   scope.
+
+   Note (unchanged, not re-investigated today):
+   - T01.3 ticket business workflow — still partial; not a new finding
+   - Post-Railway redeploy — manual reconnect remains expected ops step
+
+4. Conclusion
+
+   Production monitoring findings verified and documented. **No new issues.**
+   AMS + FeedFlow production status: **healthy OK.**
+
+5. Evidence (attach if required)
+
+   - Control Center — live counts
+   - Governance — KPIs on production
+   - FeedFlow bridge — summary reachable
+
+   AMS: https://ams-dashboard-weld.vercel.app
+
+================================================================================
+QUICK COPY — paste into Jira "Deliverables" field
+================================================================================
+
+Reviewed production monitoring results on AMS Vercel + FeedFlow Railway (09/07).
+Verified dashboard consistency: Control Center counts, Governance KPIs, and
+audit trails match live operational status. No new production issues or
+regressions found. Findings documented — system healthy OK for current scope.
+No new blockers.
+
+================================================================================
+OPTIONAL — Retrospective Summary (Jira field)
+================================================================================
+
+Investigation pass confirmed production is stable. Dashboard data is consistent
+with live operations. No action items from this review.
+
+================================================================================
+OPTIONAL — Interruption Log (Jira field)
+================================================================================
+
+(none)
+
+================================================================================
+END — MLKB-5829
+================================================================================

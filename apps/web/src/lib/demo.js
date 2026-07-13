@@ -711,9 +711,12 @@ export function getMockResponse(config) {
     if (params.result) list = list.filter((r) => r.result === params.result);
     const page = parseInt(params.page || '1', 10);
     const limit = parseInt(params.limit || '50', 10);
+    const total = list.length;
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const offset = (Math.max(1, page) - 1) * limit;
     return {
-      data: list,
-      pagination: { page, limit, total: list.length, totalPages: 1 },
+      data: list.slice(offset, offset + limit),
+      pagination: { page, limit, total, totalPages },
     };
   }
 
@@ -792,11 +795,23 @@ export function getMockResponse(config) {
 
   if (method === 'GET' && url === 'ips') {
     syncDemoIpsFromSeed();
+    let list = [...demoIps];
+    if (params.status) list = list.filter((r) => r.status === params.status || (params.status === 'ACTIVE' && r.active));
+    if (params.search) {
+      const q = String(params.search).toLowerCase();
+      list = list.filter((r) =>
+        String(r.ip_address || '').toLowerCase().includes(q)
+        || String(r.proxy_provider || '').toLowerCase().includes(q)
+        || String(r.country || '').toLowerCase().includes(q));
+    }
     const page = parseInt(params.page || '1', 10);
     const limit = parseInt(params.limit || '100', 10);
+    const total = list.length;
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const offset = (Math.max(1, page) - 1) * limit;
     return {
-      data: demoIps,
-      pagination: { page, limit, total: demoIps.length, totalPages: 1 },
+      data: list.slice(offset, offset + limit),
+      pagination: { page, limit, total, totalPages },
     };
   }
 
@@ -1040,9 +1055,12 @@ export function getMockResponse(config) {
     if (params.action) list = list.filter((r) => r.action === params.action);
     const page = parseInt(params.page || '1', 10);
     const limit = parseInt(params.limit || '50', 10);
+    const total = list.length;
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const offset = (Math.max(1, page) - 1) * limit;
     return {
-      data: list,
-      pagination: { page, limit, total: list.length, totalPages: 1 },
+      data: list.slice(offset, offset + limit),
+      pagination: { page, limit, total, totalPages },
     };
   }
 

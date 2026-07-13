@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import PageHead from '../components/PageHead';
 import api from '../lib/api';
 
@@ -59,19 +59,39 @@ function describeMeta(row) {
 export default function AuditLogPage() {
   const [entityFilter, setEntityFilter] = useState('');
   const [actionFilter, setActionFilter] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
 
-  const { data: apiData, isLoading } = useQuery({
-    queryKey: ['audit', entityFilter, actionFilter],
+  const { data, isLoading, isFetching } = useQuery({
+    queryKey: ['audit', entityFilter, actionFilter, page, pageSize],
     queryFn: async () => {
-      const params = { limit: 50 };
+      const params = { page, limit: pageSize };
       if (entityFilter) params.entity_type = entityFilter;
       if (actionFilter) params.action = actionFilter;
       const res = await api.get('/audit', { params });
-      return res.data?.data || [];
+      return {
+        rows: res.data?.data || [],
+        total: res.data?.pagination?.total ?? 0,
+      };
     },
+    placeholderData: keepPreviousData,
   });
 
-  const rows = useMemo(() => apiData || [], [apiData]);
+  const rows = data?.rows ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const pageStart = total === 0 ? 0 : (safePage - 1) * pageSize + 1;
+  const pageEnd = Math.min(safePage * pageSize, total);
+
+  useEffect(() => {
+    setPage(1);
+  }, [entityFilter, actionFilter, pageSize]);
+
+  useEffect(() => {
+    if (!data) return;
+    if (page > totalPages) setPage(totalPages);
+  }, [data, page, totalPages]);
 
   const entityOptions = ['', 'account', 'device', 'sim', 'ip', 'ticket'];
   const actionOptions = ['', 'CREATE', 'UPDATE', 'DELETE', 'STATE_CHANGE', 'TICKET_CREATE'];
@@ -83,7 +103,7 @@ export default function AuditLogPage() {
         description="Immutable record of who changed what — account state transitions, IP updates, SIM top-ups, and ticket actions."
         actions={(
           <div className="page-meta-bubble">
-            <span className="font-semibold text-ams-ink">{rows.length}</span>
+            <span className="font-semibold text-ams-ink">{total}</span>
             <span>entries</span>
           </div>
         )}
@@ -104,46 +124,89 @@ export default function AuditLogPage() {
       </div>
 
       <div className="data-panel card overflow-hidden">
-        {isLoading ? (
+        {isLoading && !data ? (
           <p className="p-8 text-center text-sm text-ams-faint">Loading…</p>
         ) : (
-          <div className="data-table-wrap">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>When</th>
-                  <th>Actor</th>
-                  <th>Action</th>
-                  <th>Entity</th>
-                  <th>Detail</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.length === 0 ? (
-                  <tr><td colSpan={5} className="empty-cell">No audit entries match the filters.</td></tr>
-                ) : rows.map((row) => (
-                  <tr key={row.id}>
-                    <td className="col-mono col-muted whitespace-nowrap">
-                      {formatWhen(row.created_at)}
-                    </td>
-                    <td>
-                      <div className="font-semibold text-ams-ink">{row.profiles?.full_name || 'System'}</div>
-                      <div className="mt-0.5 text-[0.6875rem] text-ams-faint">{row.profiles?.email}</div>
-                    </td>
-                    <td>
-                      <span className={`badge ${actionBadge(row.action)}`}>
-                        {ACTION_LABEL[row.action] || row.action}
-                      </span>
-                    </td>
-                    <td className="font-medium">{ENTITY_LABEL[row.entity_type] || row.entity_type}</td>
-                    <td className="col-remark max-w-xs truncate">
-                      {describeMeta(row)}
-                    </td>
+          <>
+            <div className={`data-table-wrap${isFetching ? ' opacity-70' : ''}`}>
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>When</th>
+                    <th>Actor</th>
+                    <th>Action</th>
+                    <th>Entity</th>
+                    <th>Detail</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {rows.length === 0 ? (
+                    <tr><td colSpan={5} className="empty-cell">No audit entries match the filters.</td></tr>
+                  ) : rows.map((row) => (
+                    <tr key={row.id}>
+                      <td className="col-mono col-muted whitespace-nowrap">
+                        {formatWhen(row.created_at)}
+                      </td>
+                      <td>
+                        <div className="font-semibold text-ams-ink">{row.profiles?.full_name || 'System'}</div>
+                        <div className="mt-0.5 text-[0.6875rem] text-ams-faint">{row.profiles?.email}</div>
+                      </td>
+                      <td>
+                        <span className={`badge ${actionBadge(row.action)}`}>
+                          {ACTION_LABEL[row.action] || row.action}
+                        </span>
+                      </td>
+                      <td className="font-medium">{ENTITY_LABEL[row.entity_type] || row.entity_type}</td>
+                      <td className="col-remark max-w-xs truncate">
+                        {describeMeta(row)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {total > 0 && (
+              <div className="tk-pager px-4 pb-4">
+                <label className="tk-pager-size">
+                  <span>Rows</span>
+                  <select
+                    className="input tk-pager-size-select"
+                    value={pageSize}
+                    onChange={(e) => setPageSize(Number(e.target.value))}
+                    aria-label="Rows per page"
+                  >
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                  </select>
+                </label>
+                <div className="tk-pager-actions">
+                  <span className="tk-pager-meta">
+                    Showing {pageStart}–{pageEnd} of {total}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    disabled={safePage <= 1}
+                    onClick={() => setPage(safePage - 1)}
+                  >
+                    Previous
+                  </button>
+                  <span className="tk-pager-page">
+                    Page {safePage} / {totalPages}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    disabled={safePage >= totalPages}
+                    onClick={() => setPage(safePage + 1)}
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

@@ -1,0 +1,122 @@
+================================================================================
+JIRA TICKET : MLKB-5774
+TASK TITLE  : 08/07/2026 - Live Operation Monitoring & Validation
+CATEGORY    : Do
+DUE         : 08/07/2026 — 2:00 PM (GMT+7)
+STORY       : Account Management System (AMS)
+TOOLS       : AMS Dashboard
+DESCRIPTION : Validate real-time synchronization between production services
+              and dashboard data.
+EXPECTED    : Production data is accurate, synchronized, and reflects current
+              operational status.
+================================================================================
+
+DELIVERABLES
+------------
+
+1. Live operation monitoring pass — production (08/07/2026)
+
+   Continuous monitoring on production AMS + FeedFlow only (no sample/dev data).
+   Scope: ~10 Poipet accounts in Auto nurturing Day 4–7 (System Monitoring).
+
+   | Surface              | Endpoint / path                        | Result (08/07)                      |
+   |----------------------|----------------------------------------|-------------------------------------|
+   | AMS Dashboard        | ams-dashboard-weld.vercel.app          | Loads OK; login + site switcher     |
+   | AMS API health       | /api/v1/health                         | OK                                  |
+   | FeedFlow (Railway)   | wsaf-bo-production.up.railway.app      | Reachable; bridge summary OK        |
+   | Control Center       | live PP operator / pending counts      | Counts reflect live queues          |
+   | Governance           | supply / ban / recovery KPIs           | KPIs load on live data              |
+
+2. Real-time sync — production services ↔ dashboard
+
+   Validated that dashboard data matches current operational status:
+
+   | Sync channel                 | Direction      | Monitoring result (08/07)                          |
+   |------------------------------|----------------|----------------------------------------------------|
+   | Engine status / slot online  | FeedFlow → AMS | Slot connected state reflected after reconnect     |
+   | Account labels + site + IP   | AMS → FeedFlow | Scan-in / refresh pushes display label to slot     |
+   | Proxy binding                | AMS → FeedFlow | Direct Railway proxy path on scan-in               |
+   | Feeding audit outcomes       | FeedFlow → AMS | Active / Restrict / Banned visible in AMS panel    |
+   | Status on slot offline       | FeedFlow → AMS | Offline engine → LOGGED_OUT path verified earlier  |
+
+3. Audit trail monitored daily (accuracy check)
+
+   | Trail                         | What was checked                                    | Result        |
+   |-------------------------------|-----------------------------------------------------|---------------|
+   | AMS Audit Log                 | Status changes, bans, operator actions              | Present / OK  |
+   | Feeding audit (FeedFlow→AMS)  | Per-account Active / Restrict / Banned              | Synced        |
+   | Registration log              | Success / fail entries                              | Present       |
+   | Engine ↔ AMS after reconnect  | Slot online, labels, proxy, audit sync              | OK            |
+
+4. Nurturing & operational stability (monitoring outcome)
+
+   - Day 4–7 auto nurturing stable on 10 PP accounts
+   - No logout during active nurturing runs in this monitoring window
+   - Core operator paths usable on production: Register, Activation/Nurturing,
+     scan-in, IP Gate, cloud pairing, Governance, feeding audit
+   - Known ops step (not a data-sync failure): manual WhatsApp reconnect after
+     Railway redeploy (auth retained on volume)
+
+5. Monitoring findings closed in window
+
+   | Finding                                      | Impact                    | Status (08/07)                         |
+   |----------------------------------------------|---------------------------|----------------------------------------|
+   | Larry/Lilly false Restrict (redeploy 401)    | Misleading audit status   | Fixed & deployed (WSAF-BO 6694cc3)     |
+   | Post-redeploy slots appear offline           | Operator confusion        | Documented — manual reconnect required |
+
+6. Production accuracy conclusion
+
+   Production data is accurate and synchronized for current live scope:
+   dashboard health, bridge sync, feeding audit, and nurturing status reflect
+   real operations. No major timeline adjustment needed for AMS development.
+
+   Remaining monitoring gap (not blocking daily ops):
+   - Full T01.3 ticket business/operator workflow (submit → review → deliver/
+     reject) still to be fully verified on production
+   - MY volume scale waits on device readiness (~10 Jul), not AMS code
+
+7. Evidence for review (screenshots to attach in Jira)
+
+   1. AMS Control Center — live PP counts
+   2. FeedFlow bridge — reachable + slot status
+   3. Feeding audit — Active (post Restrict fix)
+   4. Nurturing — Day 4–7 System Monitoring list
+   5. Governance — supply KPIs on production
+   6. AMS Audit Log — recent status / sync events
+
+   AMS: https://ams-dashboard-weld.vercel.app
+   FeedFlow: https://wsaf-bo-production.up.railway.app
+
+================================================================================
+QUICK COPY — paste into Jira "Deliverables" field
+================================================================================
+
+Completed live operation monitoring & validation on production AMS + Railway
+FeedFlow (08/07, ~10 PP accounts, Day 4–7 auto nurturing). Confirmed dashboard
+availability, API health, and bridge reachability. Validated real-time sync:
+engine/slot status, labels, proxy, and feeding audit outcomes match live
+operations. Audit trail reviewed daily (AMS Audit Log, feeding audit,
+registration log, engine sync). Nurturing stable — no logout during runs.
+False Restrict (Larry/Lilly) closed via engine fix 6694cc3. Production data is
+accurate and synchronized for current operator scope. Remaining gap: full T01.3
+ticket business workflow verification. Known ops: manual reconnect after
+Railway redeploy. Evidence screenshots attached.
+
+================================================================================
+OPTIONAL — Retrospective Summary (Jira field)
+================================================================================
+
+Monitoring pass focused on live sync accuracy between FeedFlow and AMS. Service
+health and audit trails are consistent with operational status. System is usable
+on production; only ticket handover workflow (T01.3) remains for full sign-off.
+No major timeline change.
+
+================================================================================
+OPTIONAL — Interruption Log (Jira field)
+================================================================================
+
+(none for this shift — prior Restrict finding closed in 6694cc3)
+
+================================================================================
+END — MLKB-5774
+================================================================================

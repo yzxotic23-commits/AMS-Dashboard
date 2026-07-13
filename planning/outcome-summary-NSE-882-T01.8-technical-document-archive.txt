@@ -1,0 +1,73 @@
+================================================================================
+JIRA TICKET : NSE-882
+TASK TITLE  : T01.8 | Technical Document Archive
+EPIC        : NSE-869 | F1 | System Development (Critical Path)
+FIELD       : Outcome Summary (NOT Deliverables)
+COMPLETED   : 09/07/2026
+STORY       : Account Management System (AMS)
+TOOLS       : AMS Dashboard (GitHub/Vercel), FeedFlow WSAF-BO (GitHub/Railway),
+              Supabase
+================================================================================
+
+OUTCOME SUMMARY
+---------------
+
+WHAT WE SET OUT TO DO
+  Establish a centralized technical documentation archive for all F1 System
+  Development deliverables (T01.1–T01.7) — architecture, workflows, API/schema
+  references, validation evidence, and deployment notes — as the official
+  reference for maintenance, onboarding, and production support.
+
+WHAT WE ACHIEVED
+  Technical documentation from T01.1–T01.6 is consolidated in the AMS-Dashboard
+  repository under planning/, with a master inventory in
+  planning-summary-NSE-882-T01.8-technical-document-archive.txt.
+
+  | T01   | Area                         | Archived reference                          |
+  |-------|------------------------------|---------------------------------------------|
+  | T01.1 | Account/IP/Device/SIM Ledger | README, supabase/migrations, MLKB-5519       |
+  | T01.2 | State machine                | deliverables.txt (MLKB-5540)                |
+  | T01.3 | Tickets / work orders        | MLKB-5540 + MLKB-5519 (Partial — noted)     |
+  | T01.4 | IP Gate                      | MLKB-5519                                   |
+  | T01.5 | QR activation & pairing      | MLKB-5494, railway-feedflow-deploy.md       |
+  | T01.6 | Governance / supply          | MLKB-5548, MLKB-5762                        |
+  | Epic  | Production validation        | MLKB-5774, MLKB-5775, MLKB-5829, outcome-summary |
+
+  Also included: platform deploy guide (README, railway-feedflow-deploy.md),
+  production URLs (AMS Vercel, FeedFlow Railway), and repo links (AMS-Dashboard,
+  WSAF-BO). No credentials stored in archive.
+
+  T01.7 (System Operation SOP) is referenced for cross-link only — owned by Sinyee,
+  not duplicated into the technical set.
+
+DID WE MEET THE OBJECTIVE?
+  Yes — for the technical archive scope. F1 build and validation documentation
+  is no longer scattered across Jira comments only; it is indexed and accessible
+  from one repo location for handover and future maintenance.
+
+  Not in this archive (by design or still open):
+  - T01.7 ops SOP final (Sinyee)
+  - T01.3 full business handover workflow sign-off (Partial)
+
+RECOMMENDATION
+  Use planning/ + NSE-882 index as the official technical reference. T01.8 can
+  move to Outcome Review. Remaining T01.3 / T01.7 items are handover follow-ups,
+  not archive blockers.
+
+
+================================================================================
+QUICK COPY — paste ONLY into Jira "Outcome Summary" field
+================================================================================
+
+Centralized technical document archive completed for F1 System Development.
+All T01.1–T01.6 deliverables consolidated under AMS-Dashboard planning/ with
+master index (NSE-882 planning summary). Covers ledger, state machine, IP gate,
+QR/pairing, governance, audit/logging, production monitoring validation, deploy
+guides, and production/repo URLs. T01.7 ops SOP referenced (Sinyee), not
+duplicated. T01.3 noted Partial. No credentials in archive. Objective met —
+documentation is indexed and ready as official reference for maintenance and
+production support.
+
+================================================================================
+END — NSE-882 Outcome Summary only
+================================================================================

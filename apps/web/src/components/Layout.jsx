@@ -3,7 +3,7 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSite } from '../context/SiteContext';
 import { getSiteStripMessage, SITE_STRIP_PATHS } from '../lib/sites';
-import { operatorSiteKey } from '../lib/operator-scope';
+import { operatorSiteKey, siteOptionsForProfile } from '../lib/operator-scope';
 import { readSidebarOpenMap, writeSidebarOpenMap } from '../lib/sidebar-prefs';
 import { useScrollRevealScrollbar } from '../hooks/useScrollRevealScrollbar';
 import { pathInGroup } from './SidebarNavGroup';
@@ -61,9 +61,20 @@ export default function Layout({ authBooting = false }) {
     });
   }, []);
 
+  const siteSeededFor = useRef(null);
+
   useEffect(() => {
-    if (!profile) return;
+    if (!profile?.id) return;
+    const options = siteOptionsForProfile(profile);
+    if (options.length === 1) {
+      setSite(options[0]);
+      siteSeededFor.current = profile.id;
+      return;
+    }
+    // Multi-site: seed once per login; keep manual All / MY / PP switches after that.
+    if (siteSeededFor.current === profile.id) return;
     setSite(operatorSiteKey(profile));
+    siteSeededFor.current = profile.id;
   }, [profile?.id, profile?.role, profile?.site_key, setSite]);
 
   useEffect(() => {

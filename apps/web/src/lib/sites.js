@@ -41,9 +41,14 @@ const STRIP_SUB = {
     pp: 'Resource ledger below shows only this site\'s devices & accounts.',
   },
   resources: {
-    all: 'IP and SIM ledgers below show resources across Malaysia and Poipet.',
-    my: 'IP and SIM ledgers below show Malaysia resources only.',
-    pp: 'IP and SIM ledgers below show Poipet resources only.',
+    all: 'SIM ledger below shows cards across Malaysia and Poipet.',
+    my: 'SIM ledger below shows Malaysia cards only.',
+    pp: 'SIM ledger below shows Poipet cards only.',
+  },
+  ips: {
+    all: 'IP ledger is shared across sites — proxies are not filtered by Malaysia / Poipet.',
+    my: 'IP ledger is shared across sites — proxies stay visible for all sites (not Malaysia-only).',
+    pp: 'IP ledger is shared across sites — proxies stay visible for all sites (not Poipet-only).',
   },
 };
 
@@ -57,7 +62,7 @@ const STRIP_PAGE = {
   '/tickets': 'operator',
   '/accounts': 'ledger',
   '/sims': 'resources',
-  '/ips': 'resources',
+  '/ips': 'ips',
   '/governance': 'governance',
   '/audit': 'audit',
   '/feedflow': 'feedflow',

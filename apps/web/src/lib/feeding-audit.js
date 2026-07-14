@@ -37,6 +37,29 @@ export function filterFeedingAuditBySite(entries, site) {
   });
 }
 
+/** Fill blank audit locations from AMS account siteKey (engine Success rows often omit location). */
+export function enrichFeedingAuditLocations(entries, accounts = []) {
+  if (!Array.isArray(entries) || !entries.length) return entries || [];
+  if (!Array.isArray(accounts) || !accounts.length) return entries;
+
+  const byName = new Map();
+  for (const a of accounts) {
+    const name = String(a?.account_name || '').trim().toLowerCase();
+    if (!name) continue;
+    const label = SITES[a.siteKey]?.name || null;
+    if (label) byName.set(name, label);
+  }
+
+  return entries.map((e) => {
+    const loc = String(e?.location || '').trim();
+    if (loc && loc !== '-' && loc.toLowerCase() !== 'pending') return e;
+    const name = String(e?.accountName || '').trim().toLowerCase();
+    const filled = name ? byName.get(name) : null;
+    if (!filled) return e;
+    return { ...e, location: filled };
+  });
+}
+
 function pct(n, total) {
   return total > 0 ? Math.round((n / total) * 1000) / 10 : 0;
 }

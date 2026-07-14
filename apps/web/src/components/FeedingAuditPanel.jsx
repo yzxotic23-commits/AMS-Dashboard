@@ -2,8 +2,10 @@ import { useMemo } from 'react';
 import { Download, RefreshCw } from 'lucide-react';
 import { useSite } from '../context/SiteContext';
 import { useFeedingAudit } from '../hooks/useFeedingAudit';
+import { useAllAccounts } from '../hooks/useOperatorAccounts';
 import {
   computeFeedingAuditSummary,
+  enrichFeedingAuditLocations,
   filterFeedingAuditBySite,
 } from '../lib/feeding-audit';
 import { SITES } from '../lib/sites';
@@ -37,8 +39,12 @@ function SummaryTile({ label, value, sub, tone = 'default' }) {
 export default function FeedingAuditPanel() {
   const { site } = useSite();
   const { data, isLoading, isFetching, refetch, isError } = useFeedingAudit(100);
+  const { data: accounts = [] } = useAllAccounts();
 
-  const allEntries = data?.entries || [];
+  const allEntries = useMemo(
+    () => enrichFeedingAuditLocations(data?.entries || [], accounts),
+    [data?.entries, accounts],
+  );
   const entries = useMemo(
     () => filterFeedingAuditBySite(allEntries, site),
     [allEntries, site],

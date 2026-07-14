@@ -5,3 +5,6 @@ dist/
 *.log
 .DS_Store
 RM_Operation_Logic.html
+
+# Local planning / Jira drafts — keep out of repo
+planning/

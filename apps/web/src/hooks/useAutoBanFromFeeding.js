@@ -22,7 +22,7 @@ function matchAuditToAccount(entry, account) {
 /** Auto-ban from FeedFlow audit — day 4+ accounts in engine (Feature 5). */
 export function useAutoBanFromFeeding() {
   const qc = useQueryClient();
-  const { data: audit } = useFeedingAudit(80);
+  const { data: audit } = useFeedingAudit(0);
   const processed = useRef(new Set());
 
   const { data: accounts = [] } = useQuery({

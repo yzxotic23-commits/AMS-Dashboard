@@ -60,8 +60,9 @@ export async function postLocalDisconnect(slot) {
   });
 }
 
-export async function fetchLocalFeedingAudit(limit = 100) {
-  return localFetch(`/api/audit?limit=${limit}`, { timeout: 8000 });
+export async function fetchLocalFeedingAudit(limit = 0) {
+  const q = limit > 0 ? `limit=${limit}` : 'limit=0';
+  return localFetch(`/api/audit?${q}`, { timeout: 30_000 });
 }
 
 export async function postLocalAuditSync() {

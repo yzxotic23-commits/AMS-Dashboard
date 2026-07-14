@@ -504,14 +504,14 @@ export function getMockResponse(config) {
 
   if (method === 'GET' && url.startsWith('bridge/audit')) {
     const entries = [...FEEDING_AUDIT_LOG];
-    const total = entries.length;
     const success = entries.filter((e) => e.feedingStatus === 'Success').length;
     const restrict = entries.filter((e) => e.feedingStatus === 'Restrict').length;
     const banned = entries.filter((e) => e.feedingStatus === 'Banned').length;
+    const total = success + restrict + banned;
     const pct = (n) => (total > 0 ? Math.round((n / total) * 1000) / 10 : 0);
     return {
       ok: true,
-      total,
+      total: entries.length,
       entries,
       summary: {
         totalFeedingVolume: total,

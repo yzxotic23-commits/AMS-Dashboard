@@ -197,13 +197,20 @@ router.post('/audit/sync', authenticate, async (_req, res) => {
 
 router.get('/audit', authenticate, async (req, res) => {
   try {
-    const limit = parseInt(req.query.limit || '100', 10);
+    const rawLimit = req.query.limit;
+    const limit = rawLimit == null || rawLimit === ''
+      ? 0
+      : parseInt(rawLimit, 10);
     const offset = parseInt(req.query.offset || '0', 10);
-    let data = await fetchWsafFeedingAudit({ limit, offset });
+    const opts = {
+      limit: Number.isFinite(limit) ? limit : 0,
+      offset,
+    };
+    let data = await fetchWsafFeedingAudit(opts);
     if (offset === 0 && !(data?.entries?.length)) {
       try {
         await postWsafAuditSync();
-        data = await fetchWsafFeedingAudit({ limit, offset });
+        data = await fetchWsafFeedingAudit(opts);
       } catch {
         /* keep empty */
       }

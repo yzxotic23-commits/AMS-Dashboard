@@ -64,17 +64,28 @@ function pct(n, total) {
   return total > 0 ? Math.round((n / total) * 1000) / 10 : 0;
 }
 
-/** Recompute summary from a (possibly filtered) entry list. */
+const COMPLETED_STATUSES = new Set([
+  FEEDING_STATUS.SUCCESS,
+  FEEDING_STATUS.RESTRICT,
+  FEEDING_STATUS.BANNED,
+]);
+
+/** Recompute summary from a (possibly filtered) entry list.
+ *  Total volume = completed outcomes only (Success + Restrict + Banned).
+ *  Active / linked rows are excluded from volume and rate denominators.
+ */
 export function computeFeedingAuditSummary(entries) {
   const list = Array.isArray(entries) ? entries : [];
-  const total = list.length;
   const count = (status) => list.filter((e) => e.feedingStatus === status).length;
   const banned = count(FEEDING_STATUS.BANNED);
   const restrict = count(FEEDING_STATUS.RESTRICT);
   const success = count(FEEDING_STATUS.SUCCESS);
+  const total = success + restrict + banned;
+  const active = count(FEEDING_STATUS.ACTIVE);
 
   const ipMap = new Map();
   for (const e of list) {
+    if (!COMPLETED_STATUSES.has(e.feedingStatus)) continue;
     const ip = e.ipAddress || 'direct';
     if (!ipMap.has(ip)) ipMap.set(ip, { banned: 0 });
     if (e.feedingStatus === FEEDING_STATUS.BANNED) {
@@ -85,6 +96,7 @@ export function computeFeedingAuditSummary(entries) {
 
   return {
     totalFeedingVolume: total,
+    activeVolume: active,
     bannedVolume: banned,
     bannedRate: pct(banned, total),
     restrictVolume: restrict,

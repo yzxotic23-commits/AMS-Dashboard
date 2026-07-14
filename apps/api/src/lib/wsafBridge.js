@@ -158,7 +158,10 @@ export async function refreshWsafBridgeState() {
   return fetchWsafBridgeSummary();
 }
 
-export async function fetchWsafFeedingAudit({ limit = 100, offset = 0 } = {}) {
-  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
-  return wsafRequest(`/api/audit?${params}`, { timeout: 8000 });
+export async function fetchWsafFeedingAudit({ limit = 0, offset = 0 } = {}) {
+  const params = new URLSearchParams({
+    limit: String(limit <= 0 ? 0 : limit),
+    offset: String(offset || 0),
+  });
+  return wsafRequest(`/api/audit?${params}`, { timeout: 30_000 });
 }

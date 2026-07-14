@@ -38,7 +38,7 @@ function SummaryTile({ label, value, sub, tone = 'default' }) {
 
 export default function FeedingAuditPanel() {
   const { site } = useSite();
-  const { data, isLoading, isFetching, refetch, isError } = useFeedingAudit(100);
+  const { data, isLoading, isFetching, refetch, isError } = useFeedingAudit(0);
   const { data: accounts = [] } = useAllAccounts();
 
   const allEntries = useMemo(
@@ -87,7 +87,7 @@ export default function FeedingAuditPanel() {
           <SummaryTile
             label="Total volume"
             value={summary.totalFeedingVolume}
-            sub={`${entries.length} entries · ${siteLabel}`}
+            sub={`Completed outcomes · ${siteLabel}`}
           />
           <SummaryTile
             label="Success"

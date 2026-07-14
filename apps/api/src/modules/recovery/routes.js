@@ -1,19 +1,13 @@
 import { Router } from 'express';
 import { authenticate, requireRole } from '../../middleware/auth.js';
 import { supabaseAdmin } from '../../lib/supabase.js';
-import { parseOperatorMeta } from '../../lib/accountMeta.js';
+import { parseOperatorMeta, parsePrefixedJsonBlock } from '../../lib/accountMeta.js';
 import { parseDateRangeQuery, inDateRange } from '../../lib/dateRange.js';
 
 const REC_PREFIX = '_ams_rec:';
 
 function parseRecoveryMeta(notes) {
-  const idx = (notes || '').indexOf(REC_PREFIX);
-  if (idx === -1) return null;
-  try {
-    return JSON.parse(notes.slice(idx + REC_PREFIX.length));
-  } catch {
-    return null;
-  }
+  return parsePrefixedJsonBlock(notes, REC_PREFIX);
 }
 
 const router = Router();

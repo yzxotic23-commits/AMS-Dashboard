@@ -35,7 +35,8 @@ function shortFailReason(reason) {
 
 export const toastCopy = {
   recoveryStarted: (name) => `${name} · recovering`,
-  recoveryDone: (name, elapsed) => `${name} · recovered · ${elapsed}`,
+  recoveryDone: (name, elapsed) => `${name} · recovered · back to nurturing · ${elapsed}`,
+  recoveryDoneStandby: (name, elapsed) => `${name} · recovered · standby · ${elapsed}`,
   recoveryFailed: (name, elapsed, reason) =>
     `${name} · failed · ${elapsed} · ${shortFailReason(reason)}`,
 

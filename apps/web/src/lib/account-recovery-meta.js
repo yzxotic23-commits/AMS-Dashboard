@@ -2,15 +2,23 @@
 
 const REC_PREFIX = '_ams_rec:';
 
-export function parseRecoveryMeta(account) {
-  const notes = account?.notes || '';
-  const idx = notes.indexOf(REC_PREFIX);
+function parsePrefixedJsonBlock(notes, prefix) {
+  const text = String(notes || '');
+  const idx = text.indexOf(prefix);
   if (idx === -1) return null;
+  const raw = text.slice(idx + prefix.length);
+  const next = raw.search(/\n_ams_/);
+  const jsonStr = (next === -1 ? raw : raw.slice(0, next)).trim();
+  if (!jsonStr) return null;
   try {
-    return JSON.parse(notes.slice(idx + REC_PREFIX.length));
+    return JSON.parse(jsonStr);
   } catch {
     return null;
   }
+}
+
+export function parseRecoveryMeta(account) {
+  return parsePrefixedJsonBlock(account?.notes, REC_PREFIX);
 }
 
 export function serializeRecoveryNotes(existingNotes, recoveryMeta) {

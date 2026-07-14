@@ -5,6 +5,22 @@ import { normalizeHubOwner } from './hub-operators';
 
 const META_PREFIX = '_ams_op:';
 
+/** Parse one `_ams_*:{...}` JSON block; stops before the next `_ams_` marker. */
+export function parsePrefixedJsonBlock(notes, prefix) {
+  const text = String(notes || '');
+  const idx = text.indexOf(prefix);
+  if (idx === -1) return null;
+  const raw = text.slice(idx + prefix.length);
+  const next = raw.search(/\n_ams_/);
+  const jsonStr = (next === -1 ? raw : raw.slice(0, next)).trim();
+  if (!jsonStr) return null;
+  try {
+    return JSON.parse(jsonStr);
+  } catch {
+    return null;
+  }
+}
+
 function normalizeIpJoin(ip) {
   if (!ip) return null;
   if (Array.isArray(ip)) return ip[0] || null;
@@ -13,14 +29,7 @@ function normalizeIpJoin(ip) {
 
 export function parseOperatorMeta(account) {
   if (account?._meta) return { ...account._meta };
-  const notes = account?.notes || '';
-  const idx = notes.indexOf(META_PREFIX);
-  if (idx === -1) return {};
-  try {
-    return JSON.parse(notes.slice(idx + META_PREFIX.length));
-  } catch {
-    return {};
-  }
+  return parsePrefixedJsonBlock(account?.notes, META_PREFIX) || {};
 }
 
 export function serializeAccountNotes(meta, humanNote = '') {

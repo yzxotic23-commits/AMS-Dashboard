@@ -1,5 +1,5 @@
 import { supabaseAdmin } from './supabase.js';
-import { parseOperatorMeta } from './accountMeta.js';
+import { parseOperatorMeta, parsePrefixedJsonBlock } from './accountMeta.js';
 import { buildBanRecords } from './banAnalytics.js';
 import { ACCOUNT_SELECT_BAN } from './accountSelect.js';
 import {
@@ -14,13 +14,7 @@ const REC_PREFIX = '_ams_rec:';
 const LOOKBACK_DAYS = 30;
 
 function parseRecoveryMeta(notes) {
-  const idx = (notes || '').indexOf(REC_PREFIX);
-  if (idx === -1) return null;
-  try {
-    return JSON.parse(notes.slice(idx + REC_PREFIX.length));
-  } catch {
-    return null;
-  }
+  return parsePrefixedJsonBlock(notes, REC_PREFIX);
 }
 
 function siteOfAccount(row) {

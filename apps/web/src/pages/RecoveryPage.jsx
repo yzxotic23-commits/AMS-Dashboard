@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { CheckCircle2, RefreshCw, ScrollText, XCircle } from 'lucide-react';
+import { CheckCircle2, Package, RefreshCw, ScrollText, XCircle } from 'lucide-react';
 import PageHead from '../components/PageHead';
 import Drawer from '../components/Drawer';
 import IconTooltip from '../components/IconTooltip';
@@ -11,6 +11,7 @@ import {
   parseRecoveryMeta, serializeRecoveryNotes, appendRecoveryLog,
   banSourceLabel, recElapsed,
 } from '../lib/account-recovery-meta';
+import { buildMetaPatch } from '../lib/account-operator-meta';
 import { RECOVERY_STATUS, toastCopy } from '../lib/operator-copy';
 
 const REC_FAIL_REASONS = [
@@ -67,7 +68,14 @@ export default function RecoveryPage() {
 
   async function advance(row, to) {
     const now = new Date().toISOString();
-    const nextMeta = appendRecoveryLog(row.rec, { st: to, time: now, by: 'Operator' });
+    const logSt = to === 'standby' ? 'ok' : to;
+    const nextMeta = appendRecoveryLog(row.rec, {
+      st: logSt,
+      time: now,
+      by: 'Operator',
+      ...(to === 'ok' ? { destination: 'nurturing' } : {}),
+      ...(to === 'standby' ? { destination: 'standby' } : {}),
+    });
     if (busy) return;
     setBusy(true);
     try {
@@ -85,12 +93,40 @@ export default function RecoveryPage() {
         });
         showToast(toastCopy.recoveryStarted(row.acct));
       } else if (to === 'ok') {
+        // Draft: Recovering → Nurturing (resume feeding path).
+        await transitionAccount.mutateAsync({
+          id: row.id,
+          to_status: 'NURTURING',
+          reason: 'Recovery successful — returned to nurturing for feeding',
+        });
+        const baseNotes = buildMetaPatch(row.row, {
+          nurturing_phase: 'manual',
+          nurturing_started_at: now,
+        });
+        await patchAccount.mutateAsync({
+          id: row.id,
+          row: row.row,
+          patch: {
+            nurturing_phase: 'manual',
+            nurturing_started_at: now,
+          },
+          extra: { notes: serializeRecoveryNotes(baseNotes, nextMeta) },
+        });
+        showToast(toastCopy.recoveryDone(row.acct, recElapsed(nextMeta.log, 'ok')));
+      } else if (to === 'standby') {
+        // Draft: Recovering → Standby (AVAILABLE) for business handoff.
         await transitionAccount.mutateAsync({
           id: row.id,
           to_status: 'AVAILABLE',
           reason: 'Recovery successful — returned to standby pool',
         });
-        showToast(toastCopy.recoveryDone(row.acct, recElapsed(nextMeta.log, 'ok')));
+        await patchAccount.mutateAsync({
+          id: row.id,
+          row: row.row,
+          patch: {},
+          extra: { notes: serializeRecoveryNotes(row.row._notes || '', nextMeta) },
+        });
+        showToast(toastCopy.recoveryDoneStandby(row.acct, recElapsed(nextMeta.log, 'ok')));
       }
     } catch (e) {
       showToast(e.message || 'Update failed');
@@ -131,7 +167,7 @@ export default function RecoveryPage() {
     <div>
       <PageHead
         title="Account Recovery"
-        description="Banned accounts queue here. Advance each row: Pending → Recovering → Recovered or Failed. Every step is timestamped for recovery-time stats."
+        description="Banned accounts queue here. Pending → Recovering → Nurturing, Standby, or Failed (Recycled). Every step is timestamped for recovery-time stats."
         actions={pending > 0 ? (
           <div className="page-meta-bubble">
             <span className="font-semibold text-ams-danger">{pending}</span>
@@ -204,22 +240,32 @@ export default function RecoveryPage() {
                         )}
                         {(row.st === 'doing' || row.status === 'RECOVERING') && (
                           <>
-                            <IconTooltip label="Mark recovered">
+                            <IconTooltip label="Recovered → Nurturing (feeding)">
                               <button
                                 type="button"
                                 className="table-icon-btn table-icon-btn--success"
                                 onClick={() => advance(row, 'ok')}
-                                aria-label="Mark recovered"
+                                aria-label="Recovered — back to nurturing"
                               >
                                 <CheckCircle2 size={15} strokeWidth={2} />
                               </button>
                             </IconTooltip>
-                            <IconTooltip label="Log failure">
+                            <IconTooltip label="Recovered → Standby (Available)">
+                              <button
+                                type="button"
+                                className="table-icon-btn table-icon-btn--accent"
+                                onClick={() => advance(row, 'standby')}
+                                aria-label="Recovered — send to standby"
+                              >
+                                <Package size={15} strokeWidth={2} />
+                              </button>
+                            </IconTooltip>
+                            <IconTooltip label="Failed → Recycled">
                               <button
                                 type="button"
                                 className="table-icon-btn table-icon-btn--danger"
                                 onClick={() => { setFailReason(REC_FAIL_REASONS[0]); setFailRow(row); }}
-                                aria-label="Log failure"
+                                aria-label="Log failure — recycle"
                               >
                                 <XCircle size={15} strokeWidth={2} />
                               </button>

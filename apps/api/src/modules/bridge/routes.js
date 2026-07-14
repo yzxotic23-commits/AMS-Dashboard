@@ -198,14 +198,11 @@ router.post('/audit/sync', authenticate, async (_req, res) => {
 router.get('/audit', authenticate, async (req, res) => {
   try {
     const rawLimit = req.query.limit;
-    const limit = rawLimit == null || rawLimit === ''
-      ? 0
-      : parseInt(rawLimit, 10);
+    // Omit/0/invalid → fetch full log via large positive limit (never send 0 to engine).
+    const parsed = rawLimit == null || rawLimit === '' ? 0 : parseInt(rawLimit, 10);
+    const limit = Number.isFinite(parsed) ? parsed : 0;
     const offset = parseInt(req.query.offset || '0', 10);
-    const opts = {
-      limit: Number.isFinite(limit) ? limit : 0,
-      offset,
-    };
+    const opts = { limit, offset };
     let data = await fetchWsafFeedingAudit(opts);
     if (offset === 0 && !(data?.entries?.length)) {
       try {

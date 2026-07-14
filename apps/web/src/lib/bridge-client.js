@@ -147,7 +147,8 @@ export async function syncSlotDisplayLabelToEngine(slot, body = {}) {
 }
 
 export async function getFeedingAudit(limit = 0) {
-  const params = limit > 0 ? { limit } : { limit: 0 };
+  // Never send limit=0 to the engine — older builds return an empty page.
+  const params = limit > 0 ? { limit } : { limit: 100000 };
   const fromApi = await tryApi(() => api.get('/bridge/audit', { params }));
   if (fromApi) {
     return { ...fromApi, entries: fromApi.entries || [] };

@@ -158,9 +158,14 @@ export async function refreshWsafBridgeState() {
   return fetchWsafBridgeSummary();
 }
 
-export async function fetchWsafFeedingAudit({ limit = 0, offset = 0 } = {}) {
+/** Large page size = “all rows” while staying compatible with older engines
+ *  that treated limit=0 as slice(0,0) → empty list. */
+const FEEDING_AUDIT_ALL = 100_000;
+
+export async function fetchWsafFeedingAudit({ limit = FEEDING_AUDIT_ALL, offset = 0 } = {}) {
+  const safeLimit = !limit || limit <= 0 ? FEEDING_AUDIT_ALL : limit;
   const params = new URLSearchParams({
-    limit: String(limit <= 0 ? 0 : limit),
+    limit: String(safeLimit),
     offset: String(offset || 0),
   });
   return wsafRequest(`/api/audit?${params}`, { timeout: 30_000 });

@@ -183,6 +183,14 @@ export default function RecoveryPage() {
       <div className="data-panel card overflow-hidden">
         <div className="data-table-wrap">
           <table className="data-table data-table--recovery">
+            <colgroup>
+              <col className="rec-col-acct" />
+              <col className="rec-col-ban" />
+              <col className="rec-col-status" />
+              <col className="rec-col-elapsed" />
+              {site === 'all' && <col className="rec-col-site" />}
+              <col className="rec-col-action" />
+            </colgroup>
             <thead>
               <tr>
                 <th>Account</th>

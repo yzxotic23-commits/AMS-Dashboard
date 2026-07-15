@@ -24,12 +24,18 @@ import {
   proxyBindingSuffix,
 } from '../lib/ip-ready';
 
+const PROGRESS_FILL_CLASS = {
+  warn: 'nurt-progress-fill nurt-progress-fill--warn',
+  ok: 'nurt-progress-fill nurt-progress-fill--ok',
+  blue: 'nurt-progress-fill nurt-progress-fill--blue',
+};
+
 function ProgressBar({ day, max, tone = 'warn' }) {
   const pct = Math.min(100, Math.round((day / max) * 100));
   return (
     <div className="nurt-progress">
       <div className="nurt-progress-track">
-        <div className={`nurt-progress-fill nurt-progress-fill--${tone}`} style={{ width: `${pct}%` }} />
+        <div className={PROGRESS_FILL_CLASS[tone] || PROGRESS_FILL_CLASS.warn} style={{ width: `${pct}%` }} />
       </div>
       <span className="nurt-progress-label">Day {day}/{max}</span>
     </div>

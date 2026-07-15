@@ -45,5 +45,8 @@ export default {
     'engine-slot-bubble--linking',
     'engine-slot-bubble--feeding',
     'engine-slot-bubble--offline',
+    'nurt-progress-fill--warn',
+    'nurt-progress-fill--ok',
+    'nurt-progress-fill--blue',
   ],
 };

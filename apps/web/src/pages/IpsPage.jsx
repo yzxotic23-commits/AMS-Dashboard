@@ -55,6 +55,7 @@ export default function IpsPage() {
     username: '',
     password: '',
     proxy_provider: '',
+    country: '',
     status: 'ACTIVE',
   });
   const [deleteConfirm, setDeleteConfirm] = useState(null);
@@ -179,6 +180,7 @@ export default function IpsPage() {
       username: '',
       password: '',
       proxy_provider: '',
+      country: '',
       status: 'ACTIVE',
     });
     setCreateOpen(true);
@@ -250,6 +252,7 @@ export default function IpsPage() {
       username: createForm.username.trim() || null,
       password: createForm.password || null,
       proxy_provider: createForm.proxy_provider.trim() || null,
+      country: createForm.country.trim() || null,
       status: createForm.status,
     };
     if (!body.ip_address) {
@@ -274,6 +277,8 @@ export default function IpsPage() {
       port: row.port || '',
       username: row.username || '',
       password: row.password || '',
+      proxy_provider: row.proxy_provider || '',
+      country: row.country || '',
       status: row.status || 'ACTIVE',
     });
   }
@@ -290,6 +295,8 @@ export default function IpsPage() {
       port: editForm.port.trim(),
       username: editForm.username.trim(),
       password: editForm.password,
+      proxy_provider: editForm.proxy_provider.trim() || null,
+      country: editForm.country.trim() || null,
       status: editForm.status,
       active: editForm.status === 'ACTIVE',
     };
@@ -305,6 +312,8 @@ export default function IpsPage() {
           port: patch.port,
           username: patch.username,
           password: patch.password,
+          proxy_provider: patch.proxy_provider,
+          country: patch.country,
           status: patch.status,
         },
       },
@@ -463,7 +472,7 @@ export default function IpsPage() {
             <input
               className="input ip-bulkbar-search-input"
               type="search"
-              placeholder="Search IP, provider…"
+              placeholder="Search IP, provider, country…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               aria-label="Search IP ledger"
@@ -491,6 +500,7 @@ export default function IpsPage() {
                   <th className="col-check" aria-label="Select" />
                   <th>IP Address</th>
                   <th>Source</th>
+                  <th>Country</th>
                   <th>Port</th>
                   <th>Username</th>
                   <th>Password</th>
@@ -516,7 +526,7 @@ export default function IpsPage() {
               <tbody>
                 {rows.length === 0 ? (
                   <tr>
-                    <td colSpan={12} className="empty-cell">
+                    <td colSpan={13} className="empty-cell">
                       {searchQuery || statusFilter !== 'all'
                         ? 'No IPs match your filters.'
                         : 'No IPs recorded.'}
@@ -542,6 +552,9 @@ export default function IpsPage() {
                     <td className="col-mono">{row.ip_address}</td>
                     <td className="text-[12.5px] text-ams-muted">
                       {row.proxy_provider || (row.username?.startsWith('res_') ? 'Proxy vendor' : '—')}
+                    </td>
+                    <td className="text-[12.5px] text-ams-muted">
+                      {row.country || '—'}
                     </td>
                     <td className="col-mono">{row.port}</td>
                     <td className="col-mono">{row.username}</td>
@@ -707,6 +720,23 @@ export default function IpsPage() {
                   className="input font-mono"
                   value={editForm.ip_address}
                   onChange={(e) => setEditForm((f) => ({ ...f, ip_address: e.target.value }))}
+                />
+              </label>
+              <label className="drawer-field">
+                <span className="drawer-label">Source / provider</span>
+                <input
+                  className="input"
+                  value={editForm.proxy_provider}
+                  onChange={(e) => setEditForm((f) => ({ ...f, proxy_provider: e.target.value }))}
+                />
+              </label>
+              <label className="drawer-field">
+                <span className="drawer-label">Country</span>
+                <input
+                  className="input"
+                  placeholder="e.g. SG, MY, US"
+                  value={editForm.country}
+                  onChange={(e) => setEditForm((f) => ({ ...f, country: e.target.value }))}
                 />
               </label>
               <label className="drawer-field">
@@ -894,6 +924,15 @@ export default function IpsPage() {
               placeholder="e.g. Proxy vendor"
               value={createForm.proxy_provider}
               onChange={(e) => setCreateForm((f) => ({ ...f, proxy_provider: e.target.value }))}
+            />
+          </label>
+          <label className="drawer-field">
+            <span className="drawer-label">Country</span>
+            <input
+              className="input"
+              placeholder="e.g. SG, MY, US"
+              value={createForm.country}
+              onChange={(e) => setCreateForm((f) => ({ ...f, country: e.target.value }))}
             />
           </label>
           <label className="drawer-field">

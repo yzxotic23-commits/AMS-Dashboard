@@ -1519,11 +1519,31 @@
   .data-table td.col-action--wide {
     min-width: 7.5rem;
   }
+  .data-table--recovery {
+    table-layout: fixed;
+    width: 100%;
+    min-width: 0;
+  }
+  .data-table--recovery .rec-col-acct { width: 16%; }
+  .data-table--recovery .rec-col-ban { width: 16%; }
+  .data-table--recovery .rec-col-status { width: 14%; }
+  .data-table--recovery .rec-col-elapsed { width: 12%; }
+  .data-table--recovery .rec-col-site { width: 12%; }
+  .data-table--recovery .rec-col-action { width: 18%; }
+  .data-table--recovery th,
+  .data-table--recovery td {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
   .data-table--recovery th.col-action--wide,
   .data-table--recovery td.col-action--wide {
-    width: 8.75rem;
-    min-width: 8.75rem;
-    max-width: 8.75rem;
+    width: 18%;
+    min-width: 11.5rem;
+    max-width: none;
+    overflow: visible;
+  }
+  .data-table--recovery td.col-action--wide .col-action-btns {
+    flex-wrap: nowrap;
   }
   .col-action-btns {
     @apply inline-flex items-center justify-end gap-1;

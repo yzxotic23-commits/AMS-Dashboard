@@ -20,6 +20,8 @@ export const NURT_STATUS = {
   manual: 'Manual Nurturing',
   readyScan: 'Ready to scan',
   auto: 'System Monitoring',
+  /** Live slot.connected === false — not a Feeding audit status. */
+  offline: 'Offline',
 };
 
 const FAIL_REASON_SHORT = {

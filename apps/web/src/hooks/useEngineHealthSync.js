@@ -3,8 +3,14 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getBridgeSummary } from '../lib/bridge-client';
 import api from '../lib/api';
 import { accountToOperatorRow } from '../lib/account-operator-meta';
+import { matchAccountForEngineSlot } from '../lib/engine-slot';
 
-/** Sync account status from FeedFlow bridge slot health (Stage B #8). */
+const BRIDGE_POLL_MS = 20_000;
+
+/**
+ * Detect disconnect from live FeedFlow slot.connected — not Feeding audit.
+ * IN_USE + offline slot → LOGGED_OUT (AMS governance status).
+ */
 export function useEngineHealthSync() {
   const qc = useQueryClient();
   const synced = useRef(new Set());
@@ -12,7 +18,7 @@ export function useEngineHealthSync() {
   const { data: bridge } = useQuery({
     queryKey: ['bridge', 'summary'],
     queryFn: getBridgeSummary,
-    refetchInterval: false,
+    refetchInterval: BRIDGE_POLL_MS,
     retry: 1,
   });
 
@@ -22,22 +28,18 @@ export function useEngineHealthSync() {
       const res = await api.get('/accounts', { params: { limit: 400 } });
       return (res.data?.data || []).map(accountToOperatorRow);
     },
-    refetchInterval: false,
+    refetchInterval: BRIDGE_POLL_MS,
   });
 
   useEffect(() => {
     const slots = bridge?.slots;
     if (!slots?.length || !accounts.length) return;
+    if (bridge?.reachable === false) return;
 
     slots.forEach(async (slot) => {
       if (slot.connected || !slot.phone) return;
 
-      const phone = String(slot.phone).replace(/\D/g, '');
-      const match = accounts.find((a) => {
-        if (a.wsaf_slot !== slot.slot && a.wsaf_slot != null) return false;
-        const acctPhone = String(a.phone_number || '').replace(/\D/g, '');
-        return acctPhone && phone && acctPhone.endsWith(phone.slice(-9));
-      });
+      const match = matchAccountForEngineSlot(accounts, slot);
       if (!match || match.status !== 'IN_USE') return;
 
       const key = `logout-${match.id}-${slot.slot}`;

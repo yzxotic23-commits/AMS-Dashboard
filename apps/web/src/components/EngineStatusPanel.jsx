@@ -1,4 +1,5 @@
 import { Activity, AlertCircle, ExternalLink, MessageSquare, RefreshCw, Wifi, WifiOff, Zap } from 'lucide-react';
+import IconTooltip from './IconTooltip';
 import { useEngineStatus } from '../hooks/useEngineStatus';
 import { useFeedFlowRefresh } from '../hooks/useFeedFlowRefresh';
 
@@ -7,6 +8,13 @@ const SLOT_STATE_CLASS = {
   linking: 'engine-slot-bubble--linking',
   feeding: 'engine-slot-bubble--feeding',
   offline: 'engine-slot-bubble--offline',
+};
+
+const SLOT_STATE_LABEL = {
+  online: 'Online',
+  linking: 'Linking',
+  feeding: 'Feeding',
+  offline: 'Offline',
 };
 
 function LivePill({ live }) {
@@ -37,14 +45,32 @@ function slotState(slot) {
 
 function SlotBubble({ slot }) {
   const state = slotState(slot);
-  const label = slot.label || `Slot ${slot.slot + 1}`;
+  const name = slot.label || `Account ${slot.slot + 1}`;
+  const n = Number(slot.slot) + 1;
+  const stateLabel = SLOT_STATE_LABEL[state];
+  const tip = (
+    <span className="engine-slot-tip">
+      <span className="engine-slot-tip__row">
+        <span className="engine-slot-tip__slot">Slot {n}</span>
+        <span className={`engine-slot-tip__pill engine-slot-tip__pill--${state}`}>{stateLabel}</span>
+      </span>
+      <span className="engine-slot-tip__name">{name}</span>
+      {slot.phone
+        ? <span className="engine-slot-tip__meta">{slot.phone}</span>
+        : <span className="engine-slot-tip__meta engine-slot-tip__meta--muted">No phone linked</span>}
+    </span>
+  );
 
   return (
-    <span
-      className={`engine-slot-bubble ${SLOT_STATE_CLASS[state]}`}
-      title={`#${slot.slot + 1} ${label}${slot.phone ? ` · ${slot.phone}` : ''}`}
-      aria-label={`Slot ${slot.slot + 1}, ${state}`}
-    />
+    <IconTooltip label={tip} rich>
+      <button
+        type="button"
+        className="engine-slot-hit"
+        aria-label={`Slot ${n}, ${name}, ${stateLabel}${slot.phone ? `, ${slot.phone}` : ''}`}
+      >
+        <span className={`engine-slot-bubble ${SLOT_STATE_CLASS[state]}`} aria-hidden />
+      </button>
+    </IconTooltip>
   );
 }
 

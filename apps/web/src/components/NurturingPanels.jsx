@@ -17,6 +17,7 @@ import {
 import { NURT_STATUS, toastCopy } from '../lib/operator-copy';
 import { formatProxyOptionLabel, proxyUrlFromIp } from '../lib/proxy-display';
 import { FEEDING_STATUS, feedflowSlotLabelBody, nurturingOutcomeAuditPayload } from '../lib/feeding-audit';
+import { liveSlotConnection } from '../lib/engine-slot';
 import {
   recordFeedingAuditEntry,
   syncSlotDisplayLabelToEngine,
@@ -491,6 +492,18 @@ export default function NurturingPanels() {
                 </tr>
               ) : autoList.map((row) => {
                 const gradDue = isAutoGraduationDue(row);
+                // Disconnect = live engine slot, not Feeding audit status.
+                const linkState = liveSlotConnection(row, engineSlots);
+                const offline = linkState === 'offline';
+                let statusLabel = NURT_STATUS.auto;
+                let statusClass = 'badge-accent';
+                if (offline) {
+                  statusLabel = NURT_STATUS.offline;
+                  statusClass = 'badge-default';
+                } else if (gradDue) {
+                  statusLabel = 'Ready for standby';
+                  statusClass = 'badge-success';
+                }
                 return (
                   <tr key={row.id}>
                     <td className="font-semibold text-ams-blue">{row.acct}</td>
@@ -499,8 +512,8 @@ export default function NurturingPanels() {
                       <ProgressBar day={row.day} max={7} tone="blue" />
                     </td>
                     <td className="col-center">
-                      <span className={`badge ${gradDue ? 'badge-success' : 'badge-accent'}`}>
-                        {gradDue ? 'Ready for standby' : NURT_STATUS.auto}
+                      <span className={`badge ${statusClass}`} title={offline ? 'FeedFlow slot disconnected' : undefined}>
+                        {statusLabel}
                       </span>
                     </td>
                     {site === 'all' && (

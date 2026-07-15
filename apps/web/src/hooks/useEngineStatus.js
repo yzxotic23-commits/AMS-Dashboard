@@ -5,7 +5,8 @@ export function useEngineStatus() {
   return useQuery({
     queryKey: ['bridge', 'summary'],
     queryFn: getBridgeSummary,
-    refetchInterval: false,
+    // Keep Offline badge / slot bubbles fresh without writing Feeding audit.
+    refetchInterval: 20_000,
     staleTime: 5_000,
   });
 }

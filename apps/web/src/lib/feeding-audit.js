@@ -1,3 +1,4 @@
+/** Feeding run outcomes only. Disconnect is live slot.connected — never a status here. */
 const FEEDING_STATUS = {
   ACTIVE: 'Active',
   SUCCESS: 'Success',

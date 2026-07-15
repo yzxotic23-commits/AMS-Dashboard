@@ -16,6 +16,7 @@ import {
 } from '../lib/device-location';
 import { nurturingDay, nurturingProgress } from '../lib/nurturing-day';
 import { getBridgeSummary } from '../lib/bridge-client';
+import { liveSlotConnection } from '../lib/engine-slot';
 import api from '../lib/api';
 
 const LEDGER_PAGE_SIZE = 5;
@@ -115,15 +116,12 @@ function AccountDetail({ accountId, onBack }) {
   const nurture = account.status === 'NURTURING'
     ? nurturingProgress(account.nurturing_started_at, account.nurturing_phase)
     : null;
-  const engineSlot = bridge?.slots?.find((s) => {
-    if (account.wsaf_slot != null && s.slot === account.wsaf_slot) return true;
-    const ph = String(account.phone_number || '').replace(/\D/g, '');
-    const sp = String(s.phone || '').replace(/\D/g, '');
-    return ph && sp && ph.endsWith(sp.slice(-9));
-  });
-  const engineStatus = engineSlot
-    ? (engineSlot.connected ? 'Online' : 'Offline / logged out')
-    : (account.status === 'IN_USE' || account.nurturing_phase === 'auto' ? 'Not in engine' : null);
+  const linkState = liveSlotConnection(account, bridge?.slots || []);
+  const engineStatus = linkState === 'online'
+    ? 'Online'
+    : linkState === 'offline'
+      ? 'Offline / logged out'
+      : (account.status === 'IN_USE' || account.nurturing_phase === 'auto' ? 'Not in engine' : null);
   const lastChecked = bridge?.engine?.lastFeedingComplete?.at
     ? new Date(bridge.engine.lastFeedingComplete.at).toLocaleString()
     : new Date().toLocaleString();

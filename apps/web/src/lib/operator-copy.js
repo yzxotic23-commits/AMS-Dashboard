@@ -44,6 +44,7 @@ export const toastCopy = {
   nurturingScanIn: (name) => `${name} · auto nurture · day 4`,
   nurturingGraduated: (name) => `${name} · standby pool`,
   nurturingBanned: (name) => `${name} · banned · see Recovery`,
+  nurturingStrict: (name) => `${name} · strict · back to scan-in`,
 
   activationLinked: (name) => `${name} · WhatsApp linked`,
   activationDone: (name) => `${name} · activated · Nurturing`,

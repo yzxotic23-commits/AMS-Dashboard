@@ -19,6 +19,29 @@ export function feedflowSlotLabelBody(account) {
   };
 }
 
+/**
+ * Payload for operator Strict → Restrict / Banned → Banned in FeedFlow audit.
+ * Unique runId so each mark appends (not wiped by ams-linked audit sync).
+ */
+export function nurturingOutcomeAuditPayload(row, feedingStatus) {
+  const reason = feedingStatus === FEEDING_STATUS.BANNED
+    ? 'operator_banned'
+    : 'operator_strict';
+  const siteKey = row?.siteKey || 'my';
+  return {
+    slot: row.wsaf_slot,
+    accountName: row.acct || row.account_name,
+    feedingStatus,
+    reason,
+    runId: `ams-nurture-${reason}-${row.id}-${Date.now()}`,
+    location: SITES[siteKey]?.name || null,
+    ipAddress: row.ip || null,
+    strictScanPossible: feedingStatus === FEEDING_STATUS.RESTRICT,
+  };
+}
+
+export { FEEDING_STATUS };
+
 /** Map audit row location string → site id (my | pp), or null if unknown. */
 export function feedingEntrySiteKey(location) {
   const l = String(location || '').trim().toLowerCase();

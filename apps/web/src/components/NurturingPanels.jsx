@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Ban, CheckCircle2, Clock, ScanLine } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { AlertTriangle, Ban, CheckCircle2, Clock, ScanLine } from 'lucide-react';
 import Drawer from './Drawer';
 import IconTooltip from './IconTooltip';
 import Toast from './Toast';
@@ -15,8 +16,12 @@ import {
 } from '../lib/nurturing-day';
 import { NURT_STATUS, toastCopy } from '../lib/operator-copy';
 import { formatProxyOptionLabel, proxyUrlFromIp } from '../lib/proxy-display';
-import { feedflowSlotLabelBody } from '../lib/feeding-audit';
-import { syncSlotDisplayLabelToEngine, syncSlotProxyToEngine } from '../lib/bridge-client';
+import { FEEDING_STATUS, feedflowSlotLabelBody, nurturingOutcomeAuditPayload } from '../lib/feeding-audit';
+import {
+  recordFeedingAuditEntry,
+  syncSlotDisplayLabelToEngine,
+  syncSlotProxyToEngine,
+} from '../lib/bridge-client';
 import {
   buildIpBindings,
   isIpSelectableForAccount,
@@ -90,10 +95,22 @@ export default function NurturingPanels() {
   const [feedflowLinked, setFeedflowLinked] = useState(false);
   const [toast, setToast] = useState('');
   const [busy, setBusy] = useState(false);
+  const qc = useQueryClient();
   const { data: nurturing = [], isLoading } = useAccountsByStatus('NURTURING');
   const { data: allAccounts = [] } = useAllAccounts();
   const { patchAccount, transitionAccount, banAccount } = useAccountMutations();
   const { data: engineData, refetch: refetchEngine } = useEngineStatus();
+
+  /** Mirror operator Strict/Banned into FeedFlow feeding audit (needs wsaf_slot). */
+  async function syncOutcomeToFeedingAudit(row, feedingStatus) {
+    if (row?.wsaf_slot == null) return;
+    try {
+      await recordFeedingAuditEntry(nurturingOutcomeAuditPayload(row, feedingStatus));
+      qc.invalidateQueries({ queryKey: ['bridge', 'audit'] });
+    } catch {
+      /* engine offline — nurturing action already succeeded */
+    }
+  }
 
   const engineReachable = engineData?.reachable === true;
   const engineSlots = engineData?.slots || [];
@@ -276,6 +293,7 @@ export default function NurturingPanels() {
         stage: banRow.manualPhase ? 'manual' : 'auto',
         reason: banReason,
       });
+      await syncOutcomeToFeedingAudit(banRow, FEEDING_STATUS.BANNED);
       setBanRow(null);
       showToast(toastCopy.nurturingBanned(banRow.acct));
       navigate('/recovery');
@@ -299,8 +317,32 @@ export default function NurturingPanels() {
         stage: 'auto',
         reason: 'Operator flagged during auto nurturing',
       });
+      await syncOutcomeToFeedingAudit(row, FEEDING_STATUS.BANNED);
       showToast(toastCopy.nurturingBanned(row.acct));
       navigate('/recovery');
+    } catch (e) {
+      showToast(e.message || 'Update failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** Strict/restrict — stay nurturing, demote to manual scan-in (can re-link). */
+  async function markStrict(row) {
+    if (busy) return;
+    setBusy(true);
+    try {
+      // Day 3 ready: started_at = now − 2 days so isManualScanDue is true.
+      const startedAt = new Date(Date.now() - 2 * 86_400_000).toISOString();
+      const patch = {
+        nurturing_phase: 'manual',
+        nurturing_started_at: startedAt,
+        human_note: 'Strict / restricted — rescan required',
+      };
+      await patchAccount.mutateAsync({ id: row.id, row, patch });
+      await syncOutcomeToFeedingAudit(row, FEEDING_STATUS.RESTRICT);
+      showToast(toastCopy.nurturingStrict(row.acct));
+      openScan({ ...row, ...patch, day: 3 });
     } catch (e) {
       showToast(e.message || 'Update failed');
     } finally {
@@ -399,6 +441,16 @@ export default function NurturingPanels() {
                             </button>
                           </IconTooltip>
                         )}
+                        <IconTooltip label="Mark strict">
+                          <button
+                            type="button"
+                            className="table-icon-btn table-icon-btn--accent"
+                            onClick={() => markStrict(row)}
+                            aria-label="Mark strict"
+                          >
+                            <AlertTriangle size={15} strokeWidth={2} />
+                          </button>
+                        </IconTooltip>
                         <IconTooltip label="Mark banned">
                           <button
                             type="button"
@@ -481,6 +533,16 @@ export default function NurturingPanels() {
                             </button>
                           </IconTooltip>
                         )}
+                        <IconTooltip label="Mark strict">
+                          <button
+                            type="button"
+                            className="table-icon-btn table-icon-btn--accent"
+                            onClick={() => markStrict(row)}
+                            aria-label="Mark strict"
+                          >
+                            <AlertTriangle size={15} strokeWidth={2} />
+                          </button>
+                        </IconTooltip>
                         <IconTooltip label="Mark banned">
                           <button
                             type="button"

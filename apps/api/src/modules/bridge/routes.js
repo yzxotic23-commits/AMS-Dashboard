@@ -9,6 +9,7 @@ import {
   postWsafSlotDisplayLabel,
   postWsafSlotProxy,
   postWsafAuditSync,
+  postWsafAuditRecord,
   postWsafStartFeeding,
   postWsafStopFeeding,
   refreshWsafBridgeState,
@@ -192,6 +193,19 @@ router.post('/audit/sync', authenticate, async (_req, res) => {
     res.json({ ok: true, ...data });
   } catch (e) {
     res.status(502).json({ ok: false, error: e.message || 'Audit sync failed' });
+  }
+});
+
+router.post('/audit/record', authenticate, async (req, res) => {
+  try {
+    const ready = await ensureWsafEngineReady();
+    if (!ready) {
+      return res.status(503).json({ ok: false, error: 'FeedFlow engine is not running.' });
+    }
+    const data = await postWsafAuditRecord(req.body || {});
+    res.json({ ok: true, ...data });
+  } catch (e) {
+    res.status(502).json({ ok: false, error: e.message || 'Could not record feeding audit' });
   }
 });
 

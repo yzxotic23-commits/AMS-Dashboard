@@ -69,6 +69,14 @@ export async function postLocalAuditSync() {
   return localFetch('/api/audit/sync', { method: 'POST', timeout: 12_000 });
 }
 
+export async function postLocalAuditRecord(payload = {}) {
+  return localFetch('/api/audit/record', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    timeout: 8000,
+  });
+}
+
 export async function postLocalProfileRefresh() {
   return localFetch('/api/profile/refresh', { method: 'POST', timeout: 8000 });
 }

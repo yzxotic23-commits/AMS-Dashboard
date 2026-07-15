@@ -140,6 +140,15 @@ export async function postWsafAuditSync() {
   return wsafRequest('/api/audit/sync', { method: 'POST', timeout: 12_000 });
 }
 
+/** Append/update a feeding audit entry on the FeedFlow engine. */
+export async function postWsafAuditRecord(payload = {}) {
+  return wsafRequest('/api/audit/record', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    timeout: 8000,
+  });
+}
+
 export async function postWsafProfileRefresh() {
   return wsafRequest('/api/profile/refresh', { method: 'POST', timeout: 8000 });
 }

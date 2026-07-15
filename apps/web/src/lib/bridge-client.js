@@ -4,6 +4,7 @@ import {
   fetchLocalBridgeSummary,
   fetchLocalBridgeStatus,
   fetchLocalFeedingAudit,
+  postLocalAuditRecord,
   postLocalAuditSync,
   postLocalConnect,
   postLocalDisconnect,
@@ -158,6 +159,24 @@ export async function getFeedingAudit(limit = 0) {
     return { ...local, entries: local?.entries || [] };
   } catch {
     return { ok: false, reachable: false, entries: [] };
+  }
+}
+
+/** Write Restrict/Banned (or other) outcome into FeedFlow feeding audit log. */
+export async function recordFeedingAuditEntry(payload = {}) {
+  if (!isLocalBridge()) {
+    try {
+      return await postLocalAuditRecord(payload);
+    } catch {
+      const { data } = await api.post('/bridge/audit/record', payload);
+      return data;
+    }
+  }
+  try {
+    const { data } = await api.post('/bridge/audit/record', payload);
+    return data;
+  } catch {
+    return postLocalAuditRecord(payload);
   }
 }
 

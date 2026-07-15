@@ -1037,17 +1037,26 @@
     table-layout: fixed;
     min-width: 100%;
   }
-  .data-table--nurturing .nurt-col-acct { width: 18%; }
-  .data-table--nurturing .nurt-col-device { width: 24%; }
-  .data-table--nurturing .nurt-col-progress { width: 22%; }
-  .data-table--nurturing .nurt-col-status { width: 16%; }
-  .data-table--nurturing .nurt-col-action { width: 10%; }
-  .data-table--nurturing-all .nurt-col-acct { width: 15%; }
-  .data-table--nurturing-all .nurt-col-device { width: 22%; }
-  .data-table--nurturing-all .nurt-col-progress { width: 20%; }
-  .data-table--nurturing-all .nurt-col-status { width: 14%; }
-  .data-table--nurturing-all .nurt-col-site { width: 11%; }
-  .data-table--nurturing-all .nurt-col-action { width: 10%; }
+  .data-table--nurturing .nurt-col-acct { width: 17%; }
+  .data-table--nurturing .nurt-col-device { width: 22%; }
+  .data-table--nurturing .nurt-col-progress { width: 20%; }
+  .data-table--nurturing .nurt-col-status { width: 15%; }
+  .data-table--nurturing .nurt-col-action { width: 14%; }
+  .data-table--nurturing-all .nurt-col-acct { width: 14%; }
+  .data-table--nurturing-all .nurt-col-device { width: 20%; }
+  .data-table--nurturing-all .nurt-col-progress { width: 18%; }
+  .data-table--nurturing-all .nurt-col-status { width: 13%; }
+  .data-table--nurturing-all .nurt-col-site { width: 10%; }
+  .data-table--nurturing-all .nurt-col-action { width: 14%; }
+  .data-table--nurturing td.col-action--wide .col-action-btns {
+    flex-wrap: nowrap;
+    justify-content: center;
+    width: 100%;
+  }
+  .data-table--nurturing th.col-action--wide,
+  .data-table--nurturing td.col-action--wide {
+    text-align: center;
+  }
 
   .data-table--nurturing th.col-center,
   .data-table--nurturing td.col-center {
@@ -1541,9 +1550,13 @@
     min-width: 11.5rem;
     max-width: none;
     overflow: visible;
+    text-align: center;
   }
   .data-table--recovery td.col-action--wide .col-action-btns {
+    display: inline-flex;
     flex-wrap: nowrap;
+    justify-content: center;
+    width: 100%;
   }
   .col-action-btns {
     @apply inline-flex items-center justify-end gap-1;

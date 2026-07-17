@@ -30,13 +30,18 @@ function slotsFromPayload(payload) {
   return payload?.accounts || payload?.slots || [];
 }
 
-/** Railway/cloud: pairing code only. Local dev may still use QR. */
-function defaultLinkMethod() {
-  return isLocalBridge() ? 'qr' : 'pairing';
+/**
+ * Prefer QR when a sticky proxy is set — pairing-code flow often triggers
+ * WhatsApp's "This might be a scam" interstitial even on a good residential IP.
+ * Pairing remains available as fallback.
+ */
+function defaultLinkMethod(hasProxy = false) {
+  if (hasProxy || isLocalBridge()) return 'qr';
+  return 'pairing';
 }
 
-function linkMethodOptions() {
-  if (isLocalBridge()) {
+function linkMethodOptions(hasProxy = false) {
+  if (hasProxy || isLocalBridge()) {
     return [
       { key: 'qr', label: 'QR Scan' },
       { key: 'pairing', label: 'Pairing Code' },
@@ -64,7 +69,7 @@ export default function LinkWhatsAppDrawer({
   requireProxy = false,
 }) {
   const canvasRef = useRef(null);
-  const [method, setMethod] = useState(defaultLinkMethod);
+  const [method, setMethod] = useState(() => defaultLinkMethod(Boolean(proxyUrl)));
   const [phone, setPhone] = useState('');
   const [pairingCode, setPairingCode] = useState(null);
   const [qrVisible, setQrVisible] = useState(false);
@@ -76,10 +81,17 @@ export default function LinkWhatsAppDrawer({
   const linkInflightRef = useRef(false);
   const pairingCodeRef = useRef(null);
   const { connect, disconnect, loading: connectLoading, error: connectError } = useBridgeConnect();
+  const methodOptions = linkMethodOptions(Boolean(proxyUrl));
 
   useEffect(() => {
     pairingCodeRef.current = pairingCode;
   }, [pairingCode]);
+
+  // When Engine proxy becomes available, switch default to QR (avoids scam pairing interstitial).
+  useEffect(() => {
+    if (!proxyUrl || linking || linked) return;
+    setMethod((prev) => (prev === 'pairing' ? 'qr' : prev));
+  }, [proxyUrl, linking, linked]);
 
   const markLinked = useCallback(() => {
     if (linkedRef.current) return;
@@ -465,8 +477,8 @@ export default function LinkWhatsAppDrawer({
         </div>
       )}
 
-      <div className={linkMethodOptions().length > 1 ? 'grid grid-cols-2 gap-2' : ''}>
-        {linkMethodOptions().map(({ key, label }) => (
+      <div className={methodOptions.length > 1 ? 'grid grid-cols-2 gap-2' : ''}>
+        {methodOptions.map(({ key, label }) => (
           <button
             key={key}
             type="button"
@@ -500,6 +512,9 @@ export default function LinkWhatsAppDrawer({
           )}
           <p className="mt-1.5 text-[11px] leading-relaxed text-ams-muted">
             Must match the WhatsApp on this phone. Enter the code within 2 minutes and keep this panel open.
+          </p>
+          <p className="mt-1 text-[11px] leading-relaxed text-ams-warn">
+            Pairing code sering memicu “This might be a scam” di HP. Pakai <strong>QR Scan</strong> lewat Engine proxy supaya tidak muncul.
           </p>
         </div>
       )}

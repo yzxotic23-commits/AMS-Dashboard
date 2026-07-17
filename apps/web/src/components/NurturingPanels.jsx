@@ -202,6 +202,11 @@ export default function NurturingPanels() {
       showToast(`Slot ${slot + 1} is already used by ${slotTakenBy[slot]}`);
       return;
     }
+    const eng = engineSlots.find((s) => Number(s.slot) === Number(slot));
+    if (slot != null && eng?.connected) {
+      showToast(`Slot ${slot + 1} is already online — pick a disconnected slot.`);
+      return;
+    }
     setScanSlot(slot);
     try {
       await patchAccount.mutateAsync({

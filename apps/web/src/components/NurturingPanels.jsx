@@ -19,6 +19,7 @@ import { formatProxyOptionLabel, proxyUrlFromIp } from '../lib/proxy-display';
 import { FEEDING_STATUS, feedflowSlotLabelBody, nurturingOutcomeAuditPayload } from '../lib/feeding-audit';
 import { buildSlotTakenByMap, liveSlotConnection } from '../lib/engine-slot';
 import {
+  clearSlotDisplayLabel,
   recordFeedingAuditEntry,
   syncSlotDisplayLabelToEngine,
   syncSlotProxyToEngine,
@@ -198,10 +199,6 @@ export default function NurturingPanels() {
 
   async function changeScanSlot(slot) {
     if (!scanRow) return;
-    if (slot != null && slotTakenBy[slot]) {
-      showToast(`Slot ${slot + 1} is already used by ${slotTakenBy[slot]}`);
-      return;
-    }
     const eng = engineSlots.find((s) => Number(s.slot) === Number(slot));
     if (slot != null && eng?.connected) {
       showToast(`Slot ${slot + 1} is already online — pick a disconnected slot.`);
@@ -209,6 +206,23 @@ export default function NurturingPanels() {
     }
     setScanSlot(slot);
     try {
+      // Disconnected slots are reusable — free any other AMS row still pointing here.
+      if (slot != null) {
+        const previous = allAccounts.filter(
+          (a) => a.id !== scanRow.id && a.wsaf_slot != null && Number(a.wsaf_slot) === Number(slot),
+        );
+        await Promise.all(
+          previous.map((a) =>
+            patchAccount.mutateAsync({
+              id: a.id,
+              row: a,
+              patch: { wsaf_slot: null },
+              extra: { wsaf_slot: null },
+            }).catch(() => {}),
+          ),
+        );
+        await clearSlotDisplayLabel(slot).catch(() => {});
+      }
       await patchAccount.mutateAsync({
         id: scanRow.id,
         row: scanRow,

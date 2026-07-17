@@ -1,6 +1,6 @@
 /**
- * Engine slot picker — only disconnected/free slots are selectable.
- * Online FeedFlow sessions and slots held by other AMS accounts stay locked.
+ * Engine slot picker — FeedFlow connection is the source of truth.
+ * Online/connected → locked. Disconnected → free (even if an old AMS name is sticky).
  */
 export default function EngineSlotSelect({
   value,
@@ -29,15 +29,15 @@ export default function EngineSlotSelect({
         const taken = slotTakenBy[slotNum];
         const eng = engineSlots.find((s) => s.slot === slotNum);
         const online = Boolean(eng?.connected);
-        // Keep current selection choosable even if it just flipped online mid-flow.
         const isCurrent = value != null && Number(value) === Number(slotNum);
-        const locked = (online && !isCurrent) || Boolean(taken);
-        const name = eng?.label || taken || null;
+        const locked = online && !isCurrent;
+        // Only show occupant name while the session is actually online.
+        const name = online ? (eng?.label || taken || null) : null;
         return (
           <option key={slotNum} value={slotNum} disabled={locked}>
             Slot {slotNum + 1}
             {name ? ` — ${name}` : ''}
-            {online ? ' (online)' : !locked ? ' (free)' : ''}
+            {online ? ' (online)' : ' (free)'}
           </option>
         );
       })}

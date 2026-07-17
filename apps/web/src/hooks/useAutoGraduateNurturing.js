@@ -32,6 +32,9 @@ export function useAutoGraduateNurturing() {
           to_status: 'AVAILABLE',
           reason: 'Auto-graduated — nurturing day 7 complete',
         });
+        if (row.wsaf_slot != null) {
+          await api.patch(`/accounts/${row.id}`, { wsaf_slot: null }).catch(() => {});
+        }
         qc.invalidateQueries({ queryKey: ['accounts'] });
       } catch {
         graduated.current.delete(row.id);

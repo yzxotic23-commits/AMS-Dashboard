@@ -360,6 +360,15 @@ export default function NurturingPanels() {
         to_status: 'AVAILABLE',
         reason: 'Nurturing complete — ready for delivery',
       });
+      // Free engine slot so a new nurturing account can reuse it (no need to keep adding pairs).
+      if (row.wsaf_slot != null) {
+        await patchAccount.mutateAsync({
+          id: row.id,
+          row,
+          patch: { wsaf_slot: null },
+          extra: { wsaf_slot: null },
+        }).catch(() => {});
+      }
       showToast(toastCopy.nurturingGraduated(row.acct));
     } catch (e) {
       showToast(e.message || 'Graduation failed');

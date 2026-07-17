@@ -17,7 +17,7 @@ import {
 import { NURT_STATUS, toastCopy } from '../lib/operator-copy';
 import { formatProxyOptionLabel, proxyUrlFromIp } from '../lib/proxy-display';
 import { FEEDING_STATUS, feedflowSlotLabelBody, nurturingOutcomeAuditPayload } from '../lib/feeding-audit';
-import { liveSlotConnection } from '../lib/engine-slot';
+import { buildSlotTakenByMap, liveSlotConnection } from '../lib/engine-slot';
 import {
   recordFeedingAuditEntry,
   syncSlotDisplayLabelToEngine,
@@ -116,14 +116,11 @@ export default function NurturingPanels() {
   const engineReachable = engineData?.reachable === true;
   const engineSlots = engineData?.slots || [];
 
-  const slotTakenBy = useMemo(() => {
-    const map = {};
-    allAccounts.forEach((a) => {
-      if (a.wsaf_slot == null || a.id === scanRow?.id) return;
-      map[a.wsaf_slot] = a.account_name;
-    });
-    return map;
-  }, [allAccounts, scanRow?.id]);
+  // Only NURTURING / IN_USE hold slots — Standby (tiffany etc.) must not block reuse.
+  const slotTakenBy = useMemo(
+    () => buildSlotTakenByMap(allAccounts, scanRow?.id),
+    [allAccounts, scanRow?.id],
+  );
 
   const { list: freeIps } = useFreeIps();
 

@@ -123,9 +123,14 @@ export async function postWsafSlotDisplayLabel(slot, payload = {}) {
       siteKey: payload.siteKey,
       location: payload.location,
       ipAddress: payload.ipAddress,
+      clear: payload.clear === true,
     }),
     timeout: 8000,
   });
+}
+
+export async function clearWsafSlotDisplayLabel(slot) {
+  return postWsafSlotDisplayLabel(slot, { clear: true, accountName: '' });
 }
 
 export async function postWsafSlotProxy(slot, proxyUrl) {

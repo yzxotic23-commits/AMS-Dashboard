@@ -89,6 +89,10 @@ export async function postLocalSlotDisplayLabel(slot, body = {}) {
   });
 }
 
+export async function postLocalClearSlotDisplayLabel(slot) {
+  return postLocalSlotDisplayLabel(slot, { clear: true, accountName: '' });
+}
+
 export async function postLocalSlotProxy(slot, proxyUrl) {
   return localFetch(`/api/slots/${slot}/proxy`, {
     method: 'POST',

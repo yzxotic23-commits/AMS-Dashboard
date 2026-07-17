@@ -7,6 +7,7 @@ import {
   postWsafConnect,
   postWsafDisconnect,
   postWsafSlotDisplayLabel,
+  clearWsafSlotDisplayLabel,
   postWsafSlotProxy,
   postWsafAuditSync,
   postWsafAuditRecord,
@@ -149,13 +150,17 @@ router.post('/slots/:slot/display-label', authenticate, async (req, res) => {
     if (!ready) {
       return res.status(503).json({ error: 'FeedFlow engine is not running.' });
     }
-    const data = await postWsafSlotDisplayLabel(slot, {
-      accountName: req.body?.accountName || req.body?.account_name,
-      phone: req.body?.phone || req.body?.phone_number,
-      siteKey: req.body?.siteKey || req.body?.site_key,
-      location: req.body?.location,
-      ipAddress: req.body?.ipAddress || req.body?.ip_address,
-    });
+    const clear = req.body?.clear === true || req.body?.clear === 'true'
+      || req.body?.accountName === '' || req.body?.account_name === '';
+    const data = clear
+      ? await clearWsafSlotDisplayLabel(slot)
+      : await postWsafSlotDisplayLabel(slot, {
+        accountName: req.body?.accountName || req.body?.account_name,
+        phone: req.body?.phone || req.body?.phone_number,
+        siteKey: req.body?.siteKey || req.body?.site_key,
+        location: req.body?.location,
+        ipAddress: req.body?.ipAddress || req.body?.ip_address,
+      });
     res.json(data);
   } catch (e) {
     res.status(502).json({ error: e.message || 'Could not sync slot label' });

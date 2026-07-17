@@ -9,6 +9,7 @@ import {
   postLocalConnect,
   postLocalDisconnect,
   postLocalProfileRefresh,
+  postLocalClearSlotDisplayLabel,
   postLocalSlotDisplayLabel,
   postLocalSlotProxy,
   probeLocalEngine,
@@ -144,6 +145,25 @@ export async function syncSlotDisplayLabelToEngine(slot, body = {}) {
     return data;
   } catch {
     return postLocalSlotDisplayLabel(slot, body);
+  }
+}
+
+/** Remove sticky AMS name from a FeedFlow slot so it can be reused. */
+export async function clearSlotDisplayLabel(slot) {
+  const body = { clear: true, accountName: '' };
+  if (!isLocalBridge()) {
+    try {
+      return await postLocalClearSlotDisplayLabel(slot);
+    } catch {
+      const { data } = await api.post(`/bridge/slots/${slot}/display-label`, body);
+      return data;
+    }
+  }
+  try {
+    const { data } = await api.post(`/bridge/slots/${slot}/display-label`, body);
+    return data;
+  } catch {
+    return postLocalClearSlotDisplayLabel(slot);
   }
 }
 

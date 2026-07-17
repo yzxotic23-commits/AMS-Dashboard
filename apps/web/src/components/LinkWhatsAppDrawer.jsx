@@ -7,7 +7,12 @@ import { useWsafSocket } from '../lib/wsafSocket';
 import { useBridgeConnect, startBridgeEngine } from '../hooks/useBridgeConnect';
 import { normalizePairingPhone } from '../lib/pairing-phone';
 import { feedflowSlotLabelBody } from '../lib/feeding-audit';
-import { getBridgeStatus, getBridgeSummary, findEngineSlot } from '../lib/bridge-client';
+import {
+  getBridgeStatus,
+  getBridgeSummary,
+  findEngineSlot,
+  syncSlotProxyToEngine,
+} from '../lib/bridge-client';
 import { bridgeEngineLabel, isLocalBridge } from '../lib/wsafEmbed';
 import api from '../lib/api';
 
@@ -54,6 +59,9 @@ export default function LinkWhatsAppDrawer({
   onLinked,
   embedded = false,
   hideAccountRow = false,
+  /** socks5://… from AMS Engine proxy — must be set before link on Railway */
+  proxyUrl = null,
+  requireProxy = false,
 }) {
   const canvasRef = useRef(null);
   const [method, setMethod] = useState(defaultLinkMethod);
@@ -305,6 +313,20 @@ export default function LinkWhatsAppDrawer({
 
     try {
       const body = { method };
+      if ((requireProxy || !isLocalBridge()) && !proxyUrl) {
+        failLink('Pilih Engine proxy dulu — link harus lewat IP kamu (hindari popup scam Railway).');
+        return;
+      }
+      if (proxyUrl) {
+        setMessage('Binding proxy ke FeedFlow…');
+        try {
+          await syncSlotProxyToEngine(slot, proxyUrl);
+        } catch (e) {
+          failLink(e.message || 'Gagal push proxy ke FeedFlow. Cek koneksi engine.');
+          return;
+        }
+        body.proxyUrl = proxyUrl;
+      }
       if (method === 'pairing') {
         const pairingPhone = (account.phone_number || phone).trim();
         if (!pairingPhone) {
@@ -324,7 +346,7 @@ export default function LinkWhatsAppDrawer({
         }
         setMessage('Requesting pairing code…');
       } else {
-        setMessage('');
+        setMessage(proxyUrl ? 'QR via proxy kamu…' : '');
       }
       const result = await connect(slot, body);
       const codeFromResult = result?.pairingCode || result?.code || result?.pairingCodeDisplay;
@@ -348,6 +370,7 @@ export default function LinkWhatsAppDrawer({
   const linkStartDisabled = slot == null
     || connectLoading
     || engineBooting
+    || ((requireProxy || !isLocalBridge()) && !proxyUrl)
     || (linking && method === 'qr' && !qrVisible)
     || (linking && method === 'pairing' && !pairingCode);
 

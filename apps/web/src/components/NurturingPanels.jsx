@@ -116,6 +116,11 @@ export default function NurturingPanels() {
 
   const engineReachable = engineData?.reachable === true;
   const engineSlots = engineData?.slots || [];
+  const { list: freeIps } = useFreeIps();
+  const scanProxyUrl = useMemo(() => {
+    const ipRow = freeIps.find((ip) => ip.id === scanIpId);
+    return proxyUrlFromIp(ipRow);
+  }, [freeIps, scanIpId]);
 
   // Only NURTURING / IN_USE hold slots — Standby (tiffany etc.) must not block reuse.
   const slotTakenBy = useMemo(
@@ -123,7 +128,21 @@ export default function NurturingPanels() {
     [allAccounts, scanRow?.id],
   );
 
-  const { list: freeIps } = useFreeIps();
+  // Push proxy as soon as operator picks IP + slot — before QR/pairing (kills scam popup).
+  useEffect(() => {
+    if (!scanRow || scanSlot == null || !scanProxyUrl) return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        await syncSlotProxyToEngine(scanSlot, scanProxyUrl);
+      } catch {
+        if (!cancelled) {
+          /* link step will retry / surface error */
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [scanRow, scanSlot, scanProxyUrl]);
 
   const ipBindings = useMemo(() => buildIpBindings(allAccounts), [allAccounts]);
 
@@ -672,6 +691,8 @@ export default function NurturingPanels() {
                 engineStatus={engineData}
                 onEngineRefresh={refetchEngine}
                 onSlotChange={changeScanSlot}
+                proxyUrl={scanProxyUrl}
+                requireProxy
                 onLinked={async () => {
                   setFeedflowLinked(true);
                   await patchAccount.mutateAsync({

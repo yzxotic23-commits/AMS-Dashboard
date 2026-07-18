@@ -54,15 +54,16 @@ export function engineSlotsFromPayload(data) {
   return data?.slots || data?.accounts || [];
 }
 
-/** True when WA link finished — live socket OR saved/registered auth on disk. */
+/**
+ * True when WA link finished for this slot.
+ * Do NOT treat mid-QR/pairing partial auth (me.id written, still linking) as Connected.
+ */
 export function isEngineSlotLinked(acc) {
   if (!acc) return false;
-  return Boolean(
-    acc.connected
-    || acc.authSaved
-    || acc.authRegistered
-    || (acc.authValid && acc.phone)
-  );
+  if (acc.connected) return true;
+  if (acc.linking || acc.loggingOut) return false;
+  // Offline-but-linked: creds on disk after a completed link (socket may briefly drop).
+  return Boolean(acc.authSaved && acc.authRegistered && acc.phone);
 }
 
 export function findEngineSlot(data, slot) {

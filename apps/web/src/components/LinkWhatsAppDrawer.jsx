@@ -121,7 +121,19 @@ export default function LinkWhatsAppDrawer({
   useEffect(() => {
     linkedRef.current = false;
     linkInflightRef.current = false;
-  }, [open, account?.id]);
+  }, [open, account?.id, slot]);
+
+  // Changing engine slot must clear false "Connected" from another slot / leftover auth.
+  useEffect(() => {
+    if (!open) return;
+    linkedRef.current = false;
+    linkInflightRef.current = false;
+    setLinked(false);
+    setLinking(false);
+    setQrVisible(false);
+    setPairingCode(null);
+    setMessage('');
+  }, [open, slot]);
 
   const blockingSlot = (() => {
     if (engineStatus?.linkingSlot != null && engineStatus.linkingSlot !== slot) {

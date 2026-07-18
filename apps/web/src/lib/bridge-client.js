@@ -54,6 +54,17 @@ export function engineSlotsFromPayload(data) {
   return data?.slots || data?.accounts || [];
 }
 
+/** True when WA link finished — live socket OR saved/registered auth on disk. */
+export function isEngineSlotLinked(acc) {
+  if (!acc) return false;
+  return Boolean(
+    acc.connected
+    || acc.authSaved
+    || acc.authRegistered
+    || (acc.authValid && acc.phone)
+  );
+}
+
 export function findEngineSlot(data, slot) {
   if (data == null || slot == null) return null;
   return engineSlotsFromPayload(data).find((s) => Number(s.slot) === Number(slot)) || null;
@@ -62,7 +73,9 @@ export function findEngineSlot(data, slot) {
 export async function getEngineSlotState(slot) {
   const summary = await getBridgeSummary();
   const fromSummary = findEngineSlot(summary, slot);
-  if (fromSummary?.connected) return { ...fromSummary, reachable: summary?.reachable !== false };
+  if (isEngineSlotLinked(fromSummary)) {
+    return { ...fromSummary, reachable: summary?.reachable !== false };
+  }
   const status = await getBridgeStatus();
   const fromStatus = findEngineSlot(status, slot);
   return {

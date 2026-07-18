@@ -20,6 +20,7 @@ import { FEEDING_STATUS, feedflowSlotLabelBody, nurturingOutcomeAuditPayload } f
 import { buildSlotTakenByMap, liveSlotConnection } from '../lib/engine-slot';
 import {
   clearSlotDisplayLabel,
+  isEngineSlotLinked,
   recordFeedingAuditEntry,
   syncSlotDisplayLabelToEngine,
   syncSlotProxyToEngine,
@@ -198,19 +199,19 @@ export default function NurturingPanels() {
     setScanOk(false);
     setScanSlot(slot);
     const slotState = engineSlots.find((s) => Number(s.slot) === Number(slot));
-    setFeedflowLinked(Boolean(slotState?.connected));
+    setFeedflowLinked(isEngineSlotLinked(slotState));
     setScanRow(row);
     refetchEngine().then(({ data }) => {
       if (slot == null) return;
       const live = (data?.slots || []).find((s) => Number(s.slot) === Number(slot));
-      if (live?.connected) setFeedflowLinked(true);
+      if (isEngineSlotLinked(live)) setFeedflowLinked(true);
     });
   }
 
   useEffect(() => {
     if (!scanRow || scanSlot == null) return undefined;
     const slotState = engineSlots.find((s) => Number(s.slot) === Number(scanSlot));
-    if (slotState?.connected) setFeedflowLinked(true);
+    if (isEngineSlotLinked(slotState)) setFeedflowLinked(true);
     refetchEngine();
     const timer = setInterval(() => refetchEngine(), 4000);
     return () => clearInterval(timer);

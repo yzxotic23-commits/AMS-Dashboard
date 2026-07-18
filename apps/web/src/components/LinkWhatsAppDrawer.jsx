@@ -11,6 +11,7 @@ import {
   getBridgeStatus,
   getBridgeSummary,
   findEngineSlot,
+  isEngineSlotLinked,
   syncSlotProxyToEngine,
 } from '../lib/bridge-client';
 import { bridgeEngineLabel, isLocalBridge } from '../lib/wsafEmbed';
@@ -209,10 +210,16 @@ export default function LinkWhatsAppDrawer({
     setMessage(data?.message || 'Could not get pairing code. Check the phone number and try again.');
   }, open && slot != null);
 
+  useWsafSocket('connected', (data) => {
+    if (!open || slot == null) return;
+    if (data?.slot != null && !slotMatches(data.slot, slot)) return;
+    markLinked();
+  }, open && slot != null);
+
   useWsafSocket('status', (status) => {
     if (!open || slot == null) return;
     const acc = slotsFromPayload(status).find((a) => slotMatches(a.slot, slot));
-    if (acc?.connected) {
+    if (isEngineSlotLinked(acc)) {
       markLinked();
     } else if (acc?.pairingCode && (method === 'pairing' || acc?.loginMethod === 'pairing')) {
       setPairingCode(formatPairingCodeDisplay(acc.pairingCode));
@@ -223,7 +230,7 @@ export default function LinkWhatsAppDrawer({
   useEffect(() => {
     if (!open || slot == null || linked) return;
     const acc = (engineSlots || []).find((s) => slotMatches(s.slot, slot));
-    if (acc?.connected) markLinked();
+    if (isEngineSlotLinked(acc)) markLinked();
   }, [open, slot, engineSlots, linked, markLinked]);
 
   useEffect(() => {
@@ -242,12 +249,12 @@ export default function LinkWhatsAppDrawer({
       try {
         const summary = await getBridgeSummary();
         let acc = findEngineSlot(summary, slot);
-        if (!acc?.connected) {
+        if (!isEngineSlotLinked(acc)) {
           const status = await getBridgeStatus();
           acc = findEngineSlot(status, slot);
         }
         if (cancelled) return;
-        if (acc?.connected) {
+        if (isEngineSlotLinked(acc)) {
           markLinked();
         } else if (acc?.pairingCode && (method === 'pairing' || acc?.loginMethod === 'pairing')) {
           setPairingCode(formatPairingCodeDisplay(acc.pairingCode));
@@ -272,11 +279,11 @@ export default function LinkWhatsAppDrawer({
     try {
       const summary = await getBridgeSummary();
       let acc = findEngineSlot(summary, slot);
-      if (!acc?.connected) {
+      if (!isEngineSlotLinked(acc)) {
         const status = await getBridgeStatus();
         acc = findEngineSlot(status, slot);
       }
-      if (acc?.connected) {
+      if (isEngineSlotLinked(acc)) {
         markLinked();
       } else {
         setMessage('Not linked yet — enter the code on your phone, wait a few seconds, then tap Check again.');

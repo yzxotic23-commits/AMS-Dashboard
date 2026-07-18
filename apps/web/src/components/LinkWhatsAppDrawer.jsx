@@ -353,9 +353,9 @@ export default function LinkWhatsAppDrawer({
         if (refreshingCode) {
           body.refreshPairing = true;
           body.clearIncomplete = true;
-        } else {
-          body.clearIncomplete = true;
         }
+        // Do not clearIncomplete on first request — wiping a live pairing kills the code
+        // and WhatsApp shows "Couldn't link device" even when the digits match.
         setMessage('Requesting pairing code…');
       } else {
         setMessage(proxyUrl ? 'QR via your proxy…' : '');

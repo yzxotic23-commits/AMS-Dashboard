@@ -115,7 +115,7 @@ export default function NurturingPanels() {
   }
 
   const engineReachable = engineData?.reachable === true;
-  const engineSlots = engineData?.slots || [];
+  const engineSlots = engineData?.slots || engineData?.accounts || engineData?.engine?.slots || [];
   const { list: freeIps } = useFreeIps();
   const scanProxyUrl = useMemo(() => {
     const ipRow = freeIps.find((ip) => ip.id === scanIpId);

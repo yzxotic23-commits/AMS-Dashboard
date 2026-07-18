@@ -326,15 +326,15 @@ export default function LinkWhatsAppDrawer({
     try {
       const body = { method };
       if ((requireProxy || !isLocalBridge()) && !proxyUrl) {
-        failLink('Pilih Engine proxy dulu — link harus lewat IP kamu (hindari popup scam Railway).');
+        failLink('Select an Engine proxy first — link must use your IP (avoids Railway scam popup).');
         return;
       }
       if (proxyUrl) {
-        setMessage('Binding proxy ke FeedFlow…');
+        setMessage('Binding proxy to FeedFlow…');
         try {
           await syncSlotProxyToEngine(slot, proxyUrl);
         } catch (e) {
-          failLink(e.message || 'Gagal push proxy ke FeedFlow. Cek koneksi engine.');
+          failLink(e.message || 'Could not push proxy to FeedFlow. Check engine connection.');
           return;
         }
         body.proxyUrl = proxyUrl;
@@ -358,7 +358,7 @@ export default function LinkWhatsAppDrawer({
         }
         setMessage('Requesting pairing code…');
       } else {
-        setMessage(proxyUrl ? 'QR via proxy kamu…' : '');
+        setMessage(proxyUrl ? 'QR via your proxy…' : '');
       }
       const result = await connect(slot, body);
       const codeFromResult = result?.pairingCode || result?.code || result?.pairingCodeDisplay;
@@ -514,7 +514,7 @@ export default function LinkWhatsAppDrawer({
             Must match the WhatsApp on this phone. Enter the code within 2 minutes and keep this panel open.
           </p>
           <p className="mt-1 text-[11px] leading-relaxed text-ams-warn">
-            Pairing code sering memicu “This might be a scam” di HP. Pakai <strong>QR Scan</strong> lewat Engine proxy supaya tidak muncul.
+            Pairing codes often trigger WhatsApp’s “This might be a scam” warning. Prefer <strong>QR Scan</strong> via Engine proxy.
           </p>
         </div>
       )}

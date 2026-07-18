@@ -631,7 +631,16 @@ export default function NurturingPanels() {
               type="button"
               className="btn btn-secondary btn-scan-confirm"
               onClick={submitScan}
-              disabled={busy || !scanOk || scanSlot == null || !feedflowLinked}
+              disabled={busy}
+              title={
+                !scanOk
+                  ? 'Tick “Device farm complete…” first'
+                  : scanSlot == null
+                    ? 'Assign a FeedFlow slot first'
+                    : !feedflowLinked
+                      ? 'Finish WhatsApp QR/link until the slot is online'
+                      : 'Confirm scan-in'
+              }
             >
               {busy ? 'Saving…' : 'Confirm Auto Nurturing'}
             </button>
@@ -705,15 +714,25 @@ export default function NurturingPanels() {
               />
             </section>
 
-            <label className="scan-drawer-confirm flex items-start gap-2.5 text-[13px] text-ams-muted">
+            <label className={`scan-drawer-confirm flex items-start gap-2.5 text-[13px] ${scanOk ? 'text-ams-muted' : 'text-ams-warn'}`}>
               <input
                 type="checkbox"
                 className="ams-check mt-0.5 shrink-0"
                 checked={scanOk}
                 onChange={(e) => setScanOk(e.target.checked)}
               />
-              <span>Device farm complete — ready for engine monitoring</span>
+              <span>
+                Device farm complete — ready for engine monitoring
+                {!scanOk ? ' (required to confirm)' : ''}
+              </span>
             </label>
+            {(scanSlot == null || !feedflowLinked) && (
+              <p className="text-[11px] leading-relaxed text-ams-warn">
+                {scanSlot == null
+                  ? 'Assign a FeedFlow slot and link WhatsApp before confirming.'
+                  : 'Waiting for FeedFlow slot online after QR/pairing — Confirm unlocks when linked.'}
+              </p>
+            )}
           </div>
         )}
       </Drawer>

@@ -13,7 +13,7 @@ export default function FeedFlowPage() {
     <div>
       <PageHead
         title="FeedFlow"
-        description="Dashboard monitoring — link WhatsApp via pairing code in Nurturing scan-in, start/stop feeding in the FeedFlow console."
+        description="Dashboard monitoring — link WhatsApp via QR in Nurturing scan-in, start/stop feeding in the FeedFlow console."
         actions={(
           <a
             href={wsafConsoleUrl()}

@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Copy, Loader2, Smartphone } from 'lucide-react';
+import { Loader2, Smartphone } from 'lucide-react';
 import QRCode from 'qrcode';
 import Drawer from './Drawer';
 import EngineSlotSelect from './EngineSlotSelect';
 import { useWsafSocket } from '../lib/wsafSocket';
 import { useBridgeConnect, startBridgeEngine } from '../hooks/useBridgeConnect';
-import { normalizePairingPhone } from '../lib/pairing-phone';
 import { feedflowSlotLabelBody } from '../lib/feeding-audit';
 import {
   getBridgeStatus,
@@ -17,12 +16,6 @@ import {
 import { bridgeEngineLabel, isLocalBridge } from '../lib/wsafEmbed';
 import api from '../lib/api';
 
-function formatPairingCodeDisplay(code) {
-  const raw = String(code || '').replace(/\D/g, '').toUpperCase();
-  if (raw.length === 8) return `${raw.slice(0, 4)}-${raw.slice(4)}`;
-  return String(code || '').toUpperCase();
-}
-
 function slotMatches(dataSlot, slot) {
   return Number(dataSlot) === Number(slot);
 }
@@ -31,24 +24,11 @@ function slotsFromPayload(payload) {
   return payload?.accounts || payload?.slots || [];
 }
 
-/**
- * Prefer QR when a sticky proxy is set — pairing-code flow often triggers
- * WhatsApp's "This might be a scam" interstitial even on a good residential IP.
- * Pairing remains available as fallback.
- */
-function defaultLinkMethod(hasProxy = false) {
-  if (hasProxy || isLocalBridge()) return 'qr';
-  return 'pairing';
-}
-
-function linkMethodOptions(hasProxy = false) {
-  if (hasProxy || isLocalBridge()) {
-    return [
-      { key: 'qr', label: 'QR Scan' },
-      { key: 'pairing', label: 'Pairing Code' },
-    ];
-  }
-  return [{ key: 'pairing', label: 'Pairing Code' }];
+/** Only live socket online counts — never auth leftovers / other-slot events. */
+function slotIsLiveConnected(acc, expectedSlot) {
+  if (expectedSlot == null || !acc) return false;
+  if (!slotMatches(acc.slot, expectedSlot)) return false;
+  return isEngineSlotLinked(acc);
 }
 
 export default function LinkWhatsAppDrawer({
@@ -70,9 +50,6 @@ export default function LinkWhatsAppDrawer({
   requireProxy = false,
 }) {
   const canvasRef = useRef(null);
-  const [method, setMethod] = useState(() => defaultLinkMethod(Boolean(proxyUrl)));
-  const [phone, setPhone] = useState('');
-  const [pairingCode, setPairingCode] = useState(null);
   const [qrVisible, setQrVisible] = useState(false);
   const [linking, setLinking] = useState(false);
   const [linked, setLinked] = useState(false);
@@ -80,19 +57,21 @@ export default function LinkWhatsAppDrawer({
   const [engineBooting, setEngineBooting] = useState(false);
   const linkedRef = useRef(false);
   const linkInflightRef = useRef(false);
-  const pairingCodeRef = useRef(null);
+  const slotRef = useRef(slot);
   const { connect, disconnect, loading: connectLoading, error: connectError } = useBridgeConnect();
-  const methodOptions = linkMethodOptions(Boolean(proxyUrl));
 
   useEffect(() => {
-    pairingCodeRef.current = pairingCode;
-  }, [pairingCode]);
+    slotRef.current = slot;
+  }, [slot]);
 
-  // When Engine proxy becomes available, switch default to QR (avoids scam pairing interstitial).
-  useEffect(() => {
-    if (!proxyUrl || linking || linked) return;
-    setMethod((prev) => (prev === 'pairing' ? 'qr' : prev));
-  }, [proxyUrl, linking, linked]);
+  const resetLinkUi = useCallback(() => {
+    linkedRef.current = false;
+    linkInflightRef.current = false;
+    setLinked(false);
+    setLinking(false);
+    setQrVisible(false);
+    setMessage('');
+  }, []);
 
   const markLinked = useCallback(() => {
     if (linkedRef.current) return;
@@ -100,7 +79,6 @@ export default function LinkWhatsAppDrawer({
     setLinked(true);
     setLinking(false);
     setQrVisible(false);
-    setPairingCode(null);
     setMessage('WhatsApp linked successfully.');
     void (async () => {
       try {
@@ -118,29 +96,21 @@ export default function LinkWhatsAppDrawer({
     })();
   }, [onLinked, onClose, slot, account, embedded, onEngineRefresh]);
 
+  // Hard reset whenever drawer opens, account changes, or slot changes.
   useEffect(() => {
-    linkedRef.current = false;
-    linkInflightRef.current = false;
-  }, [open, account?.id, slot]);
-
-  // Changing engine slot must clear false "Connected" from another slot / leftover auth.
-  useEffect(() => {
-    if (!open) return;
-    linkedRef.current = false;
-    linkInflightRef.current = false;
-    setLinked(false);
-    setLinking(false);
-    setQrVisible(false);
-    setPairingCode(null);
-    setMessage('');
-  }, [open, slot]);
+    if (!open) {
+      resetLinkUi();
+      return;
+    }
+    resetLinkUi();
+  }, [open, account?.id, slot, resetLinkUi]);
 
   const blockingSlot = (() => {
     if (engineStatus?.linkingSlot != null && engineStatus.linkingSlot !== slot) {
       return engineStatus.linkingSlot;
     }
-    const linking = (engineSlots || []).find((s) => s.linking && s.slot !== slot);
-    return linking?.slot ?? null;
+    const linkingAcc = (engineSlots || []).find((s) => s.linking && s.slot !== slot);
+    return linkingAcc?.slot ?? null;
   })();
 
   const blockingLabel = blockingSlot != null
@@ -150,7 +120,7 @@ export default function LinkWhatsAppDrawer({
   useEffect(() => {
     if (!open || !account || engineReachable) return undefined;
     if (!isLocalBridge()) {
-      setMessage(`Waiting for ${bridgeEngineLabel()} — confirm Live on the FeedFlow page, then request a code.`);
+      setMessage(`Waiting for ${bridgeEngineLabel()} — confirm Live on the FeedFlow page, then show QR.`);
       onEngineRefresh?.();
       return undefined;
     }
@@ -175,27 +145,9 @@ export default function LinkWhatsAppDrawer({
     return () => { cancelled = true; };
   }, [open, account, engineReachable, onEngineRefresh]);
 
-  const accountId = account?.id ?? null;
-
-  useEffect(() => {
-    if (!open || accountId == null) return;
-    setMethod(defaultLinkMethod());
-    setPhone(account?.phone_number || '');
-    setPairingCode(null);
-    setQrVisible(false);
-    setLinking(false);
-    setLinked(false);
-    setMessage('');
-  }, [open, accountId, account?.phone_number]);
-
-  function selectMethod(next) {
-    setMethod(next);
-    if (next === 'pairing') setQrVisible(false);
-    if (next === 'qr') setPairingCode(null);
-  }
-
   useWsafSocket('qr', (data) => {
-    if (!open || !slotMatches(data.slot, slot)) return;
+    if (!open || slot == null || !slotMatches(data.slot, slot)) return;
+    if (linkedRef.current) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     QRCode.toCanvas(canvas, data.qr, { width: 200, margin: 1 }, (err) => {
@@ -207,42 +159,23 @@ export default function LinkWhatsAppDrawer({
     });
   }, open && slot != null);
 
-  useWsafSocket('pairingCode', (data) => {
-    if (!open || !slotMatches(data.slot, slot)) return;
-    const code = formatPairingCodeDisplay(data.code || data.pairingCode || data.pairingCodeDisplay);
-    setPairingCode(code);
-    setLinking(true);
-    setMessage('Enter this code on your phone: WhatsApp → Linked devices → Link with phone number');
-  }, open && slot != null);
-
-  useWsafSocket('pairingCodeFailed', (data) => {
-    if (!open || (data?.slot != null && !slotMatches(data.slot, slot))) return;
-    setLinking(false);
-    setPairingCode(null);
-    setMessage(data?.message || 'Could not get pairing code. Check the phone number and try again.');
-  }, open && slot != null);
-
   useWsafSocket('connected', (data) => {
     if (!open || slot == null) return;
-    if (data?.slot != null && !slotMatches(data.slot, slot)) return;
+    // Require explicit slot — never inherit Connected from another account reconnect.
+    if (data?.slot == null || !slotMatches(data.slot, slot)) return;
     markLinked();
   }, open && slot != null);
 
   useWsafSocket('status', (status) => {
-    if (!open || slot == null) return;
+    if (!open || slot == null || linkedRef.current) return;
     const acc = slotsFromPayload(status).find((a) => slotMatches(a.slot, slot));
-    if (isEngineSlotLinked(acc)) {
-      markLinked();
-    } else if (acc?.pairingCode && (method === 'pairing' || acc?.loginMethod === 'pairing')) {
-      setPairingCode(formatPairingCodeDisplay(acc.pairingCode));
-      setLinking(true);
-    }
+    if (slotIsLiveConnected(acc, slot)) markLinked();
   }, open && slot != null);
 
   useEffect(() => {
     if (!open || slot == null || linked) return;
     const acc = (engineSlots || []).find((s) => slotMatches(s.slot, slot));
-    if (isEngineSlotLinked(acc)) markLinked();
+    if (slotIsLiveConnected(acc, slot)) markLinked();
   }, [open, slot, engineSlots, linked, markLinked]);
 
   useEffect(() => {
@@ -261,17 +194,12 @@ export default function LinkWhatsAppDrawer({
       try {
         const summary = await getBridgeSummary();
         let acc = findEngineSlot(summary, slot);
-        if (!isEngineSlotLinked(acc)) {
+        if (!slotIsLiveConnected(acc, slot)) {
           const status = await getBridgeStatus();
           acc = findEngineSlot(status, slot);
         }
-        if (cancelled) return;
-        if (isEngineSlotLinked(acc)) {
-          markLinked();
-        } else if (acc?.pairingCode && (method === 'pairing' || acc?.loginMethod === 'pairing')) {
-          setPairingCode(formatPairingCodeDisplay(acc.pairingCode));
-          setLinking(true);
-        }
+        if (cancelled || Number(slotRef.current) !== Number(slot)) return;
+        if (slotIsLiveConnected(acc, slot)) markLinked();
       } catch {
         /* engine offline — socket may still work */
       }
@@ -283,7 +211,7 @@ export default function LinkWhatsAppDrawer({
       cancelled = true;
       clearInterval(timer);
     };
-  }, [open, slot, linked, method, markLinked]);
+  }, [open, slot, linked, markLinked]);
 
   async function checkConnection() {
     if (slot == null || linked) return;
@@ -291,14 +219,14 @@ export default function LinkWhatsAppDrawer({
     try {
       const summary = await getBridgeSummary();
       let acc = findEngineSlot(summary, slot);
-      if (!isEngineSlotLinked(acc)) {
+      if (!slotIsLiveConnected(acc, slot)) {
         const status = await getBridgeStatus();
         acc = findEngineSlot(status, slot);
       }
-      if (isEngineSlotLinked(acc)) {
+      if (slotIsLiveConnected(acc, slot)) {
         markLinked();
       } else {
-        setMessage('Not linked yet — enter the code on your phone, wait a few seconds, then tap Check again.');
+        setMessage('Not linked yet — scan the QR, wait a few seconds, then tap Check again.');
       }
     } catch (e) {
       setMessage(e?.message || 'Could not reach FeedFlow engine.');
@@ -318,34 +246,21 @@ export default function LinkWhatsAppDrawer({
   }
 
   async function startLink() {
-    if (slot == null || linkInflightRef.current) return;
-
-    const refreshingCode = method === 'pairing' && Boolean(pairingCode);
-    if (refreshingCode) {
-      const ok = window.confirm(
-        'Request a new pairing code? The current code will stop working immediately.',
-      );
-      if (!ok) return;
-    }
+    if (slot == null || linkInflightRef.current || linkedRef.current) return;
 
     linkInflightRef.current = true;
-    if (!refreshingCode) {
-      setPairingCode(null);
-      setQrVisible(false);
-    }
+    setQrVisible(false);
     setLinking(true);
 
     const failLink = (msg) => {
-      if (!pairingCodeRef.current) {
-        setLinking(false);
-        setMessage(msg);
-      }
+      setLinking(false);
+      setMessage(msg);
     };
 
     try {
-      const body = { method };
+      const body = { method: 'qr' };
       if ((requireProxy || !isLocalBridge()) && !proxyUrl) {
-        failLink('Select an Engine proxy first — link must use your IP (avoids Railway scam popup).');
+        failLink('Select an Engine proxy first — QR must use your IP (avoids Railway scam popup).');
         return;
       }
       if (proxyUrl) {
@@ -358,41 +273,12 @@ export default function LinkWhatsAppDrawer({
         }
         body.proxyUrl = proxyUrl;
       }
-      if (method === 'pairing') {
-        const pairingPhone = (account.phone_number || phone).trim();
-        if (!pairingPhone) {
-          failLink('Enter a phone number for pairing code.');
-          return;
-        }
-        body.phoneNumber = normalizePairingPhone(pairingPhone);
-        if (!body.phoneNumber) {
-          failLink('Invalid phone number format.');
-          return;
-        }
-        if (refreshingCode) {
-          body.refreshPairing = true;
-          body.clearIncomplete = true;
-        }
-        // Do not clearIncomplete on first request — wiping a live pairing kills the code
-        // and WhatsApp shows "Couldn't link device" even when the digits match.
-        setMessage('Requesting pairing code…');
-      } else {
-        setMessage(proxyUrl ? 'QR via your proxy…' : '');
-      }
-      const result = await connect(slot, body);
-      const codeFromResult = result?.pairingCode || result?.code || result?.pairingCodeDisplay;
-      if (method === 'pairing' && codeFromResult) {
-        setPairingCode(formatPairingCodeDisplay(codeFromResult));
-        setLinking(true);
-        setMessage('Enter this code on your phone: WhatsApp → Linked devices → Link with phone number');
-      } else if (method === 'qr') {
-        setMessage('Waiting for QR from engine…');
-      } else if (!pairingCodeRef.current) {
-        setMessage('Requesting pairing code… Keep this drawer open and do not click again.');
-      }
+      setMessage(proxyUrl ? 'QR via your proxy…' : 'Waiting for QR from engine…');
+      await connect(slot, body);
+      setMessage('Waiting for QR from engine…');
       onEngineRefresh?.();
     } catch (e) {
-      failLink(e.message || connectError || 'Could not start link. Is the engine running?');
+      failLink(e.message || connectError || 'Could not start QR link. Is the engine running?');
     } finally {
       linkInflightRef.current = false;
     }
@@ -402,18 +288,13 @@ export default function LinkWhatsAppDrawer({
     || connectLoading
     || engineBooting
     || ((requireProxy || !isLocalBridge()) && !proxyUrl)
-    || (linking && method === 'qr' && !qrVisible)
-    || (linking && method === 'pairing' && !pairingCode);
+    || (linking && !qrVisible);
 
   const linkStartLabel = engineBooting
     ? 'Starting engine…'
     : connectLoading
       ? 'Starting…'
-      : pairingCode && method === 'pairing'
-        ? 'New pairing code'
-        : method === 'qr'
-          ? 'Show QR Code'
-          : 'Get Pairing Code';
+      : 'Show QR Code';
 
   const linkStartButton = !linked ? (
     <button
@@ -430,8 +311,8 @@ export default function LinkWhatsAppDrawer({
     <div className={embedded ? 'link-wa-flow link-wa-flow--embedded' : 'space-y-4'}>
       {!embedded && (
         <p className="rounded-lg bg-ams-surface-muted px-3 py-2 text-[12.5px] leading-relaxed text-ams-muted">
-          Link runs on the <strong className="text-ams-ink">local FeedFlow engine</strong> (port 47821).
-          QR and pairing codes appear here — no separate FeedFlow window needed.
+          Link runs on the <strong className="text-ams-ink">FeedFlow engine</strong>.
+          Scan the QR here — pairing code is disabled (unreliable on cloud).
         </p>
       )}
 
@@ -496,48 +377,6 @@ export default function LinkWhatsAppDrawer({
         </div>
       )}
 
-      <div className={methodOptions.length > 1 ? 'grid grid-cols-2 gap-2' : ''}>
-        {methodOptions.map(({ key, label }) => (
-          <button
-            key={key}
-            type="button"
-            disabled={linked}
-            className={`drawer-radio ${method === key ? 'drawer-radio-on' : ''}`}
-            onClick={() => selectMethod(key)}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {method === 'pairing' && (
-        <div className="drawer-field">
-          {account.phone_number ? (
-            <div className="drawer-locked">
-              <div className="drawer-locked-label">Phone number</div>
-              <div className="drawer-locked-value drawer-locked-value--mono">{account.phone_number}</div>
-            </div>
-          ) : (
-            <label className="block">
-              <span className="drawer-label">Phone number</span>
-              <input
-                className="input font-mono"
-                placeholder="+62…"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                disabled={linked}
-              />
-            </label>
-          )}
-          <p className="mt-1.5 text-[11px] leading-relaxed text-ams-muted">
-            Must match the WhatsApp on this phone. Enter the code within 2 minutes and keep this panel open.
-          </p>
-          <p className="mt-1 text-[11px] leading-relaxed text-ams-warn">
-            Pairing codes often trigger WhatsApp’s “This might be a scam” warning. Prefer <strong>QR Scan</strong> via Engine proxy.
-          </p>
-        </div>
-      )}
-
       <div className={`link-wa-panel${embedded ? ' link-wa-panel--embedded' : ''}`}>
         {linked ? (
           <div className="link-wa-success">
@@ -551,7 +390,7 @@ export default function LinkWhatsAppDrawer({
               className={`link-wa-qr${qrVisible ? ' is-visible' : ''}`}
               aria-hidden={!qrVisible}
             />
-            {!qrVisible && !pairingCode && (
+            {!qrVisible && (
               <div className="link-wa-placeholder">
                 {linking ? (
                   <Loader2 size={24} className="animate-spin text-ams-faint" />
@@ -560,49 +399,23 @@ export default function LinkWhatsAppDrawer({
                 )}
                 <span className="text-xs text-ams-faint">
                   {linking
-                    ? (method === 'qr' ? 'Waiting for QR…' : 'Requesting pairing code…')
-                    : (method === 'qr'
-                      ? 'Scan with WhatsApp → Linked Devices'
-                      : 'Get a code to enter on your phone')}
+                    ? 'Waiting for QR…'
+                    : 'Scan with WhatsApp → Linked Devices'}
                 </span>
                 {!linking && linkStartButton}
               </div>
             )}
-            {pairingCode && !qrVisible && (() => {
-              const parts = pairingCode.includes('-')
-                ? pairingCode.split('-')
-                : [pairingCode.slice(0, 4), pairingCode.slice(4)];
-              return (
-              <div className="link-wa-pairing">
-                <div className="link-wa-pairing-code" aria-label={`Pairing code ${pairingCode}`}>
-                  <span className="link-wa-pairing-half">{parts[0]}</span>
-                  <span className="link-wa-pairing-dash" aria-hidden="true">-</span>
-                  <span className="link-wa-pairing-half">{parts[1]}</span>
-                </div>
-                <div className="flex flex-wrap items-center justify-center gap-2">
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm link-wa-pairing-copy gap-1.5"
-                    onClick={() => {
-                      navigator.clipboard?.writeText(pairingCode.replace(/-/g, ''));
-                      setMessage('Code copied — enter without spaces or dashes.');
-                    }}
-                  >
-                    <Copy size={14} />
-                    Copy code
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm"
-                    onClick={checkConnection}
-                  >
-                    Check connection
-                  </button>
-                  {linkStartButton}
-                </div>
+            {qrVisible && (
+              <div className="mt-2 flex justify-center">
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={checkConnection}
+                >
+                  Check connection
+                </button>
               </div>
-              );
-            })()}
+            )}
           </>
         )}
       </div>

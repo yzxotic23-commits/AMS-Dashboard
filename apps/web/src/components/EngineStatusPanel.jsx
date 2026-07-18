@@ -106,7 +106,7 @@ export default function EngineStatusPanel() {
           <div>
             <h2 className="text-sm font-semibold text-ams-ink">FeedFlow Engine</h2>
             <p className="text-[11px] text-ams-faint">
-              Monitor only — link slots via pairing code in Nurturing scan-in, start/stop feeding in the console.
+              Monitor only — link slots via QR in Nurturing scan-in, start/stop feeding in the console.
               {data?.version ? ` · v${data.version}` : ''}
             </p>
           </div>
@@ -160,7 +160,7 @@ export default function EngineStatusPanel() {
           {online < 2 && !isRunning && (
             <div className="engine-feeding-banner engine-feeding-banner--hint">
               <ExternalLink size={14} />
-              Link at least 2 slots via pairing code (Nurturing scan-in) before you can start feeding.
+              Link at least 2 slots via QR (Nurturing scan-in) before you can start feeding.
             </div>
           )}
 

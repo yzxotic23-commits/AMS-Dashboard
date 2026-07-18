@@ -55,15 +55,10 @@ export function engineSlotsFromPayload(data) {
 }
 
 /**
- * True when WA link finished for this slot.
- * Do NOT treat mid-QR/pairing partial auth (me.id written, still linking) as Connected.
+ * Live WA socket only. Never treat leftover auth / mid-link partial creds as Connected.
  */
 export function isEngineSlotLinked(acc) {
-  if (!acc) return false;
-  if (acc.connected) return true;
-  if (acc.linking || acc.loggingOut) return false;
-  // Offline-but-linked: creds on disk after a completed link (socket may briefly drop).
-  return Boolean(acc.authSaved && acc.authRegistered && acc.phone);
+  return Boolean(acc?.connected);
 }
 
 export function findEngineSlot(data, slot) {

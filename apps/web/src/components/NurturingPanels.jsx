@@ -198,8 +198,7 @@ export default function NurturingPanels() {
     setScanIpId(defaultIp?.id || '');
     setScanOk(false);
     setScanSlot(slot);
-    const slotState = engineSlots.find((s) => Number(s.slot) === Number(slot));
-    setFeedflowLinked(isEngineSlotLinked(slotState));
+    setFeedflowLinked(false);
     setScanRow(row);
     refetchEngine().then(({ data }) => {
       if (slot == null) return;
@@ -731,7 +730,7 @@ export default function NurturingPanels() {
               <p className="text-[11px] leading-relaxed text-ams-warn">
                 {scanSlot == null
                   ? 'Assign a FeedFlow slot and link WhatsApp before confirming.'
-                  : 'Waiting for FeedFlow slot online after QR/pairing — Confirm unlocks when linked.'}
+                  : 'Waiting for FeedFlow slot online after QR scan — Confirm unlocks when Connected.'}
               </p>
             )}
           </div>

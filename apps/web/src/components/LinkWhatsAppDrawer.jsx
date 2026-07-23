@@ -248,6 +248,13 @@ export default function LinkWhatsAppDrawer({
   async function startLink() {
     if (slot == null || linkInflightRef.current || linkedRef.current) return;
 
+    // Never re-hit connect if this slot is already live — causes 440 conflict loops.
+    const live = (engineSlots || []).find((s) => slotMatches(s.slot, slot));
+    if (slotIsLiveConnected(live, slot)) {
+      markLinked();
+      return;
+    }
+
     linkInflightRef.current = true;
     setQrVisible(false);
     setLinking(true);
@@ -274,7 +281,15 @@ export default function LinkWhatsAppDrawer({
         body.proxyUrl = proxyUrl;
       }
       setMessage(proxyUrl ? 'QR via your proxy…' : 'Waiting for QR from engine…');
-      await connect(slot, body);
+      const result = await connect(slot, body);
+      if (result?.alreadyConnected || result?.skipped === 'auto-connect-blocked') {
+        markLinked();
+        return;
+      }
+      if (result?.linkInProgress || result?.connectInFlight || result?.reclaimInProgress) {
+        setMessage('Link already in progress on engine — wait, do not click again.');
+        return;
+      }
       setMessage('Waiting for QR from engine…');
       onEngineRefresh?.();
     } catch (e) {

@@ -41,7 +41,8 @@ export function findEngineSlotForAccount(account, slots = []) {
 export function liveSlotConnection(account, slots = []) {
   const slot = findEngineSlotForAccount(account, slots);
   if (!slot) return null;
-  return slot.connected ? 'online' : 'offline';
+  // Treat saved session as online — matches FeedFlow UI when preview reconnect is off.
+  return (slot.connected || slot.authSaved) ? 'online' : 'offline';
 }
 
 /** Match AMS account to an offline engine slot row (for health sync). */

@@ -39,7 +39,8 @@ function MetricTile({ label, value, sub, tone = 'default' }) {
 function slotState(slot) {
   if (slot.feedingActive) return 'feeding';
   if (slot.linking) return 'linking';
-  if (slot.connected) return 'online';
+  // Saved session counts as online (preview socket may be off on Railway).
+  if (slot.connected || slot.authSaved) return 'online';
   return 'offline';
 }
 
@@ -87,7 +88,10 @@ export default function EngineStatusPanel() {
   const feeding = data?.feeding?.summary;
   const slots = data?.slots || [];
 
-  const online = engine?.slotsOnline ?? 0;
+  // Prefer engine.slotsOnline; fall back to counting connected/authSaved slots
+  // so AMS stays in sync when preview sockets are intentionally offline.
+  const onlineFromSlots = slots.filter((s) => s.connected || s.authSaved).length;
+  const online = Math.max(engine?.slotsOnline ?? 0, onlineFromSlots);
   const total = engine?.accountCount ?? slots.length;
   const feedingActive = engine?.slotsFeeding ?? 0;
   const successRate = feeding?.successRate ?? 0;

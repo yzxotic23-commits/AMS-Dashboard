@@ -37,7 +37,8 @@ export function useEngineHealthSync() {
     if (bridge?.reachable === false) return;
 
     slots.forEach(async (slot) => {
-      if (slot.connected || !slot.phone) return;
+      // Session still on disk / UI-online — do not treat as logout (preview may be off).
+      if (slot.connected || slot.authSaved || !slot.phone) return;
 
       const match = matchAccountForEngineSlot(accounts, slot);
       if (!match || match.status !== 'IN_USE') return;

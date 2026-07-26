@@ -93,10 +93,13 @@ export async function postLocalClearSlotDisplayLabel(slot) {
   return postLocalSlotDisplayLabel(slot, { clear: true, accountName: '' });
 }
 
-export async function postLocalSlotProxy(slot, proxyUrl) {
+export async function postLocalSlotProxy(slot, proxyUrlOrBody) {
+  const body = typeof proxyUrlOrBody === 'object' && proxyUrlOrBody != null
+    ? proxyUrlOrBody
+    : { proxyUrl: proxyUrlOrBody };
   return localFetch(`/api/slots/${slot}/proxy`, {
     method: 'POST',
-    body: JSON.stringify({ proxyUrl }),
+    body: JSON.stringify(body),
     timeout: 15_000,
   });
 }

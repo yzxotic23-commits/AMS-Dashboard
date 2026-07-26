@@ -173,15 +173,22 @@ router.post('/slots/:slot/proxy', authenticate, async (req, res) => {
     if (Number.isNaN(slot) || slot < 0) {
       return res.status(400).json({ error: 'Invalid slot' });
     }
-    const proxyUrl = req.body?.proxyUrl || req.body?.proxy_url;
-    if (!proxyUrl) {
-      return res.status(400).json({ error: 'proxyUrl required' });
+    const rawProxyUrl = req.body?.proxyUrl || req.body?.proxy_url;
+    const wantsDirect = req.body?.direct === true
+      || String(rawProxyUrl || '').trim().toLowerCase() === 'direct'
+      || String(rawProxyUrl || '').trim().toLowerCase() === 'none'
+      || String(rawProxyUrl || '').trim() === '-';
+    if (!rawProxyUrl && !wantsDirect) {
+      return res.status(400).json({ error: 'proxyUrl required (or set direct: true for no proxy)' });
     }
     const ready = await ensureWsafEngineReady();
     if (!ready) {
       return res.status(503).json({ error: 'FeedFlow engine is not running.' });
     }
-    const data = await postWsafSlotProxy(slot, proxyUrl);
+    const data = await postWsafSlotProxy(
+      slot,
+      wantsDirect ? { direct: true, proxyUrl: 'direct' } : { proxyUrl: rawProxyUrl },
+    );
     res.json(data);
   } catch (e) {
     res.status(502).json({ error: e.message || 'Could not sync slot proxy' });

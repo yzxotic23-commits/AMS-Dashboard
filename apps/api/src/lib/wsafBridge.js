@@ -133,10 +133,13 @@ export async function clearWsafSlotDisplayLabel(slot) {
   return postWsafSlotDisplayLabel(slot, { clear: true, accountName: '' });
 }
 
-export async function postWsafSlotProxy(slot, proxyUrl) {
+export async function postWsafSlotProxy(slot, proxyUrlOrBody) {
+  const body = typeof proxyUrlOrBody === 'object' && proxyUrlOrBody != null
+    ? proxyUrlOrBody
+    : { proxyUrl: proxyUrlOrBody };
   return wsafRequest(`/api/slots/${slot}/proxy`, {
     method: 'POST',
-    body: JSON.stringify({ proxyUrl }),
+    body: JSON.stringify(body),
     timeout: 15_000,
   });
 }

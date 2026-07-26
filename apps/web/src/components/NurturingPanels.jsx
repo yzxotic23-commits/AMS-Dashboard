@@ -147,18 +147,6 @@ export default function NurturingPanels() {
 
   const ipBindings = useMemo(() => buildIpBindings(allAccounts), [allAccounts]);
 
-  function pickDefaultScanIp(row) {
-    if (row.ip_id) {
-      const current = freeIps.find((ip) => ip.id === row.ip_id);
-      if (current && isIpSelectableForAccount(current, ipBindings, row.ip_id)) return current;
-    }
-    const byAddress = freeIps.find(
-      (ip) => ip.ip_address === row.ip && isIpSelectableForAccount(ip, ipBindings, row.ip_id),
-    );
-    if (byAddress) return byAddress;
-    return freeIps.find((ip) => isIpSelectableForAccount(ip, ipBindings, row.ip_id)) || null;
-  }
-
   const manualList = useMemo(() => {
     const rows = nurturing
       .filter((r) => r.nurturing_phase === 'manual')
@@ -193,9 +181,9 @@ export default function NurturingPanels() {
   }
 
   function openScan(row) {
-    const defaultIp = pickDefaultScanIp(row);
     const slot = row.wsaf_slot ?? null;
-    setScanIpId(defaultIp?.id || '');
+    // Default like desktop: no AMS proxy (phone Shadowrocket). Operator can still pick a ledger IP.
+    setScanIpId('');
     setScanOk(false);
     setScanSlot(slot);
     setFeedflowLinked(false);
@@ -650,7 +638,9 @@ export default function NurturingPanels() {
         {scanRow && (
           <div className="drawer-form scan-drawer-form">
             <p className="drawer-hint drawer-hint--compact">
-              Day 3 on device farm — pick proxy, link FeedFlow, then confirm scan-in. Proxy is pushed to FeedFlow automatically (no manual Settings → Proxy).
+              Day 3 on device farm — link FeedFlow, then confirm scan-in. Engine proxy is optional
+              (same as desktop): leave empty if the phone already uses Shadowrocket; pick a ledger IP
+              only when you want AMS SOCKS on the engine.
             </p>
 
             <div className="drawer-summary-card">
@@ -665,14 +655,15 @@ export default function NurturingPanels() {
             </div>
 
             <section className="drawer-section">
-              <div className="drawer-section-title">Engine proxy</div>
+              <div className="drawer-section-title">Engine proxy <span className="font-normal text-ams-muted">(optional)</span></div>
               <select
                 className="input font-mono text-sm"
                 value={scanIpId}
                 onChange={(e) => setScanIpId(e.target.value)}
               >
+                <option value="">Phone / direct (Shadowrocket)</option>
                 {freeIps.length === 0 ? (
-                  <option value="">No active IPs in ledger</option>
+                  <option value="" disabled>No active IPs in ledger</option>
                 ) : freeIps.map((ip) => {
                   const bound = ipBindingCount(ip, ipBindings);
                   const selectable = isIpSelectableForAccount(ip, ipBindings, scanRow.ip_id);
@@ -701,7 +692,6 @@ export default function NurturingPanels() {
                 onEngineRefresh={refetchEngine}
                 onSlotChange={changeScanSlot}
                 proxyUrl={scanProxyUrl}
-                requireProxy
                 onLinked={async () => {
                   setFeedflowLinked(true);
                   await patchAccount.mutateAsync({

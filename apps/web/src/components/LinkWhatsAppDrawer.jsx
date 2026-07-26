@@ -45,9 +45,8 @@ export default function LinkWhatsAppDrawer({
   onLinked,
   embedded = false,
   hideAccountRow = false,
-  /** socks5://… from AMS Engine proxy — must be set before link on Railway */
+  /** socks5://… from AMS Engine proxy — optional; empty = intentional direct (phone Shadowrocket) */
   proxyUrl = null,
-  requireProxy = false,
 }) {
   const canvasRef = useRef(null);
   const [qrVisible, setQrVisible] = useState(false);
@@ -266,21 +265,20 @@ export default function LinkWhatsAppDrawer({
 
     try {
       const body = { method: 'qr' };
-      if ((requireProxy || !isLocalBridge()) && !proxyUrl) {
-        failLink('Select an Engine proxy first — QR must use your IP (avoids Railway scam popup).');
+      setMessage(proxyUrl ? 'Binding proxy to FeedFlow…' : 'Setting direct (no AMS proxy)…');
+      try {
+        await syncSlotProxyToEngine(slot, proxyUrl || 'direct');
+      } catch (e) {
+        failLink(e.message || 'Could not push proxy route to FeedFlow. Check engine connection.');
         return;
       }
       if (proxyUrl) {
-        setMessage('Binding proxy to FeedFlow…');
-        try {
-          await syncSlotProxyToEngine(slot, proxyUrl);
-        } catch (e) {
-          failLink(e.message || 'Could not push proxy to FeedFlow. Check engine connection.');
-          return;
-        }
         body.proxyUrl = proxyUrl;
+      } else {
+        body.direct = true;
+        body.proxyUrl = 'direct';
       }
-      setMessage(proxyUrl ? 'QR via your proxy…' : 'Waiting for QR from engine…');
+      setMessage(proxyUrl ? 'QR via your proxy…' : 'QR via direct (phone Shadowrocket)…');
       const result = await connect(slot, body);
       if (result?.alreadyConnected || result?.skipped === 'auto-connect-blocked') {
         markLinked();
@@ -302,7 +300,6 @@ export default function LinkWhatsAppDrawer({
   const linkStartDisabled = slot == null
     || connectLoading
     || engineBooting
-    || ((requireProxy || !isLocalBridge()) && !proxyUrl)
     || (linking && !qrVisible);
 
   const linkStartLabel = engineBooting

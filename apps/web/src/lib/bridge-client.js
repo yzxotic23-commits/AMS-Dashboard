@@ -121,22 +121,31 @@ export async function disconnectBridgeSlot(slot) {
   }
 }
 
-/** Push slot proxy to FeedFlow — direct engine URL first on cloud (Vercel API may lack WSAF_BRIDGE_URL). */
+/** Push slot proxy to FeedFlow — direct engine URL first on cloud (Vercel API may lack WSAF_BRIDGE_URL).
+ *  Pass proxyUrl "direct" / null / "" for intentional no-proxy (phone Shadowrocket). */
 export async function syncSlotProxyToEngine(slot, proxyUrl) {
-  if (!proxyUrl) throw new Error('proxyUrl required');
+  const raw = proxyUrl == null ? '' : String(proxyUrl).trim();
+  const wantsDirect = !raw
+    || raw.toLowerCase() === 'direct'
+    || raw.toLowerCase() === 'none'
+    || raw === '-';
+  const body = wantsDirect
+    ? { direct: true, proxyUrl: 'direct' }
+    : { proxyUrl: raw };
+
   if (!isLocalBridge()) {
     try {
-      return await postLocalSlotProxy(slot, proxyUrl);
+      return await postLocalSlotProxy(slot, body);
     } catch {
-      const { data } = await api.post(`/bridge/slots/${slot}/proxy`, { proxyUrl });
+      const { data } = await api.post(`/bridge/slots/${slot}/proxy`, body);
       return data;
     }
   }
   try {
-    const { data } = await api.post(`/bridge/slots/${slot}/proxy`, { proxyUrl });
+    const { data } = await api.post(`/bridge/slots/${slot}/proxy`, body);
     return data;
   } catch {
-    return postLocalSlotProxy(slot, proxyUrl);
+    return postLocalSlotProxy(slot, body);
   }
 }
 

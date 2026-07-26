@@ -264,6 +264,19 @@ export default function LinkWhatsAppDrawer({
     };
 
     try {
+      // Ensure engine is up before proxy/QR (prop engineReachable can be stale).
+      setEngineBooting(true);
+      setMessage('Checking FeedFlow engine…');
+      try {
+        await startBridgeEngine();
+        onEngineRefresh?.();
+      } catch (e) {
+        failLink(e.message || 'FeedFlow engine is not reachable on port 47821. Run: cd WSAF && node web.js');
+        return;
+      } finally {
+        setEngineBooting(false);
+      }
+
       const body = { method: 'qr' };
       setMessage(proxyUrl ? 'Binding proxy to FeedFlow…' : 'Setting direct (no AMS proxy)…');
       try {
@@ -271,7 +284,8 @@ export default function LinkWhatsAppDrawer({
       } catch (e) {
         const msg = e?.message || '';
         // Old local engines may reject "direct" as invalid URL — still proceed with QR direct.
-        const softDirectFail = !proxyUrl && /invalid proxy|proxyurl required/i.test(msg);
+        // Also tolerate brief "not reachable" if we just started the engine — connect will retry.
+        const softDirectFail = !proxyUrl && /invalid proxy|proxyurl required|not reachable|not running/i.test(msg);
         if (!softDirectFail) {
           failLink(msg || 'Could not push proxy route to FeedFlow. Check engine connection.');
           return;
@@ -281,7 +295,6 @@ export default function LinkWhatsAppDrawer({
         body.proxyUrl = proxyUrl;
       } else {
         body.direct = true;
-        // Prefer flag-only for older engines that treat proxyUrl:"direct" as a bad SOCKS URL.
       }
       setMessage(proxyUrl ? 'QR via your proxy…' : 'QR via direct (phone Shadowrocket)…');
       const result = await connect(slot, body);

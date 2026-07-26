@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-/** Sibling folder: Whatsapp Auto Feeding/WSAF */
+/** Local auto-start uses nested WSAF/ (working native modules). Railway uses the BO repo. */
 const DEFAULT_WSAF_ROOT = path.resolve(__dirname, '../../../../../WSAF');
 
 let child = null;

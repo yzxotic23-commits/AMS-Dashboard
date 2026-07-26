@@ -75,7 +75,7 @@ router.post('/connect/:slot', authenticate, async (req, res, next) => {
     const ready = await ensureWsafEngineReady();
     if (!ready) {
       return res.status(503).json({
-        error: 'FeedFlow engine is not running. Restart the AMS API (npm run dev) and try again.',
+        error: 'FeedFlow engine is not reachable. For local AMS: confirm port 47821 (WSAF_ROOT) is up. For cloud: set WSAF_BRIDGE_URL to Railway and check the service is Live.',
       });
     }
     const data = await postWsafConnect(slot, req.body || {});
@@ -94,7 +94,7 @@ router.post('/disconnect/:slot', authenticate, async (req, res) => {
     const ready = await ensureWsafEngineReady();
     if (!ready) {
       return res.status(503).json({
-        error: 'FeedFlow engine is not running. Restart the AMS API (npm run dev) and try again.',
+        error: 'FeedFlow engine is not reachable. For local AMS: confirm port 47821 (WSAF_ROOT) is up. For cloud: set WSAF_BRIDGE_URL to Railway and check the service is Live.',
       });
     }
     const data = await postWsafDisconnect(slot);

@@ -41,12 +41,50 @@ function formatWhen(iso) {
 function actionBadge(action) {
   if (action === 'DELETE' || action === 'IP_GATE_REJECT') return 'badge-danger';
   if (action === 'CREATE' || action === 'TICKET_CREATE') return 'badge-success';
-  if (action === 'STATE_CHANGE' || action === 'UPDATE') return 'badge-warn';
+  if (action === 'STATE_CHANGE' || action === 'UPDATE' || action === 'ASSIGNMENT_CHANGE') {
+    return 'badge-warn';
+  }
   return 'badge-default';
+}
+
+function describeAssignment(m) {
+  if (Array.isArray(m.changes) && m.changes.length > 1) {
+    const parts = m.changes.map((c) => `${c.field}: ${c.from || '—'} → ${c.to || '—'}`);
+    const name = m.account_name ? `${m.account_name} · ` : '';
+    return `${name}${parts.join(' · ')}`;
+  }
+  if (m.from != null || m.to != null) {
+    const name = m.account_name ? `${m.account_name} · ` : '';
+    const field = m.field ? `${m.field}: ` : '';
+    return `${name}${field}${m.from || '—'} → ${m.to || '—'}`;
+  }
+  return null;
 }
 
 function describeMeta(row) {
   const m = row.metadata || row.new_value || {};
+  const prev = row.previous_value || {};
+  const next = row.new_value || {};
+
+  if (row.action === 'ASSIGNMENT_CHANGE') {
+    return describeAssignment(m) || describeAssignment(next) || m.account_name || 'Assignment updated';
+  }
+
+  // Legacy UPDATE rows that only swapped ip_id — surface IP change in Detail.
+  if (
+    row.action === 'UPDATE'
+    && prev.ip_id !== undefined
+    && next.ip_id !== undefined
+    && prev.ip_id !== next.ip_id
+  ) {
+    const name = next.account_name || m.account_name || '';
+    const fromIp = prev.ips?.ip_address || (prev.ip_id ? String(prev.ip_id).slice(0, 8) : '—');
+    const toIp = next.ips?.ip_address || (next.ip_id ? String(next.ip_id).slice(0, 8) : '—');
+    return name ? `${name} · IP: ${fromIp} → ${toIp}` : `IP: ${fromIp} → ${toIp}`;
+  }
+
+  const assignmentLine = describeAssignment(m);
+  if (assignmentLine) return assignmentLine;
   if (m.from && m.to) return `${m.from} → ${m.to}`;
   if (m.account_name) return m.account_name;
   if (m.title) return m.title;
@@ -94,7 +132,9 @@ export default function AuditLogPage() {
   }, [data, page, totalPages]);
 
   const entityOptions = ['', 'account', 'device', 'sim', 'ip', 'ticket'];
-  const actionOptions = ['', 'CREATE', 'UPDATE', 'DELETE', 'STATE_CHANGE', 'TICKET_CREATE'];
+  const actionOptions = [
+    '', 'CREATE', 'UPDATE', 'DELETE', 'STATE_CHANGE', 'ASSIGNMENT_CHANGE', 'TICKET_CREATE',
+  ];
 
   return (
     <div>

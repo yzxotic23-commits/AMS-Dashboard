@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { CheckCircle2 } from 'lucide-react';
+import Drawer from '../components/Drawer';
 import PageHead from '../components/PageHead';
 import IconTooltip from '../components/IconTooltip';
 import NurturingPanels from '../components/NurturingPanels';
@@ -9,11 +10,21 @@ import { useSite } from '../context/SiteContext';
 import { useAuth } from '../context/AuthContext';
 import { operatorDisplayLabel } from '../lib/operator-scope';
 import { SITES, getSiteChipClass } from '../lib/sites';
-import { useAccountsByStatus, useAccountMutations } from '../hooks/useOperatorAccounts';
+import {
+  useAccountsByStatus, useAccountMutations, useAllAccounts,
+} from '../hooks/useOperatorAccounts';
+import { useFreeIps } from '../hooks/useResourceOptions';
 import { toastCopy } from '../lib/operator-copy';
 import {
   isAutoGraduationDue, isManualScanDue,
 } from '../lib/nurturing-day';
+import {
+  buildIpBindings,
+  ipBindingCount,
+  isIpSelectableForAccount,
+  proxyBindingSuffix,
+} from '../lib/ip-ready';
+import { formatProxyOptionLabel } from '../lib/proxy-display';
 
 const ACTIVATION_STEPS = ['sim', 'device', 'ip', 'phone'];
 
@@ -74,9 +85,19 @@ export default function ActivationDeskPage() {
   const [busyId, setBusyId] = useState(null);
   const [queueFilter, setQueueFilter] = useState('all');
   const [toast, setToast] = useState('');
+  const [ipEditRow, setIpEditRow] = useState(null);
+  const [editIpId, setEditIpId] = useState('');
+  const [ipBusy, setIpBusy] = useState(false);
   const { data: queue = [], isLoading } = useAccountsByStatus('REGISTERING');
   const { data: nurturing = [] } = useAccountsByStatus('NURTURING');
   const { patchAccount, transitionAccount, invalidate } = useAccountMutations();
+  const ipDrawerOpen = !!ipEditRow;
+  const { data: ledgerAccounts = [], isFetching: ledgerFetching } = useAllAccounts({
+    enabled: ipDrawerOpen,
+  });
+  const { list: freeIps, isLoading: ipsLoading } = useFreeIps({ enabled: ipDrawerOpen });
+  const ipBindings = useMemo(() => buildIpBindings(ledgerAccounts), [ledgerAccounts]);
+  const ipResourcesLoading = ipDrawerOpen && (ledgerFetching || ipsLoading);
 
   const list = useMemo(() => {
     if (site === 'all') return queue;
@@ -115,6 +136,56 @@ export default function ActivationDeskPage() {
       setSearchParams({ tab: 'nurturing' }, { replace: true });
     } else {
       setSearchParams({}, { replace: true });
+    }
+  }
+
+  function openChangeIp(row) {
+    setIpEditRow(row);
+    setEditIpId(row.ip_id || '');
+  }
+
+  function closeChangeIp() {
+    if (ipBusy) return;
+    setIpEditRow(null);
+    setEditIpId('');
+  }
+
+  async function saveChangeIp() {
+    if (!ipEditRow || ipBusy) return;
+    if (!editIpId) {
+      showToast('Select an IP first');
+      return;
+    }
+    if (editIpId === ipEditRow.ip_id) {
+      closeChangeIp();
+      return;
+    }
+    const ipRow = freeIps.find((ip) => ip.id === editIpId);
+    if (!ipRow) {
+      showToast('IP not found');
+      return;
+    }
+    if (!isIpSelectableForAccount(ipRow, ipBindings, ipEditRow.ip_id)) {
+      showToast('IP already has 2 accounts');
+      return;
+    }
+    setIpBusy(true);
+    try {
+      await patchAccount.mutateAsync({
+        id: ipEditRow.id,
+        row: ipEditRow,
+        patch: {
+          ip_id: ipRow.id,
+          ip: ipRow.ip_address || ipEditRow.ip,
+        },
+      });
+      showToast(toastCopy.activationIpUpdated(ipEditRow.account_name));
+      setIpEditRow(null);
+      setEditIpId('');
+    } catch (e) {
+      showToast(e?.response?.data?.error || e.message || 'Failed to update IP');
+    } finally {
+      setIpBusy(false);
     }
   }
 
@@ -298,17 +369,27 @@ export default function ActivationDeskPage() {
                       </td>
                     )}
                     <td className="col-action">
-                      <IconTooltip label={activateTooltip(ready, activating, ch)}>
+                      <div className="flex flex-wrap items-center justify-end gap-1.5">
                         <button
                           type="button"
-                          className="btn btn-primary btn-sm inline-flex items-center gap-1.5"
-                          disabled={!ready || activating || !!busyId}
-                          onClick={() => activate(row)}
+                          className="btn btn-ghost btn-sm"
+                          disabled={activating || !!busyId || ipBusy}
+                          onClick={() => openChangeIp(row)}
                         >
-                          <CheckCircle2 size={14} />
-                          {activating ? 'Activating…' : 'Activate'}
+                          Change IP
                         </button>
-                      </IconTooltip>
+                        <IconTooltip label={activateTooltip(ready, activating, ch)}>
+                          <button
+                            type="button"
+                            className="btn btn-primary btn-sm inline-flex items-center gap-1.5"
+                            disabled={!ready || activating || !!busyId}
+                            onClick={() => activate(row)}
+                          >
+                            <CheckCircle2 size={14} />
+                            {activating ? 'Activating…' : 'Activate'}
+                          </button>
+                        </IconTooltip>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -321,6 +402,75 @@ export default function ActivationDeskPage() {
       )}
 
       {tab === 'nurturing' && <NurturingPanels />}
+
+      <Drawer
+        open={ipDrawerOpen}
+        title="Change IP"
+        onClose={closeChangeIp}
+        footer={(
+          <>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              disabled={ipBusy}
+              onClick={closeChangeIp}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={ipBusy || !editIpId || ipResourcesLoading}
+              onClick={saveChangeIp}
+            >
+              {ipBusy ? 'Saving…' : 'Save IP'}
+            </button>
+          </>
+        )}
+      >
+        {ipEditRow && (
+          <div className="drawer-form">
+            <p className="drawer-hint drawer-hint--compact">
+              Fix a wrong IP from register without deleting the account. Max 2 accounts per IP.
+            </p>
+            <div className="drawer-summary-card">
+              <div className="drawer-kv-grid">
+                <span className="drawer-kv-k">Account</span>
+                <span className="drawer-kv-v drawer-kv-v--name">{ipEditRow.account_name}</span>
+                <span className="drawer-kv-k">Phone</span>
+                <span className="drawer-kv-v">{ipEditRow.phone_number || '—'}</span>
+                <span className="drawer-kv-k">Current IP</span>
+                <span className="drawer-kv-v drawer-kv-v--plain font-mono text-xs">
+                  {ipEditRow.ip || '—'}
+                </span>
+              </div>
+            </div>
+            <section className="drawer-section">
+              <div className="drawer-section-title">New IP</div>
+              <select
+                className="input font-mono text-sm"
+                value={editIpId}
+                disabled={ipResourcesLoading || ipBusy}
+                onChange={(e) => setEditIpId(e.target.value)}
+              >
+                <option value="">
+                  {ipResourcesLoading ? 'Loading…' : 'Select IP…'}
+                </option>
+                {freeIps.map((ip) => {
+                  const bound = ipBindingCount(ip, ipBindings);
+                  const selectable = isIpSelectableForAccount(ip, ipBindings, ipEditRow.ip_id);
+                  const suffix = proxyBindingSuffix(bound, ipEditRow.ip_id, ip.id);
+                  return (
+                    <option key={ip.id} value={ip.id} disabled={!selectable}>
+                      {formatProxyOptionLabel(ip)}{suffix}
+                    </option>
+                  );
+                })}
+              </select>
+            </section>
+          </div>
+        )}
+      </Drawer>
 
       <Toast open={!!toast} message={toast} tone="success" onClose={() => setToast('')} />
     </div>

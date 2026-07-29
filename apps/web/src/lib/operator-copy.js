@@ -50,6 +50,7 @@ export const toastCopy = {
 
   activationLinked: (name) => `${name} · WhatsApp linked`,
   activationDone: (name) => `${name} · activated · Nurturing`,
+  activationIpUpdated: (name) => `${name} · IP updated`,
 
   registerOk: (phone, name) => `${phone} · registered · ${name || 'new account'}`,
   registerFail: (phone) => `${phone} · registration failed`,

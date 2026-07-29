@@ -51,6 +51,7 @@ export function useAccountMutations() {
     qc.invalidateQueries({ queryKey: ['ips'] });
     qc.invalidateQueries({ queryKey: ['devices'] });
     qc.invalidateQueries({ queryKey: ['bans'] });
+    qc.invalidateQueries({ queryKey: ['audit'] });
   };
 
   const patchAccount = useMutation({

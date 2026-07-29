@@ -86,6 +86,74 @@ async function recordAssignmentHistory(accountId, field, oldId, newId, userId) {
   }
 }
 
+function formatIpAuditLabel(ip) {
+  if (!ip?.ip_address) return '—';
+  const port = ip.port != null && ip.port !== '' ? String(ip.port) : '8080';
+  return `${ip.ip_address}:${port}`;
+}
+
+/** Resolve human-readable labels for assignment audit (IP / device / SIM). */
+async function resolveAssignmentAuditChanges(diffs, updatedAccount) {
+  const ipIds = [...new Set(diffs.flatMap((d) => (
+    d.field === 'ip_id' ? [d.fromId, d.toId] : []
+  )).filter(Boolean))];
+  const deviceIds = [...new Set(diffs.flatMap((d) => (
+    d.field === 'device_id' ? [d.fromId, d.toId] : []
+  )).filter(Boolean))];
+  const simIds = [...new Set(diffs.flatMap((d) => (
+    d.field === 'sim_id' ? [d.fromId, d.toId] : []
+  )).filter(Boolean))];
+
+  const [ipsRes, devicesRes, simsRes] = await Promise.all([
+    ipIds.length
+      ? supabaseAdmin.from('ips').select('id, ip_address, port').in('id', ipIds)
+      : Promise.resolve({ data: [] }),
+    deviceIds.length
+      ? supabaseAdmin.from('devices').select('id, device_name').in('id', deviceIds)
+      : Promise.resolve({ data: [] }),
+    simIds.length
+      ? supabaseAdmin.from('sims').select('id, phone_number').in('id', simIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const ipsById = Object.fromEntries((ipsRes.data || []).map((r) => [r.id, r]));
+  const devicesById = Object.fromEntries((devicesRes.data || []).map((r) => [r.id, r]));
+  const simsById = Object.fromEntries((simsRes.data || []).map((r) => [r.id, r]));
+
+  // Prefer joined IP on the updated account when present.
+  if (updatedAccount?.ip_id && updatedAccount?.ips) {
+    ipsById[updatedAccount.ip_id] = {
+      id: updatedAccount.ip_id,
+      ip_address: updatedAccount.ips.ip_address,
+      port: updatedAccount.ips.port,
+    };
+  }
+
+  const fieldLabel = { ip_id: 'IP', device_id: 'Device', sim_id: 'SIM' };
+
+  return diffs.map((d) => {
+    let from = '—';
+    let to = '—';
+    if (d.field === 'ip_id') {
+      from = d.fromId ? formatIpAuditLabel(ipsById[d.fromId]) : '—';
+      to = d.toId ? formatIpAuditLabel(ipsById[d.toId]) : '—';
+    } else if (d.field === 'device_id') {
+      from = d.fromId ? (devicesById[d.fromId]?.device_name || d.fromId.slice(0, 8)) : '—';
+      to = d.toId ? (devicesById[d.toId]?.device_name || d.toId.slice(0, 8)) : '—';
+    } else if (d.field === 'sim_id') {
+      from = d.fromId ? (simsById[d.fromId]?.phone_number || d.fromId.slice(0, 8)) : '—';
+      to = d.toId ? (simsById[d.toId]?.phone_number || d.toId.slice(0, 8)) : '—';
+    }
+    return {
+      field: fieldLabel[d.field] || d.field,
+      from,
+      to,
+      from_id: d.fromId,
+      to_id: d.toId,
+    };
+  });
+}
+
 // GET /accounts
 router.get('/', async (req, res, next) => {
   try {
@@ -231,8 +299,10 @@ router.patch('/:id', async (req, res, next) => {
       .single();
     if (error) throw error;
 
+    const assignmentDiffs = [];
     for (const field of ['device_id', 'sim_id', 'ip_id']) {
       if (body[field] !== undefined && body[field] !== current[field]) {
+        assignmentDiffs.push({ field, fromId: current[field], toId: body[field] });
         await recordAssignmentHistory(data.id, field, current[field], body[field], req.profile.id);
       }
     }
@@ -247,6 +317,36 @@ router.patch('/:id', async (req, res, next) => {
 
     if (body.sim_id && body.sim_id !== current.sim_id) {
       await promoteSimToLedger(body.sim_id, { site_key: parseOperatorMeta(data).site_key });
+    }
+
+    if (assignmentDiffs.length) {
+      const changes = await resolveAssignmentAuditChanges(assignmentDiffs, data);
+      const primary = changes[0] || {};
+      await writeAudit({
+        entityType: 'account',
+        entityId: data.id,
+        action: 'ASSIGNMENT_CHANGE',
+        previousValue: Object.fromEntries(
+          assignmentDiffs.map((d) => [d.field, d.fromId]),
+        ),
+        newValue: {
+          account_name: data.account_name,
+          phone_number: data.phone_number,
+          field: primary.field,
+          from: primary.from,
+          to: primary.to,
+          changes,
+        },
+        metadata: {
+          account_name: data.account_name,
+          field: primary.field,
+          from: primary.from,
+          to: primary.to,
+          changes,
+        },
+        userId: req.profile.id,
+        req,
+      });
     }
 
     if (body.status && body.status !== current.status) {
@@ -266,7 +366,7 @@ router.patch('/:id', async (req, res, next) => {
         userId: req.profile.id,
         req,
       });
-    } else {
+    } else if (!assignmentDiffs.length) {
       await writeAudit({
         entityType: 'account',
         entityId: data.id,

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import Toast from './Toast';
 import { useSite } from '../context/SiteContext';
@@ -7,6 +7,8 @@ import { useAccountMutations, useAllAccounts } from '../hooks/useOperatorAccount
 import { matchAccountForEngineSlot } from '../lib/engine-slot';
 import { CURRENT_STATUS } from '../lib/feeding-audit';
 import { SITES, getSiteChipClass } from '../lib/sites';
+
+const PAGE_SIZES = [10, 20, 50];
 
 const STATUS_OPTIONS = [
   { kind: 'active', label: CURRENT_STATUS.ACTIVE, short: 'Active' },
@@ -54,6 +56,8 @@ export default function FeedFlowAccountStatusPanel() {
   const { markStrict } = useAccountMutations();
   const [busyId, setBusyId] = useState(null);
   const [toast, setToast] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const slots = engineData?.slots || engineData?.accounts || [];
   const reachable = engineData?.reachable === true;
@@ -84,6 +88,24 @@ export default function FeedFlowAccountStatusPanel() {
       return row.account.siteKey === site;
     });
   }, [slots, accounts, site]);
+
+  const total = rows.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const pageStart = total === 0 ? 0 : (safePage - 1) * pageSize + 1;
+  const pageEnd = Math.min(safePage * pageSize, total);
+  const pageRows = useMemo(
+    () => rows.slice((safePage - 1) * pageSize, safePage * pageSize),
+    [rows, safePage, pageSize],
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [site, pageSize]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   const counts = useMemo(() => {
     const c = { active: 0, restrict_scan: 0, restrict_chat_new: 0, unmatched: 0 };
@@ -163,86 +185,130 @@ export default function FeedFlowAccountStatusPanel() {
           No FeedFlow slots for this site. Link accounts in Nurturing scan-in first.
         </p>
       ) : (
-        <div className="data-table-wrap">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Slot</th>
-                <th>Account</th>
-                <th>Phone</th>
-                <th className="col-center">Live</th>
-                {site === 'all' && <th className="col-center">Site</th>}
-                <th className="col-center">Current Status</th>
-                <th className="col-center">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => {
-                const busy = busyId === row.account?.id;
-                const statusOpt = STATUS_OPTIONS.find((o) => o.kind === row.kind);
-                const statusLabel = row.kind === 'banned'
-                  ? 'Banned'
-                  : (statusOpt?.label || 'Active');
-                const actionLabel = statusOpt?.short || 'Active';
-                const liveLabel = slotLiveLabel(row.slot);
-                return (
-                  <tr key={`slot-${row.slot.slot}`}>
-                    <td className="col-mono col-muted">{Number(row.slot.slot) + 1}</td>
-                    <td className="font-medium text-ams-ink">{row.label}</td>
-                    <td className="col-mono text-[12px]">{row.phone || '—'}</td>
-                    <td className="col-center">
-                      <span className={`badge ${LIVE_BADGE[liveLabel] || 'badge-default'}`}>
-                        {liveLabel}
-                      </span>
-                    </td>
-                    {site === 'all' && (
+        <>
+          <div className="data-table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Slot</th>
+                  <th>Account</th>
+                  <th>Phone</th>
+                  <th className="col-center">Live</th>
+                  {site === 'all' && <th className="col-center">Site</th>}
+                  <th className="col-center">Current Status</th>
+                  <th className="col-center">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pageRows.map((row) => {
+                  const busy = busyId === row.account?.id;
+                  const statusOpt = STATUS_OPTIONS.find((o) => o.kind === row.kind);
+                  const statusLabel = row.kind === 'banned'
+                    ? 'Banned'
+                    : (statusOpt?.label || 'Active');
+                  const actionLabel = statusOpt?.short || 'Active';
+                  const liveLabel = slotLiveLabel(row.slot);
+                  return (
+                    <tr key={`slot-${row.slot.slot}`}>
+                      <td className="col-mono col-muted">{Number(row.slot.slot) + 1}</td>
+                      <td className="font-medium text-ams-ink">{row.label}</td>
+                      <td className="col-mono text-[12px]">{row.phone || '—'}</td>
                       <td className="col-center">
-                        {row.siteKey
-                          ? <span className={getSiteChipClass(row.siteKey)}>{SITES[row.siteKey].name}</span>
-                          : '—'}
-                      </td>
-                    )}
-                    <td className="col-center">
-                      {row.account ? (
-                        <span className={`badge ${STATUS_BADGE[row.kind] || 'badge-default'}`}>
-                          {statusLabel}
+                        <span className={`badge ${LIVE_BADGE[liveLabel] || 'badge-default'}`}>
+                          {liveLabel}
                         </span>
-                      ) : (
-                        <span className="text-[12px] text-ams-faint">—</span>
+                      </td>
+                      {site === 'all' && (
+                        <td className="col-center">
+                          {row.siteKey
+                            ? <span className={getSiteChipClass(row.siteKey)}>{SITES[row.siteKey].name}</span>
+                            : '—'}
+                        </td>
                       )}
-                    </td>
-                    <td className="col-center whitespace-nowrap">
-                      {row.account && row.kind !== 'banned' ? (
-                        <div className="inline-flex items-center justify-center gap-2">
-                          <select
-                            className="input shrink-0 py-1 text-[12px]"
-                            style={{
-                              width: `calc(${actionLabel.length}ch + 2.25rem)`,
-                              fieldSizing: 'content',
-                            }}
-                            value={row.kind}
-                            disabled={busy || !!busyId}
-                            aria-label={`Change current status for ${row.label}`}
-                            onChange={(e) => changeStatus(row, e.target.value)}
-                          >
-                            {STATUS_OPTIONS.map((opt) => (
-                              <option key={opt.kind} value={opt.kind}>{opt.short}</option>
-                            ))}
-                          </select>
-                          {busy && <span className="text-[11px] text-ams-faint">Saving…</span>}
-                        </div>
-                      ) : row.account ? (
-                        <span className="text-[12px] text-ams-faint">See Recovery</span>
-                      ) : (
-                        <span className="text-[12px] text-ams-faint">No AMS account linked</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                      <td className="col-center">
+                        {row.account ? (
+                          <span className={`badge ${STATUS_BADGE[row.kind] || 'badge-default'}`}>
+                            {statusLabel}
+                          </span>
+                        ) : (
+                          <span className="text-[12px] text-ams-faint">—</span>
+                        )}
+                      </td>
+                      <td className="col-center whitespace-nowrap">
+                        {row.account && row.kind !== 'banned' ? (
+                          <div className="inline-flex items-center justify-center gap-2">
+                            <select
+                              className="input shrink-0 py-1 text-[12px]"
+                              style={{
+                                width: `calc(${actionLabel.length}ch + 2.25rem)`,
+                                fieldSizing: 'content',
+                              }}
+                              value={row.kind}
+                              disabled={busy || !!busyId}
+                              aria-label={`Change current status for ${row.label}`}
+                              onChange={(e) => changeStatus(row, e.target.value)}
+                            >
+                              {STATUS_OPTIONS.map((opt) => (
+                                <option key={opt.kind} value={opt.kind}>{opt.short}</option>
+                              ))}
+                            </select>
+                            {busy && <span className="text-[11px] text-ams-faint">Saving…</span>}
+                          </div>
+                        ) : row.account ? (
+                          <span className="text-[12px] text-ams-faint">See Recovery</span>
+                        ) : (
+                          <span className="text-[12px] text-ams-faint">No AMS account linked</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {total > 10 && (
+            <div className="tk-pager border-t border-ams-line px-4 py-3">
+              <label className="tk-pager-size">
+                <span>Rows</span>
+                <select
+                  className="input tk-pager-size-select"
+                  value={pageSize}
+                  onChange={(e) => setPageSize(Number(e.target.value))}
+                  aria-label="Rows per page"
+                >
+                  {PAGE_SIZES.map((n) => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+              </label>
+              <div className="tk-pager-actions">
+                <span className="tk-pager-meta">
+                  Showing {pageStart}–{pageEnd} of {total}
+                </span>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  disabled={safePage <= 1}
+                  onClick={() => setPage(safePage - 1)}
+                >
+                  Previous
+                </button>
+                <span className="tk-pager-page">
+                  Page {safePage} / {totalPages}
+                </span>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  disabled={safePage >= totalPages}
+                  onClick={() => setPage(safePage + 1)}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       <Toast open={!!toast} message={toast} onClose={() => setToast('')} />

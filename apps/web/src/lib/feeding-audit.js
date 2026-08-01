@@ -23,21 +23,33 @@ export function feedflowSlotLabelBody(account) {
 /**
  * Payload for operator Strict → Restrict / Banned → Banned in FeedFlow audit.
  * Unique runId so each mark appends (not wiped by ams-linked audit sync).
+ *
+ * @param {object} row
+ * @param {string} feedingStatus
+ * @param {{ restrictKind?: 'restrict_scan' | 'restrict_chat_new' }} [opts]
  */
-export function nurturingOutcomeAuditPayload(row, feedingStatus) {
-  const reason = feedingStatus === FEEDING_STATUS.BANNED
-    ? 'operator_banned'
-    : 'operator_strict';
+export function nurturingOutcomeAuditPayload(row, feedingStatus, opts = {}) {
+  let reason = 'operator_strict';
+  if (feedingStatus === FEEDING_STATUS.BANNED) {
+    reason = 'operator_banned';
+  } else if (opts.restrictKind === 'restrict_scan') {
+    reason = 'operator_strict_scan';
+  } else if (opts.restrictKind === 'restrict_chat_new') {
+    reason = 'operator_strict_chat_new';
+  }
   const siteKey = row?.siteKey || 'my';
   return {
     slot: row.wsaf_slot,
     accountName: row.acct || row.account_name,
     feedingStatus,
     reason,
+    restrictKind: opts.restrictKind || null,
     runId: `ams-nurture-${reason}-${row.id}-${Date.now()}`,
     location: SITES[siteKey]?.name || null,
     ipAddress: row.ip || null,
-    strictScanPossible: feedingStatus === FEEDING_STATUS.RESTRICT,
+    // Restricted Scan = cannot scan during restriction; Chat New = scan still possible.
+    strictScanPossible: feedingStatus === FEEDING_STATUS.RESTRICT
+      && opts.restrictKind !== 'restrict_chat_new',
   };
 }
 

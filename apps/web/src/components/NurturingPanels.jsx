@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, Ban, CheckCircle2, Clock, ScanLine } from 'lucide-react';
 import Drawer from './Drawer';
+import DetailDialog from './DetailDialog';
 import IconTooltip from './IconTooltip';
 import Toast from './Toast';
 import LinkWhatsAppDrawer from './LinkWhatsAppDrawer';
@@ -58,6 +59,20 @@ const BAN_REASONS_MANUAL = [
   'Other',
 ];
 
+/** Operator Strict subtypes — two WA restriction modes. */
+const STRICT_KINDS = [
+  {
+    id: 'restrict_scan',
+    label: 'Restricted Scan',
+    hint: 'Cannot scan / re-link WhatsApp during the restriction period. Demote to device-farm scan-in for later recovery.',
+  },
+  {
+    id: 'restrict_chat_new',
+    label: 'Restricted Chat New Contact',
+    hint: 'Can still scan / stay linked, but chat is limited to existing contacts only (no new contacts).',
+  },
+];
+
 function NurturingColGroup({ showSite }) {
   return (
     <colgroup>
@@ -92,6 +107,8 @@ export default function NurturingPanels() {
   const [scanRow, setScanRow] = useState(null);
   const [banRow, setBanRow] = useState(null);
   const [banReason, setBanReason] = useState(BAN_REASONS_MANUAL[0]);
+  const [strictRow, setStrictRow] = useState(null);
+  const [strictKind, setStrictKind] = useState('restrict_scan');
   const [scanIpId, setScanIpId] = useState('');
   const [scanOk, setScanOk] = useState(false);
   const [scanSlot, setScanSlot] = useState(null);
@@ -105,14 +122,25 @@ export default function NurturingPanels() {
   const { data: engineData, refetch: refetchEngine } = useEngineStatus();
 
   /** Mirror operator Strict/Banned into FeedFlow feeding audit (needs wsaf_slot). */
-  async function syncOutcomeToFeedingAudit(row, feedingStatus) {
+  async function syncOutcomeToFeedingAudit(row, feedingStatus, opts = {}) {
     if (row?.wsaf_slot == null) return;
     try {
-      await recordFeedingAuditEntry(nurturingOutcomeAuditPayload(row, feedingStatus));
+      await recordFeedingAuditEntry(nurturingOutcomeAuditPayload(row, feedingStatus, opts));
       qc.invalidateQueries({ queryKey: ['bridge', 'audit'] });
     } catch {
       /* engine offline — nurturing action already succeeded */
     }
+  }
+
+  function openStrict(row) {
+    setStrictRow(row);
+    setStrictKind('restrict_scan');
+  }
+
+  function closeStrict() {
+    if (busy) return;
+    setStrictRow(null);
+    setStrictKind('restrict_scan');
   }
 
   const engineReachable = engineData?.reachable === true;
@@ -351,22 +379,42 @@ export default function NurturingPanels() {
     }
   }
 
-  /** Strict/restrict — stay nurturing, demote to manual scan-in (can re-link). */
-  async function markStrict(row) {
-    if (busy) return;
+  /**
+   * Strict/restrict subtypes:
+   * - Restricted Scan → cannot scan during restriction; demote to manual (no auto-open scan)
+   * - Restricted Chat New Contact → scan OK; chat limited to existing contacts; keep phase
+   */
+  async function confirmStrict() {
+    if (!strictRow || busy) return;
+    const row = strictRow;
+    const kind = strictKind;
     setBusy(true);
     try {
-      // Day 3 ready: started_at = now − 2 days so isManualScanDue is true.
-      const startedAt = new Date(Date.now() - 2 * 86_400_000).toISOString();
-      const patch = {
-        nurturing_phase: 'manual',
-        nurturing_started_at: startedAt,
-        human_note: 'Strict / restricted — rescan required',
-      };
+      let patch;
+      if (kind === 'restrict_chat_new') {
+        patch = {
+          human_note:
+            'Restricted Chat New Contact — can scan; chat limited to existing contacts only',
+        };
+      } else {
+        // Restricted Scan: demote to device farm; do not open scan now (cannot scan during strict).
+        const startedAt = new Date(Date.now() - 2 * 86_400_000).toISOString();
+        patch = {
+          nurturing_phase: 'manual',
+          nurturing_started_at: startedAt,
+          human_note:
+            'Restricted Scan — cannot scan / re-link during restriction period',
+        };
+      }
       await patchAccount.mutateAsync({ id: row.id, row, patch });
-      await syncOutcomeToFeedingAudit(row, FEEDING_STATUS.RESTRICT);
-      showToast(toastCopy.nurturingStrict(row.acct));
-      openScan({ ...row, ...patch, day: 3 });
+      await syncOutcomeToFeedingAudit(row, FEEDING_STATUS.RESTRICT, { restrictKind: kind });
+      showToast(
+        kind === 'restrict_chat_new'
+          ? toastCopy.nurturingStrictChatNew(row.acct)
+          : toastCopy.nurturingStrictScan(row.acct),
+      );
+      setStrictRow(null);
+      setStrictKind('restrict_scan');
     } catch (e) {
       showToast(e.message || 'Update failed');
     } finally {
@@ -478,7 +526,7 @@ export default function NurturingPanels() {
                           <button
                             type="button"
                             className="table-icon-btn table-icon-btn--accent"
-                            onClick={() => markStrict(row)}
+                            onClick={() => openStrict(row)}
                             aria-label="Mark strict"
                           >
                             <AlertTriangle size={15} strokeWidth={2} />
@@ -582,7 +630,7 @@ export default function NurturingPanels() {
                           <button
                             type="button"
                             className="table-icon-btn table-icon-btn--accent"
-                            onClick={() => markStrict(row)}
+                            onClick={() => openStrict(row)}
                             aria-label="Mark strict"
                           >
                             <AlertTriangle size={15} strokeWidth={2} />
@@ -726,6 +774,73 @@ export default function NurturingPanels() {
           </div>
         )}
       </Drawer>
+
+      <DetailDialog
+        open={!!strictRow}
+        title="Mark Strict"
+        onClose={closeStrict}
+        cardClassName="max-w-md"
+        footer={(
+          <>
+            <button type="button" className="btn btn-ghost" disabled={busy} onClick={closeStrict}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={busy || !strictKind}
+              onClick={confirmStrict}
+            >
+              {busy ? 'Saving…' : 'Confirm Strict'}
+            </button>
+          </>
+        )}
+      >
+        {strictRow && (
+          <div className="space-y-4">
+            <p className="text-[12.5px] leading-relaxed text-ams-muted">
+              Choose the restriction type shown on the phone / WhatsApp. Both count as
+              Restrict in feeding audit.
+            </p>
+            <div className="rounded-lg border border-ams-line bg-ams-surface-muted px-3 py-2">
+              <div className="text-[11px] font-medium uppercase tracking-wide text-ams-faint">Account</div>
+              <div className="text-sm font-semibold text-ams-ink">{strictRow.acct}</div>
+            </div>
+            <fieldset className="space-y-2">
+              <legend className="mb-1 text-[12px] font-semibold text-ams-ink">Restriction type</legend>
+              {STRICT_KINDS.map((opt) => {
+                const selected = strictKind === opt.id;
+                return (
+                  <label
+                    key={opt.id}
+                    className={`flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-3 text-[13px] ${
+                      selected
+                        ? 'border-ams-accent bg-ams-accent/5 text-ams-ink'
+                        : 'border-ams-line bg-ams-surface text-ams-muted hover:border-ams-accent/40'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      className="ams-check mt-0.5 shrink-0"
+                      name="strict-kind"
+                      value={opt.id}
+                      checked={selected}
+                      disabled={busy}
+                      onChange={() => setStrictKind(opt.id)}
+                    />
+                    <span>
+                      <span className="block font-semibold text-ams-ink">{opt.label}</span>
+                      <span className="mt-0.5 block text-[12px] leading-relaxed text-ams-muted">
+                        {opt.hint}
+                      </span>
+                    </span>
+                  </label>
+                );
+              })}
+            </fieldset>
+          </div>
+        )}
+      </DetailDialog>
 
       <Drawer
         open={!!banRow}

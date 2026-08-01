@@ -47,6 +47,8 @@ export const toastCopy = {
   nurturingGraduated: (name) => `${name} · standby pool`,
   nurturingBanned: (name) => `${name} · banned · see Recovery`,
   nurturingStrict: (name) => `${name} · strict · back to scan-in`,
+  nurturingStrictScan: (name) => `${name} · restricted scan · cannot scan during restriction`,
+  nurturingStrictChatNew: (name) => `${name} · restricted chat · existing contacts only`,
 
   activationLinked: (name) => `${name} · WhatsApp linked`,
   activationDone: (name) => `${name} · activated · Nurturing`,

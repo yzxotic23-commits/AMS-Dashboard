@@ -96,6 +96,21 @@ export function useAccountMutations() {
     onSuccess: invalidate,
   });
 
+  const markStrict = useMutation({
+    mutationFn: async ({ id, kind }) => {
+      const res = await api.post(`/accounts/${id}/mark-strict`, { kind });
+      return {
+        account: accountToOperatorRow(res.data),
+        strict: res.data?._strict || null,
+      };
+    },
+    onSuccess: () => {
+      invalidate();
+      qc.invalidateQueries({ queryKey: ['bridge', 'audit'] });
+      qc.invalidateQueries({ queryKey: ['audit'] });
+    },
+  });
+
   const logRegistration = useMutation({
     mutationFn: async (body) => {
       const res = await api.post('/registrations', body);
@@ -105,6 +120,12 @@ export function useAccountMutations() {
   });
 
   return {
-    patchAccount, transitionAccount, createAccount, banAccount, logRegistration, invalidate,
+    patchAccount,
+    transitionAccount,
+    createAccount,
+    banAccount,
+    markStrict,
+    logRegistration,
+    invalidate,
   };
 }

@@ -18,6 +18,18 @@ const STATUS_CLASS = {
   Banned: 'badge-danger',
 };
 
+const REASON_LABEL = {
+  operator_strict_scan: 'Restricted Scan',
+  operator_strict_chat_new: 'Restricted Chat New Contact',
+  operator_strict: 'Strict',
+  operator_banned: 'Banned',
+};
+
+function formatAuditReason(reason) {
+  if (!reason) return '—';
+  return REASON_LABEL[reason] || String(reason).replace(/_/g, ' ');
+}
+
 const TONE_CLASS = {
   ok: 'metric-ok',
   warn: 'metric-warn',
@@ -149,13 +161,14 @@ export default function FeedingAuditPanel() {
                   <th>Location</th>
                   <th>Day</th>
                   <th>Status</th>
+                  <th>Reason</th>
                   <th>IP</th>
                 </tr>
               </thead>
               <tbody>
                 {pageRows.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="empty-cell">
+                    <td colSpan={7} className="empty-cell">
                       {site === 'all'
                         ? 'No feeding events yet.'
                         : `No feeding events for ${siteLabel}.`}
@@ -171,6 +184,9 @@ export default function FeedingAuditPanel() {
                       <span className={`badge ${STATUS_CLASS[row.feedingStatus] || 'badge-default'}`}>
                         {row.feedingStatus}
                       </span>
+                    </td>
+                    <td className="col-muted max-w-[180px] truncate" title={row.reason || ''}>
+                      {formatAuditReason(row.reason)}
                     </td>
                     <td className="col-mono col-muted">{row.ipAddress || '—'}</td>
                   </tr>

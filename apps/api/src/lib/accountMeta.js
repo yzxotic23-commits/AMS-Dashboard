@@ -20,3 +20,21 @@ export function parsePrefixedJsonBlock(notes, prefix) {
 export function parseOperatorMeta(account) {
   return parsePrefixedJsonBlock(account?.notes, META_PREFIX) || {};
 }
+
+/** Write human note + `_ams_op:{...}` meta into accounts.notes. */
+export function serializeAccountNotes(meta = {}, humanNote = '') {
+  const clean = String(humanNote || '')
+    .replace(new RegExp(`${META_PREFIX}[\\s\\S]*$`), '')
+    .trim();
+  const payload = `${META_PREFIX}${JSON.stringify(meta)}`;
+  return clean ? `${clean}\n${payload}` : payload;
+}
+
+/** Merge patch fields into existing operator meta and rebuild notes. */
+export function mergeOperatorNotes(currentNotes, metaPatch = {}, humanNote) {
+  const prev = parseOperatorMeta({ notes: currentNotes });
+  const next = { ...prev, ...metaPatch };
+  const note = humanNote !== undefined ? humanNote : (next.human_note || '');
+  if (humanNote !== undefined) next.human_note = humanNote;
+  return serializeAccountNotes(next, note);
+}

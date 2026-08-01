@@ -15,8 +15,9 @@ import {
   ACCOUNT_SELECT_WITH_SIM_LOCATION,
 } from '../../lib/accountSelect.js';
 import { enrichAccountsIpEmbed } from '../../lib/accountEnrich.js';
-import { parseOperatorMeta } from '../../lib/accountMeta.js';
+import { parseOperatorMeta, mergeOperatorNotes } from '../../lib/accountMeta.js';
 import { assertDeviceSlotAvailable, DeviceSlotError } from '../../lib/deviceSlots.js';
+import { postWsafAuditRecord } from '../../lib/wsafBridge.js';
 
 const router = Router();
 router.use(authenticate);
@@ -54,6 +55,20 @@ const banSchema = z.object({
   reason: z.string().min(1),
   source: z.string().optional(),
 });
+
+const markStrictSchema = z.object({
+  kind: z.enum(['restrict_scan', 'restrict_chat_new']),
+});
+
+const STRICT_KIND_LABEL = {
+  restrict_scan: 'Restricted Scan',
+  restrict_chat_new: 'Restricted Chat New Contact',
+};
+
+const SITE_AUDIT_LOCATION = {
+  my: 'Malaysia',
+  pp: 'Poipet',
+};
 
 async function recordAssignmentHistory(accountId, field, oldId, newId, userId) {
   const tableMap = {
@@ -478,6 +493,114 @@ router.post('/:id/ban', async (req, res, next) => {
     });
 
     res.json(data);
+  } catch (e) {
+    next(e);
+  }
+});
+
+// POST /accounts/:id/mark-strict — Restricted Scan | Restricted Chat New Contact
+router.post('/:id/mark-strict', async (req, res, next) => {
+  try {
+    const { kind } = markStrictSchema.parse(req.body);
+    const { data: current, error: fetchErr } = await supabaseAdmin
+      .from('accounts')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+    if (fetchErr) throw fetchErr;
+
+    const label = STRICT_KIND_LABEL[kind];
+    const meta = parseOperatorMeta(current);
+    const siteKey = meta.site_key || 'my';
+
+    let humanNote;
+    let metaPatch = { restrict_kind: kind };
+    if (kind === 'restrict_chat_new') {
+      humanNote = 'Restricted Chat New Contact — can scan; chat limited to existing contacts only';
+    } else {
+      humanNote = 'Restricted Scan — cannot scan / re-link during restriction period';
+      // Demote to device-farm manual for later recovery (do not force scan now).
+      metaPatch = {
+        ...metaPatch,
+        nurturing_phase: 'manual',
+        nurturing_started_at: new Date(Date.now() - 2 * 86_400_000).toISOString(),
+      };
+    }
+
+    const notes = mergeOperatorNotes(current.notes, metaPatch, humanNote);
+    const { data, error } = await supabaseAdmin
+      .from('accounts')
+      .update({ notes })
+      .eq('id', req.params.id)
+      .select(ACCOUNT_SELECT_WITH_SIM_LOCATION)
+      .single();
+    if (error) throw error;
+
+    const auditReason = kind === 'restrict_scan'
+      ? 'operator_strict_scan'
+      : 'operator_strict_chat_new';
+
+    await writeAudit({
+      entityType: 'account',
+      entityId: data.id,
+      action: 'UPDATE',
+      previousValue: {
+        status: current.status,
+        restrict_kind: meta.restrict_kind || null,
+        human_note: meta.human_note || null,
+      },
+      newValue: {
+        account_name: data.account_name,
+        phone_number: data.phone_number,
+        field: 'Strict',
+        from: '—',
+        to: label,
+        restrictKind: kind,
+        human_note: humanNote,
+      },
+      metadata: {
+        account_name: data.account_name,
+        field: 'Strict',
+        from: '—',
+        to: label,
+        restrictKind: kind,
+        reason: auditReason,
+      },
+      userId: req.profile.id,
+      req,
+    });
+
+    // Feeding Log (FeedFlow audit) — best-effort; AMS audit already persisted.
+    let feedingAudit = null;
+    try {
+      const ipJoin = data.ips;
+      const ipAddress = Array.isArray(ipJoin)
+        ? ipJoin[0]?.ip_address
+        : ipJoin?.ip_address;
+      feedingAudit = await postWsafAuditRecord({
+        slot: data.wsaf_slot,
+        accountName: data.account_name,
+        feedingStatus: 'Restrict',
+        reason: auditReason,
+        restrictKind: kind,
+        runId: `ams-nurture-${auditReason}-${data.id}-${Date.now()}`,
+        location: SITE_AUDIT_LOCATION[siteKey] || null,
+        ipAddress: ipAddress || null,
+        strictScanPossible: kind === 'restrict_scan',
+      });
+    } catch (feedErr) {
+      console.warn('[mark-strict] feeding audit skipped:', feedErr?.message || feedErr);
+    }
+
+    res.json({
+      ...data,
+      _strict: {
+        kind,
+        label,
+        amsAudit: true,
+        feedingAudit: Boolean(feedingAudit),
+      },
+    });
   } catch (e) {
     next(e);
   }

@@ -118,7 +118,7 @@ export default function NurturingPanels() {
   const qc = useQueryClient();
   const { data: nurturing = [], isLoading } = useAccountsByStatus('NURTURING');
   const { data: allAccounts = [] } = useAllAccounts();
-  const { patchAccount, transitionAccount, banAccount } = useAccountMutations();
+  const { patchAccount, transitionAccount, banAccount, markStrict } = useAccountMutations();
   const { data: engineData, refetch: refetchEngine } = useEngineStatus();
 
   /** Mirror operator Strict/Banned into FeedFlow feeding audit (needs wsaf_slot). */
@@ -380,9 +380,9 @@ export default function NurturingPanels() {
   }
 
   /**
-   * Strict/restrict subtypes:
-   * - Restricted Scan → cannot scan during restriction; demote to manual (no auto-open scan)
-   * - Restricted Chat New Contact → scan OK; chat limited to existing contacts; keep phase
+   * Strict/restrict subtypes — writes AMS Audit Log + Feeding Log via API.
+   * - Restricted Scan → cannot scan during restriction; demote to manual
+   * - Restricted Chat New Contact → scan OK; chat limited to existing contacts
    */
   async function confirmStrict() {
     if (!strictRow || busy) return;
@@ -390,33 +390,19 @@ export default function NurturingPanels() {
     const kind = strictKind;
     setBusy(true);
     try {
-      let patch;
-      if (kind === 'restrict_chat_new') {
-        patch = {
-          human_note:
-            'Restricted Chat New Contact — can scan; chat limited to existing contacts only',
-        };
+      const result = await markStrict.mutateAsync({ id: row.id, kind });
+      const base = kind === 'restrict_chat_new'
+        ? toastCopy.nurturingStrictChatNew(row.acct)
+        : toastCopy.nurturingStrictScan(row.acct);
+      if (result?.strict?.feedingAudit === false) {
+        showToast(`${base} · AMS Audit OK · Feeding Log offline`);
       } else {
-        // Restricted Scan: demote to device farm; do not open scan now (cannot scan during strict).
-        const startedAt = new Date(Date.now() - 2 * 86_400_000).toISOString();
-        patch = {
-          nurturing_phase: 'manual',
-          nurturing_started_at: startedAt,
-          human_note:
-            'Restricted Scan — cannot scan / re-link during restriction period',
-        };
+        showToast(`${base} · AMS Audit + Feeding Log`);
       }
-      await patchAccount.mutateAsync({ id: row.id, row, patch });
-      await syncOutcomeToFeedingAudit(row, FEEDING_STATUS.RESTRICT, { restrictKind: kind });
-      showToast(
-        kind === 'restrict_chat_new'
-          ? toastCopy.nurturingStrictChatNew(row.acct)
-          : toastCopy.nurturingStrictScan(row.acct),
-      );
       setStrictRow(null);
       setStrictKind('restrict_scan');
     } catch (e) {
-      showToast(e.message || 'Update failed');
+      showToast(e?.response?.data?.error || e.message || 'Update failed');
     } finally {
       setBusy(false);
     }
@@ -799,8 +785,8 @@ export default function NurturingPanels() {
         {strictRow && (
           <div className="space-y-4">
             <p className="text-[12.5px] leading-relaxed text-ams-muted">
-              Choose the restriction type shown on the phone / WhatsApp. Both count as
-              Restrict in feeding audit.
+              Choose the restriction type shown on the phone / WhatsApp. Saved to
+              AMS Audit Log and Feeding Log (Restrict).
             </p>
             <div className="rounded-lg border border-ams-line bg-ams-surface-muted px-3 py-2">
               <div className="text-[11px] font-medium uppercase tracking-wide text-ams-faint">Account</div>

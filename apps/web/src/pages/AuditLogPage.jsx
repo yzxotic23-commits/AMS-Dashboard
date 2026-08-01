@@ -70,6 +70,16 @@ function describeMeta(row) {
     return describeAssignment(m) || describeAssignment(next) || m.account_name || 'Assignment updated';
   }
 
+  // Mark Strict (Restricted Scan / Restricted Chat New Contact)
+  if (
+    row.action === 'UPDATE'
+    && (m.restrictKind || next.restrictKind || m.field === 'Strict' || next.field === 'Strict')
+  ) {
+    const name = m.account_name || next.account_name || '';
+    const label = m.to || next.to || m.restrictKind || next.restrictKind || 'Strict';
+    return name ? `${name} · Strict: ${label}` : `Strict: ${label}`;
+  }
+
   // Legacy UPDATE rows that only swapped ip_id — surface IP change in Detail.
   if (
     row.action === 'UPDATE'

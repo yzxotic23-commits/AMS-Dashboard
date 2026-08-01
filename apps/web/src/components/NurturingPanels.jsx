@@ -17,8 +17,24 @@ import {
 } from '../lib/nurturing-day';
 import { NURT_STATUS, toastCopy } from '../lib/operator-copy';
 import { formatProxyOptionLabel, proxyUrlFromIp } from '../lib/proxy-display';
-import { FEEDING_STATUS, feedflowSlotLabelBody, nurturingOutcomeAuditPayload } from '../lib/feeding-audit';
+import {
+  CURRENT_STATUS,
+  FEEDING_STATUS,
+  feedflowSlotLabelBody,
+  nurturingOutcomeAuditPayload,
+} from '../lib/feeding-audit';
 import { buildSlotTakenByMap, liveSlotConnection } from '../lib/engine-slot';
+
+/** FeedFlow Current Status overlays nurturing phase badge when set. */
+function nurturingStatusFromRestrict(row) {
+  if (row?.restrict_kind === 'restrict_scan') {
+    return { label: CURRENT_STATUS.RESTRICTED_SCAN, className: 'badge-warn' };
+  }
+  if (row?.restrict_kind === 'restrict_chat_new') {
+    return { label: CURRENT_STATUS.RESTRICTED_CHAT_NEW, className: 'badge-warn' };
+  }
+  return null;
+}
 import {
   clearSlotDisplayLabel,
   isEngineSlotLinked,
@@ -466,6 +482,10 @@ export default function NurturingPanels() {
                 </tr>
               ) : manualList.map((row) => {
                 const due = isManualScanDue(row);
+                const restrictStatus = nurturingStatusFromRestrict(row);
+                const statusLabel = restrictStatus?.label
+                  || (due ? NURT_STATUS.readyScan : NURT_STATUS.manual);
+                const statusClass = restrictStatus?.className || 'badge-warn';
                 return (
                   <tr key={row.id}>
                     <td className="font-semibold text-ams-blue">{row.acct}</td>
@@ -474,8 +494,8 @@ export default function NurturingPanels() {
                       <ProgressBar day={row.day} max={3} tone="warn" />
                     </td>
                     <td className="col-center">
-                      <span className="badge badge-warn">
-                        {due ? NURT_STATUS.readyScan : NURT_STATUS.manual}
+                      <span className={`badge ${statusClass}`}>
+                        {statusLabel}
                       </span>
                     </td>
                     {site === 'all' && (
@@ -561,9 +581,13 @@ export default function NurturingPanels() {
                 // Disconnect = live engine slot, not Feeding audit status.
                 const linkState = liveSlotConnection(row, engineSlots);
                 const offline = linkState === 'offline';
+                const restrictStatus = nurturingStatusFromRestrict(row);
                 let statusLabel = NURT_STATUS.auto;
                 let statusClass = 'badge-accent';
-                if (offline) {
+                if (restrictStatus) {
+                  statusLabel = restrictStatus.label;
+                  statusClass = restrictStatus.className;
+                } else if (offline) {
                   statusLabel = NURT_STATUS.offline;
                   statusClass = 'badge-default';
                 } else if (gradDue) {

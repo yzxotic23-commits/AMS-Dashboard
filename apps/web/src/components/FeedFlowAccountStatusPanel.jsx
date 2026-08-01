@@ -53,6 +53,7 @@ export default function FeedFlowAccountStatusPanel() {
   const { data: engineData, isLoading: engineLoading, isFetching, refetch } = useEngineStatus();
   const { data: accounts = [], isLoading: accountsLoading } = useAllAccounts();
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState(null); // active | restrict_scan | restrict_chat_new
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -86,14 +87,18 @@ export default function FeedFlowAccountStatusPanel() {
   }, [slots, accounts, site]);
 
   const rows = useMemo(() => {
+    let list = allRows;
+    if (statusFilter) {
+      list = list.filter((row) => row.kind === statusFilter);
+    }
     const q = search.trim().toLowerCase();
-    if (!q) return allRows;
-    return allRows.filter((row) => {
+    if (!q) return list;
+    return list.filter((row) => {
       const name = String(row.label || '').toLowerCase();
       const phone = String(row.phone || '').toLowerCase();
       return name.includes(q) || phone.includes(q);
     });
-  }, [allRows, search]);
+  }, [allRows, search, statusFilter]);
 
   const total = rows.length;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -107,11 +112,15 @@ export default function FeedFlowAccountStatusPanel() {
 
   useEffect(() => {
     setPage(1);
-  }, [site, pageSize, search]);
+  }, [site, pageSize, search, statusFilter]);
 
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
   }, [page, totalPages]);
+
+  useEffect(() => {
+    setStatusFilter(null);
+  }, [site]);
 
   const counts = useMemo(() => {
     const c = { active: 0, restrict_scan: 0, restrict_chat_new: 0, unmatched: 0 };
@@ -122,8 +131,19 @@ export default function FeedFlowAccountStatusPanel() {
     return c;
   }, [allRows]);
 
+  function toggleStatusFilter(kind) {
+    setStatusFilter((prev) => (prev === kind ? null : kind));
+  }
+
   const loading = engineLoading || accountsLoading;
   const searchActive = search.trim().length > 0;
+  const filterActive = Boolean(statusFilter);
+
+  const chipBase = 'rounded-full px-2.5 py-1 transition-colors';
+  const chipIdle = 'bg-ams-surface-muted text-ams-muted hover:bg-ams-line/60';
+  const chipWarnIdle = 'bg-ams-warn/10 text-ams-warn hover:bg-ams-warn/20';
+  const chipActiveSelected = 'bg-ams-success/15 text-ams-success ring-1 ring-ams-success/40';
+  const chipWarnSelected = 'bg-ams-warn/20 text-ams-warn ring-1 ring-ams-warn/50';
 
   return (
     <section className="card mb-6 overflow-hidden">
@@ -131,7 +151,7 @@ export default function FeedFlowAccountStatusPanel() {
         <div className="min-w-0 flex-1 pr-3">
           <h2 className="text-sm font-semibold text-ams-ink">Current Status (FeedFlow accounts)</h2>
           <p className="text-[11px] text-ams-faint">
-            Real-time fleet view — change status from Nurturing (Mark Strict).
+            Real-time fleet view — change status from Nurturing (Mark Strict). Click a count to filter.
           </p>
         </div>
         <div className="engine-panel-actions !flex-nowrap shrink-0">
@@ -163,15 +183,30 @@ export default function FeedFlowAccountStatusPanel() {
       </div>
 
       <div className="flex flex-wrap gap-2 border-b border-ams-line px-5 py-3 text-[12px]">
-        <span className="rounded-full bg-ams-surface-muted px-2.5 py-1 text-ams-muted">
-          Active <strong className="text-ams-ink">{counts.active}</strong>
-        </span>
-        <span className="rounded-full bg-ams-warn/10 px-2.5 py-1 text-ams-warn">
+        <button
+          type="button"
+          className={`${chipBase} ${statusFilter === 'active' ? chipActiveSelected : chipIdle}`}
+          aria-pressed={statusFilter === 'active'}
+          onClick={() => toggleStatusFilter('active')}
+        >
+          Active <strong className={statusFilter === 'active' ? '' : 'text-ams-ink'}>{counts.active}</strong>
+        </button>
+        <button
+          type="button"
+          className={`${chipBase} ${statusFilter === 'restrict_scan' ? chipWarnSelected : chipWarnIdle}`}
+          aria-pressed={statusFilter === 'restrict_scan'}
+          onClick={() => toggleStatusFilter('restrict_scan')}
+        >
           Restricted Scan <strong>{counts.restrict_scan}</strong>
-        </span>
-        <span className="rounded-full bg-ams-warn/10 px-2.5 py-1 text-ams-warn">
+        </button>
+        <button
+          type="button"
+          className={`${chipBase} ${statusFilter === 'restrict_chat_new' ? chipWarnSelected : chipWarnIdle}`}
+          aria-pressed={statusFilter === 'restrict_chat_new'}
+          onClick={() => toggleStatusFilter('restrict_chat_new')}
+        >
           Chat New Contact <strong>{counts.restrict_chat_new}</strong>
-        </span>
+        </button>
         {!reachable && (
           <span className="rounded-full bg-ams-danger/10 px-2.5 py-1 text-ams-danger">
             Engine offline
@@ -185,9 +220,11 @@ export default function FeedFlowAccountStatusPanel() {
         <p className="p-8 text-center text-sm text-ams-faint">
           No FeedFlow slots for this site. Link accounts in Nurturing scan-in first.
         </p>
-      ) : rows.length === 0 && searchActive ? (
+      ) : rows.length === 0 && (searchActive || filterActive) ? (
         <p className="p-8 text-center text-sm text-ams-faint">
-          No accounts match “{search.trim()}”.
+          {searchActive
+            ? `No accounts match “${search.trim()}”.`
+            : `No accounts with status ${STATUS_LABEL[statusFilter] || statusFilter}.`}
         </p>
       ) : (
         <>

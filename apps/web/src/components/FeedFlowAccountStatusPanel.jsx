@@ -14,6 +14,12 @@ const STATUS_OPTIONS = [
   { kind: 'restrict_chat_new', label: CURRENT_STATUS.RESTRICTED_CHAT_NEW },
 ];
 
+const STATUS_BADGE = {
+  active: 'badge-accent',
+  restrict_scan: 'badge-warn',
+  restrict_chat_new: 'badge-warn',
+};
+
 function kindFromAccount(account) {
   if (account?.restrict_kind === 'restrict_scan') return 'restrict_scan';
   if (account?.restrict_kind === 'restrict_chat_new') return 'restrict_chat_new';
@@ -158,11 +164,13 @@ export default function FeedFlowAccountStatusPanel() {
                 <th>Live</th>
                 {site === 'all' && <th>Site</th>}
                 <th>Current Status</th>
+                <th className="col-action">Action</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => {
                 const busy = busyId === row.account?.id;
+                const statusLabel = STATUS_OPTIONS.find((o) => o.kind === row.kind)?.label || 'Active';
                 return (
                   <tr key={`slot-${row.slot.slot}`}>
                     <td className="col-mono col-muted">{Number(row.slot.slot) + 1}</td>
@@ -180,13 +188,18 @@ export default function FeedFlowAccountStatusPanel() {
                     )}
                     <td>
                       {row.account ? (
-                        <div className="flex items-center gap-2">
+                        <span className={`badge ${STATUS_BADGE[row.kind] || 'badge-default'}`}>
+                          {statusLabel}
+                        </span>
+                      ) : (
+                        <span className="text-[12px] text-ams-faint">—</span>
+                      )}
+                    </td>
+                    <td className="col-action">
+                      {row.account ? (
+                        <div className="flex items-center justify-end gap-2">
                           <select
-                            className={`input py-1.5 text-[12px] font-medium ${
-                              row.kind === 'active'
-                                ? 'border-ams-accent/40 text-ams-ink'
-                                : 'border-ams-warn/50 text-ams-warn'
-                            }`}
+                            className="input py-1.5 text-[12px]"
                             style={{ minWidth: '13.5rem' }}
                             value={row.kind}
                             disabled={busy || !!busyId}

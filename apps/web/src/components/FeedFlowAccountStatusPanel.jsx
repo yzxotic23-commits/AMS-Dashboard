@@ -1,20 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
 import { RefreshCw, Search } from 'lucide-react';
-import Toast from './Toast';
 import { useSite } from '../context/SiteContext';
 import { useEngineStatus } from '../hooks/useEngineStatus';
-import { useAccountMutations, useAllAccounts } from '../hooks/useOperatorAccounts';
+import { useAllAccounts } from '../hooks/useOperatorAccounts';
 import { matchAccountForEngineSlot } from '../lib/engine-slot';
 import { CURRENT_STATUS } from '../lib/feeding-audit';
 import { SITES, getSiteChipClass } from '../lib/sites';
 
 const PAGE_SIZES = [10, 20, 50];
 
-const STATUS_OPTIONS = [
-  { kind: 'active', label: CURRENT_STATUS.ACTIVE, short: 'Active' },
-  { kind: 'restrict_scan', label: CURRENT_STATUS.RESTRICTED_SCAN, short: 'Restrict Scan' },
-  { kind: 'restrict_chat_new', label: CURRENT_STATUS.RESTRICTED_CHAT_NEW, short: 'Restrict Chat New' },
-];
+const STATUS_LABEL = {
+  active: CURRENT_STATUS.ACTIVE,
+  restrict_scan: CURRENT_STATUS.RESTRICTED_SCAN,
+  restrict_chat_new: CURRENT_STATUS.RESTRICTED_CHAT_NEW,
+  banned: 'Banned',
+};
 
 const STATUS_BADGE = {
   active: 'badge-success',
@@ -24,7 +24,7 @@ const STATUS_BADGE = {
 };
 
 const LIVE_BADGE = {
-  Feeding: 'badge-success',
+  Feeding: 'badge-warn',
   Online: 'badge-success',
   Linking: 'badge-warn',
   Offline: 'badge-default',
@@ -46,16 +46,12 @@ function slotLiveLabel(slot) {
 }
 
 /**
- * Real-time FeedFlow fleet statuses — R&M can change Current Status here
- * (Active / Restricted Scan / Restricted Chat New Contact).
+ * Read-only FeedFlow fleet Current Status — change status from Nurturing (Mark Strict).
  */
 export default function FeedFlowAccountStatusPanel() {
   const { site } = useSite();
   const { data: engineData, isLoading: engineLoading, isFetching, refetch } = useEngineStatus();
   const { data: accounts = [], isLoading: accountsLoading } = useAllAccounts();
-  const { markStrict } = useAccountMutations();
-  const [busyId, setBusyId] = useState(null);
-  const [toast, setToast] = useState('');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -84,7 +80,6 @@ export default function FeedFlowAccountStatusPanel() {
       };
     }).filter((row) => {
       if (site === 'all') return true;
-      // Keep unmapped engine slots visible on All only; when filtered, prefer matched site.
       if (!row.account) return false;
       return row.account.siteKey === site;
     });
@@ -127,26 +122,6 @@ export default function FeedFlowAccountStatusPanel() {
     return c;
   }, [allRows]);
 
-  const showToast = (msg) => {
-    setToast(msg);
-    setTimeout(() => setToast(''), 3800);
-  };
-
-  async function changeStatus(row, nextKind) {
-    if (!row.account || busyId || nextKind === row.kind) return;
-    setBusyId(row.account.id);
-    try {
-      await markStrict.mutateAsync({ id: row.account.id, kind: nextKind });
-      const label = STATUS_OPTIONS.find((o) => o.kind === nextKind)?.label || nextKind;
-      showToast(`${row.label} · Current Status → ${label}`);
-      refetch();
-    } catch (e) {
-      showToast(e?.response?.data?.error || e.message || 'Failed to update status');
-    } finally {
-      setBusyId(null);
-    }
-  }
-
   const loading = engineLoading || accountsLoading;
   const searchActive = search.trim().length > 0;
 
@@ -156,8 +131,7 @@ export default function FeedFlowAccountStatusPanel() {
         <div className="min-w-0 flex-1 pr-3">
           <h2 className="text-sm font-semibold text-ams-ink">Current Status (FeedFlow accounts)</h2>
           <p className="text-[11px] text-ams-faint">
-            Real-time fleet tracking — change status here when an account becomes Restricted Scan
-            or Restricted Chat New Contact (writes AMS Audit + Feeding Log).
+            Real-time fleet view — change status from Nurturing (Mark Strict).
           </p>
         </div>
         <div className="engine-panel-actions !flex-nowrap shrink-0">
@@ -226,7 +200,6 @@ export default function FeedFlowAccountStatusPanel() {
                 <col className="ff-col-live" />
                 {site === 'all' && <col className="ff-col-site" />}
                 <col className="ff-col-status" />
-                <col className="ff-col-action" />
               </colgroup>
               <thead>
                 <tr>
@@ -236,18 +209,12 @@ export default function FeedFlowAccountStatusPanel() {
                   <th className="col-center">Live</th>
                   {site === 'all' && <th className="col-center">Site</th>}
                   <th className="col-center">Current Status</th>
-                  <th className="col-center">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {pageRows.map((row) => {
-                  const busy = busyId === row.account?.id;
-                  const statusOpt = STATUS_OPTIONS.find((o) => o.kind === row.kind);
-                  const statusLabel = row.kind === 'banned'
-                    ? 'Banned'
-                    : (statusOpt?.label || 'Active');
-                  const actionLabel = statusOpt?.short || 'Active';
                   const liveLabel = slotLiveLabel(row.slot);
+                  const statusLabel = STATUS_LABEL[row.kind] || CURRENT_STATUS.ACTIVE;
                   return (
                     <tr key={`slot-${row.slot.slot}`}>
                       <td className="col-mono col-muted">{Number(row.slot.slot) + 1}</td>
@@ -272,32 +239,6 @@ export default function FeedFlowAccountStatusPanel() {
                           </span>
                         ) : (
                           <span className="text-[12px] text-ams-faint">—</span>
-                        )}
-                      </td>
-                      <td className="col-center whitespace-nowrap">
-                        {row.account && row.kind !== 'banned' ? (
-                          <div className="inline-flex items-center justify-center gap-2">
-                            <select
-                              className="input shrink-0 py-1 text-[12px]"
-                              style={{
-                                width: `calc(${actionLabel.length}ch + 2.25rem)`,
-                                fieldSizing: 'content',
-                              }}
-                              value={row.kind}
-                              disabled={busy || !!busyId}
-                              aria-label={`Change current status for ${row.label}`}
-                              onChange={(e) => changeStatus(row, e.target.value)}
-                            >
-                              {STATUS_OPTIONS.map((opt) => (
-                                <option key={opt.kind} value={opt.kind}>{opt.short}</option>
-                              ))}
-                            </select>
-                            {busy && <span className="text-[11px] text-ams-faint">Saving…</span>}
-                          </div>
-                        ) : row.account ? (
-                          <span className="text-[12px] text-ams-faint">See Recovery</span>
-                        ) : (
-                          <span className="text-[12px] text-ams-faint">No AMS account linked</span>
                         )}
                       </td>
                     </tr>
@@ -350,8 +291,6 @@ export default function FeedFlowAccountStatusPanel() {
           )}
         </>
       )}
-
-      <Toast open={!!toast} message={toast} onClose={() => setToast('')} />
     </section>
   );
 }

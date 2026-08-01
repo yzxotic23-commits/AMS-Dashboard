@@ -1110,19 +1110,17 @@
     table-layout: fixed;
     min-width: 100%;
   }
-  .data-table--ff-status .ff-col-slot { width: 6%; }
-  .data-table--ff-status .ff-col-acct { width: 20%; }
-  .data-table--ff-status .ff-col-phone { width: 16%; }
-  .data-table--ff-status .ff-col-live { width: 10%; }
-  .data-table--ff-status .ff-col-status { width: 26%; }
-  .data-table--ff-status .ff-col-action { width: 22%; }
-  .data-table--ff-status-all .ff-col-slot { width: 5%; }
-  .data-table--ff-status-all .ff-col-acct { width: 16%; }
-  .data-table--ff-status-all .ff-col-phone { width: 14%; }
-  .data-table--ff-status-all .ff-col-live { width: 9%; }
-  .data-table--ff-status-all .ff-col-site { width: 10%; }
-  .data-table--ff-status-all .ff-col-status { width: 24%; }
-  .data-table--ff-status-all .ff-col-action { width: 22%; }
+  .data-table--ff-status .ff-col-slot { width: 7%; }
+  .data-table--ff-status .ff-col-acct { width: 26%; }
+  .data-table--ff-status .ff-col-phone { width: 18%; }
+  .data-table--ff-status .ff-col-live { width: 14%; }
+  .data-table--ff-status .ff-col-status { width: 35%; }
+  .data-table--ff-status-all .ff-col-slot { width: 6%; }
+  .data-table--ff-status-all .ff-col-acct { width: 22%; }
+  .data-table--ff-status-all .ff-col-phone { width: 16%; }
+  .data-table--ff-status-all .ff-col-live { width: 12%; }
+  .data-table--ff-status-all .ff-col-site { width: 12%; }
+  .data-table--ff-status-all .ff-col-status { width: 32%; }
   .data-table--ff-status th.col-center,
   .data-table--ff-status td.col-center {
     @apply text-center;

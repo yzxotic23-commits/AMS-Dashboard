@@ -85,7 +85,7 @@ export default function FeedingAuditPanel() {
           <h2 className="text-sm font-semibold text-ams-ink">Feeding audit log</h2>
           <p className="text-[11px] text-ams-faint">
             Historical feeding outcomes — filtered by site switcher ({siteLabel}).
-            Change live status in Current Status (FeedFlow accounts) above.
+            Change live status from Nurturing (Mark Strict).
           </p>
         </div>
         <div className="engine-panel-actions">

@@ -9,25 +9,34 @@ import { CURRENT_STATUS } from '../lib/feeding-audit';
 import { SITES, getSiteChipClass } from '../lib/sites';
 
 const STATUS_OPTIONS = [
-  { kind: 'active', label: CURRENT_STATUS.ACTIVE },
-  { kind: 'restrict_scan', label: CURRENT_STATUS.RESTRICTED_SCAN },
-  { kind: 'restrict_chat_new', label: CURRENT_STATUS.RESTRICTED_CHAT_NEW },
+  { kind: 'active', label: CURRENT_STATUS.ACTIVE, short: 'Active' },
+  { kind: 'restrict_scan', label: CURRENT_STATUS.RESTRICTED_SCAN, short: 'Restrict Scan' },
+  { kind: 'restrict_chat_new', label: CURRENT_STATUS.RESTRICTED_CHAT_NEW, short: 'Restrict Chat New' },
 ];
 
 const STATUS_BADGE = {
-  active: 'badge-accent',
+  active: 'badge-success',
   restrict_scan: 'badge-warn',
   restrict_chat_new: 'badge-warn',
+  banned: 'badge-danger',
+};
+
+const LIVE_BADGE = {
+  Feeding: 'badge-success',
+  Online: 'badge-success',
+  Linking: 'badge-warn',
+  Offline: 'badge-default',
 };
 
 function kindFromAccount(account) {
+  if (account?.status === 'BANNED') return 'banned';
   if (account?.restrict_kind === 'restrict_scan') return 'restrict_scan';
   if (account?.restrict_kind === 'restrict_chat_new') return 'restrict_chat_new';
   return 'active';
 }
 
 function slotLiveLabel(slot) {
-  if (!slot) return '—';
+  if (!slot) return 'Offline';
   if (slot.feedingActive) return 'Feeding';
   if (slot.linking) return 'Linking';
   if (slot.connected || slot.authSaved) return 'Online';
@@ -161,23 +170,30 @@ export default function FeedFlowAccountStatusPanel() {
                 <th>Slot</th>
                 <th>Account</th>
                 <th>Phone</th>
-                <th>Live</th>
-                {site === 'all' && <th>Site</th>}
-                <th>Current Status</th>
-                <th className="col-action">Action</th>
+                <th className="col-center">Live</th>
+                {site === 'all' && <th className="col-center">Site</th>}
+                <th className="col-center">Current Status</th>
+                <th className="col-center">Action</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => {
                 const busy = busyId === row.account?.id;
-                const statusLabel = STATUS_OPTIONS.find((o) => o.kind === row.kind)?.label || 'Active';
+                const statusOpt = STATUS_OPTIONS.find((o) => o.kind === row.kind);
+                const statusLabel = row.kind === 'banned'
+                  ? 'Banned'
+                  : (statusOpt?.label || 'Active');
+                const actionLabel = statusOpt?.short || 'Active';
+                const liveLabel = slotLiveLabel(row.slot);
                 return (
                   <tr key={`slot-${row.slot.slot}`}>
                     <td className="col-mono col-muted">{Number(row.slot.slot) + 1}</td>
                     <td className="font-medium text-ams-ink">{row.label}</td>
                     <td className="col-mono text-[12px]">{row.phone || '—'}</td>
-                    <td>
-                      <span className="badge badge-default">{slotLiveLabel(row.slot)}</span>
+                    <td className="col-center">
+                      <span className={`badge ${LIVE_BADGE[liveLabel] || 'badge-default'}`}>
+                        {liveLabel}
+                      </span>
                     </td>
                     {site === 'all' && (
                       <td className="col-center">
@@ -186,7 +202,7 @@ export default function FeedFlowAccountStatusPanel() {
                           : '—'}
                       </td>
                     )}
-                    <td>
+                    <td className="col-center">
                       {row.account ? (
                         <span className={`badge ${STATUS_BADGE[row.kind] || 'badge-default'}`}>
                           {statusLabel}
@@ -195,23 +211,28 @@ export default function FeedFlowAccountStatusPanel() {
                         <span className="text-[12px] text-ams-faint">—</span>
                       )}
                     </td>
-                    <td className="col-action">
-                      {row.account ? (
-                        <div className="flex items-center justify-end gap-2">
+                    <td className="col-center whitespace-nowrap">
+                      {row.account && row.kind !== 'banned' ? (
+                        <div className="inline-flex items-center justify-center gap-2">
                           <select
-                            className="input py-1.5 text-[12px]"
-                            style={{ minWidth: '13.5rem' }}
+                            className="input shrink-0 py-1 text-[12px]"
+                            style={{
+                              width: `calc(${actionLabel.length}ch + 2.25rem)`,
+                              fieldSizing: 'content',
+                            }}
                             value={row.kind}
                             disabled={busy || !!busyId}
                             aria-label={`Change current status for ${row.label}`}
                             onChange={(e) => changeStatus(row, e.target.value)}
                           >
                             {STATUS_OPTIONS.map((opt) => (
-                              <option key={opt.kind} value={opt.kind}>{opt.label}</option>
+                              <option key={opt.kind} value={opt.kind}>{opt.short}</option>
                             ))}
                           </select>
                           {busy && <span className="text-[11px] text-ams-faint">Saving…</span>}
                         </div>
+                      ) : row.account ? (
+                        <span className="text-[12px] text-ams-faint">See Recovery</span>
                       ) : (
                         <span className="text-[12px] text-ams-faint">No AMS account linked</span>
                       )}

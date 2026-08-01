@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Search } from 'lucide-react';
 import Toast from './Toast';
 import { useSite } from '../context/SiteContext';
 import { useEngineStatus } from '../hooks/useEngineStatus';
@@ -56,13 +56,14 @@ export default function FeedFlowAccountStatusPanel() {
   const { markStrict } = useAccountMutations();
   const [busyId, setBusyId] = useState(null);
   const [toast, setToast] = useState('');
+  const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
   const slots = engineData?.slots || engineData?.accounts || [];
   const reachable = engineData?.reachable === true;
 
-  const rows = useMemo(() => {
+  const allRows = useMemo(() => {
     const scoped = site === 'all'
       ? accounts
       : accounts.filter((a) => a.siteKey === site);
@@ -89,6 +90,16 @@ export default function FeedFlowAccountStatusPanel() {
     });
   }, [slots, accounts, site]);
 
+  const rows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return allRows;
+    return allRows.filter((row) => {
+      const name = String(row.label || '').toLowerCase();
+      const phone = String(row.phone || '').toLowerCase();
+      return name.includes(q) || phone.includes(q);
+    });
+  }, [allRows, search]);
+
   const total = rows.length;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const safePage = Math.min(page, totalPages);
@@ -101,7 +112,7 @@ export default function FeedFlowAccountStatusPanel() {
 
   useEffect(() => {
     setPage(1);
-  }, [site, pageSize]);
+  }, [site, pageSize, search]);
 
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
@@ -109,12 +120,12 @@ export default function FeedFlowAccountStatusPanel() {
 
   const counts = useMemo(() => {
     const c = { active: 0, restrict_scan: 0, restrict_chat_new: 0, unmatched: 0 };
-    for (const r of rows) {
+    for (const r of allRows) {
       if (!r.account) c.unmatched += 1;
       else c[r.kind] = (c[r.kind] || 0) + 1;
     }
     return c;
-  }, [rows]);
+  }, [allRows]);
 
   const showToast = (msg) => {
     setToast(msg);
@@ -137,18 +148,34 @@ export default function FeedFlowAccountStatusPanel() {
   }
 
   const loading = engineLoading || accountsLoading;
+  const searchActive = search.trim().length > 0;
 
   return (
     <section className="card mb-6 overflow-hidden">
-      <div className="engine-panel-head border-b border-ams-line px-5 py-4">
-        <div>
+      <div className="engine-panel-head !flex-nowrap !items-center border-b border-ams-line px-5 py-4">
+        <div className="min-w-0 flex-1 pr-3">
           <h2 className="text-sm font-semibold text-ams-ink">Current Status (FeedFlow accounts)</h2>
           <p className="text-[11px] text-ams-faint">
             Real-time fleet tracking — change status here when an account becomes Restricted Scan
             or Restricted Chat New Contact (writes AMS Audit + Feeding Log).
           </p>
         </div>
-        <div className="engine-panel-actions">
+        <div className="engine-panel-actions !flex-nowrap shrink-0">
+          <div className="relative">
+            <Search
+              size={14}
+              className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-ams-faint"
+              strokeWidth={2}
+            />
+            <input
+              type="search"
+              className="input h-8 w-[10.5rem] py-1 pl-8 pr-2 text-[12px] sm:w-[13rem]"
+              placeholder="Search account…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              aria-label="Search by account name"
+            />
+          </div>
           <button
             type="button"
             className="btn btn-ghost btn-sm"
@@ -180,14 +207,27 @@ export default function FeedFlowAccountStatusPanel() {
 
       {loading ? (
         <p className="p-8 text-center text-sm text-ams-faint">Loading FeedFlow accounts…</p>
-      ) : rows.length === 0 ? (
+      ) : allRows.length === 0 ? (
         <p className="p-8 text-center text-sm text-ams-faint">
           No FeedFlow slots for this site. Link accounts in Nurturing scan-in first.
+        </p>
+      ) : rows.length === 0 && searchActive ? (
+        <p className="p-8 text-center text-sm text-ams-faint">
+          No accounts match “{search.trim()}”.
         </p>
       ) : (
         <>
           <div className="data-table-wrap">
-            <table className="data-table">
+            <table className={`data-table data-table--ff-status${site === 'all' ? ' data-table--ff-status-all' : ''}`}>
+              <colgroup>
+                <col className="ff-col-slot" />
+                <col className="ff-col-acct" />
+                <col className="ff-col-phone" />
+                <col className="ff-col-live" />
+                {site === 'all' && <col className="ff-col-site" />}
+                <col className="ff-col-status" />
+                <col className="ff-col-action" />
+              </colgroup>
               <thead>
                 <tr>
                   <th>Slot</th>

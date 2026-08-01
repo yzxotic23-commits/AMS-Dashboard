@@ -142,3 +142,114 @@ export function computeFeedingAuditSummary(entries) {
     uniqueIpsWithBan,
   };
 }
+
+/** Human Current Status labels (Sinyee / R&M wording). */
+export const CURRENT_STATUS = {
+  ACTIVE: 'Active',
+  SUCCESS: 'Success',
+  RESTRICTED_SCAN: 'Restricted Scan',
+  RESTRICTED_CHAT_NEW: 'Restricted Chat New Contact',
+  RESTRICT: 'Restrict',
+  BANNED: 'Banned',
+};
+
+const CURRENT_STATUS_FROM_REASON = {
+  operator_strict_scan: CURRENT_STATUS.RESTRICTED_SCAN,
+  operator_strict_chat_new: CURRENT_STATUS.RESTRICTED_CHAT_NEW,
+  operator_strict: CURRENT_STATUS.RESTRICT,
+  operator_banned: CURRENT_STATUS.BANNED,
+};
+
+const CURRENT_STATUS_FROM_KIND = {
+  restrict_scan: CURRENT_STATUS.RESTRICTED_SCAN,
+  restrict_chat_new: CURRENT_STATUS.RESTRICTED_CHAT_NEW,
+};
+
+/**
+ * Map a Feeding Audit row → Current Status shown next to Account.
+ * Restrict + subtype reason → Restricted Scan / Restricted Chat New Contact.
+ */
+export function feedingEntryCurrentStatus(entry) {
+  if (!entry) return CURRENT_STATUS.ACTIVE;
+  const status = entry.feedingStatus;
+  const reason = String(entry.reason || '');
+  if (status === FEEDING_STATUS.BANNED || /banned/i.test(reason)) {
+    return CURRENT_STATUS.BANNED;
+  }
+  if (reason === 'operator_status_active') {
+    return CURRENT_STATUS.ACTIVE;
+  }
+  if (status === FEEDING_STATUS.RESTRICT || /strict|restrict/i.test(reason)) {
+    return CURRENT_STATUS_FROM_REASON[reason] || CURRENT_STATUS.RESTRICT;
+  }
+  if (status === FEEDING_STATUS.SUCCESS) return CURRENT_STATUS.SUCCESS;
+  if (status === FEEDING_STATUS.ACTIVE) return CURRENT_STATUS.ACTIVE;
+  return status || CURRENT_STATUS.ACTIVE;
+}
+
+/** Latest Current Status per account name (audit history + AMS restrict_kind). */
+export function buildAccountCurrentStatuses(entries = [], accounts = []) {
+  const byName = new Map();
+
+  const sorted = [...entries].sort((a, b) => {
+    const ta = new Date(a.ts || a.dateTime || 0).getTime();
+    const tb = new Date(b.ts || b.dateTime || 0).getTime();
+    return tb - ta;
+  });
+
+  for (const e of sorted) {
+    const name = String(e.accountName || '').trim();
+    if (!name) continue;
+    const key = name.toLowerCase();
+    if (byName.has(key)) continue;
+    byName.set(key, {
+      accountName: name,
+      currentStatus: feedingEntryCurrentStatus(e),
+      source: 'feeding_audit',
+      when: e.dateTime || e.ts || null,
+      ipAddress: e.ipAddress || null,
+      location: e.location || null,
+    });
+  }
+
+  for (const a of accounts) {
+    const name = String(a.account_name || a.acct || '').trim();
+    if (!name) continue;
+    const key = name.toLowerCase();
+    const fromKind = CURRENT_STATUS_FROM_KIND[a.restrict_kind];
+    if (fromKind) {
+      const prev = byName.get(key);
+      byName.set(key, {
+        accountName: name,
+        currentStatus: fromKind,
+        source: 'ams',
+        when: prev?.when || null,
+        ipAddress: a.ip || prev?.ipAddress || null,
+        location: prev?.location || SITES[a.siteKey]?.name || null,
+      });
+    } else if (!byName.has(key) && (a.status === 'IN_USE' || a.status === 'NURTURING' || a.status === 'AVAILABLE')) {
+      byName.set(key, {
+        accountName: name,
+        currentStatus: CURRENT_STATUS.ACTIVE,
+        source: 'ams',
+        when: null,
+        ipAddress: a.ip || null,
+        location: SITES[a.siteKey]?.name || null,
+      });
+    }
+  }
+
+  const rows = [...byName.values()].sort((a, b) => a.accountName.localeCompare(b.accountName));
+  const counts = {
+    [CURRENT_STATUS.ACTIVE]: 0,
+    [CURRENT_STATUS.SUCCESS]: 0,
+    [CURRENT_STATUS.RESTRICTED_SCAN]: 0,
+    [CURRENT_STATUS.RESTRICTED_CHAT_NEW]: 0,
+    [CURRENT_STATUS.RESTRICT]: 0,
+    [CURRENT_STATUS.BANNED]: 0,
+  };
+  for (const r of rows) {
+    counts[r.currentStatus] = (counts[r.currentStatus] || 0) + 1;
+  }
+  return { rows, counts };
+}

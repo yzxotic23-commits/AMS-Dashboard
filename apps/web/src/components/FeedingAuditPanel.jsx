@@ -5,30 +5,22 @@ import { useFeedingAudit } from '../hooks/useFeedingAudit';
 import { useAllAccounts } from '../hooks/useOperatorAccounts';
 import {
   computeFeedingAuditSummary,
+  CURRENT_STATUS,
   enrichFeedingAuditLocations,
+  feedingEntryCurrentStatus,
   filterFeedingAuditBySite,
 } from '../lib/feeding-audit';
 import { SITES } from '../lib/sites';
 import { wsafBridgeBase } from '../lib/wsafEmbed';
 
-const STATUS_CLASS = {
-  Active: 'badge-accent',
-  Success: 'badge-success',
-  Restrict: 'badge-warn',
-  Banned: 'badge-danger',
+const CURRENT_STATUS_CLASS = {
+  [CURRENT_STATUS.ACTIVE]: 'badge-accent',
+  [CURRENT_STATUS.SUCCESS]: 'badge-success',
+  [CURRENT_STATUS.RESTRICTED_SCAN]: 'badge-warn',
+  [CURRENT_STATUS.RESTRICTED_CHAT_NEW]: 'badge-warn',
+  [CURRENT_STATUS.RESTRICT]: 'badge-warn',
+  [CURRENT_STATUS.BANNED]: 'badge-danger',
 };
-
-const REASON_LABEL = {
-  operator_strict_scan: 'Restricted Scan',
-  operator_strict_chat_new: 'Restricted Chat New Contact',
-  operator_strict: 'Strict',
-  operator_banned: 'Banned',
-};
-
-function formatAuditReason(reason) {
-  if (!reason) return '—';
-  return REASON_LABEL[reason] || String(reason).replace(/_/g, ' ');
-}
 
 const TONE_CLASS = {
   ok: 'metric-ok',
@@ -92,7 +84,8 @@ export default function FeedingAuditPanel() {
         <div>
           <h2 className="text-sm font-semibold text-ams-ink">Feeding audit log</h2>
           <p className="text-[11px] text-ams-faint">
-            Per-account feeding outcomes — filtered by site switcher ({siteLabel}).
+            Historical feeding outcomes — filtered by site switcher ({siteLabel}).
+            Change live status in Current Status (FeedFlow accounts) above.
           </p>
         </div>
         <div className="engine-panel-actions">
@@ -158,39 +151,38 @@ export default function FeedingAuditPanel() {
                 <tr>
                   <th>When</th>
                   <th>Account</th>
+                  <th>Outcome</th>
                   <th>Location</th>
                   <th>Day</th>
-                  <th>Status</th>
-                  <th>Reason</th>
                   <th>IP</th>
                 </tr>
               </thead>
               <tbody>
                 {pageRows.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="empty-cell">
+                    <td colSpan={6} className="empty-cell">
                       {site === 'all'
                         ? 'No feeding events yet.'
                         : `No feeding events for ${siteLabel}.`}
                     </td>
                   </tr>
-                ) : pageRows.map((row) => (
-                  <tr key={row.id}>
-                    <td className="col-mono col-muted whitespace-nowrap">{row.dateTime || row.ts}</td>
-                    <td className="font-medium">{row.accountName}</td>
-                    <td>{row.location || '—'}</td>
-                    <td className="col-mono">{row.feedingDays || '—'}</td>
-                    <td>
-                      <span className={`badge ${STATUS_CLASS[row.feedingStatus] || 'badge-default'}`}>
-                        {row.feedingStatus}
-                      </span>
-                    </td>
-                    <td className="col-muted max-w-[180px] truncate" title={row.reason || ''}>
-                      {formatAuditReason(row.reason)}
-                    </td>
-                    <td className="col-mono col-muted">{row.ipAddress || '—'}</td>
-                  </tr>
-                ))}
+                ) : pageRows.map((row) => {
+                  const outcome = feedingEntryCurrentStatus(row);
+                  return (
+                    <tr key={row.id}>
+                      <td className="col-mono col-muted whitespace-nowrap">{row.dateTime || row.ts}</td>
+                      <td className="font-medium">{row.accountName}</td>
+                      <td>
+                        <span className={`badge ${CURRENT_STATUS_CLASS[outcome] || 'badge-default'}`}>
+                          {outcome}
+                        </span>
+                      </td>
+                      <td>{row.location || '—'}</td>
+                      <td className="col-mono">{row.feedingDays || '—'}</td>
+                      <td className="col-mono col-muted">{row.ipAddress || '—'}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

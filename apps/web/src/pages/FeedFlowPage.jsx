@@ -1,6 +1,7 @@
 import { ExternalLink } from 'lucide-react';
 import PageHead from '../components/PageHead';
 import EngineStatusPanel from '../components/EngineStatusPanel';
+import FeedFlowAccountStatusPanel from '../components/FeedFlowAccountStatusPanel';
 import FeedingAuditPanel from '../components/FeedingAuditPanel';
 import { useEngineStatus } from '../hooks/useEngineStatus';
 import { wsafConsoleUrl } from '../lib/wsafEmbed';
@@ -28,6 +29,8 @@ export default function FeedFlowPage() {
       />
 
       <EngineStatusPanel />
+
+      <FeedFlowAccountStatusPanel />
 
       <FeedingAuditPanel />
 

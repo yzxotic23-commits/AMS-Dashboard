@@ -57,12 +57,13 @@ const banSchema = z.object({
 });
 
 const markStrictSchema = z.object({
-  kind: z.enum(['restrict_scan', 'restrict_chat_new']),
+  kind: z.enum(['restrict_scan', 'restrict_chat_new', 'active']),
 });
 
 const STRICT_KIND_LABEL = {
   restrict_scan: 'Restricted Scan',
   restrict_chat_new: 'Restricted Chat New Contact',
+  active: 'Active',
 };
 
 const SITE_AUDIT_LOCATION = {
@@ -498,7 +499,7 @@ router.post('/:id/ban', async (req, res, next) => {
   }
 });
 
-// POST /accounts/:id/mark-strict — Restricted Scan | Restricted Chat New Contact
+// POST /accounts/:id/mark-strict — set Current Status (Active | Restricted Scan | Chat New)
 router.post('/:id/mark-strict', async (req, res, next) => {
   try {
     const { kind } = markStrictSchema.parse(req.body);
@@ -512,19 +513,32 @@ router.post('/:id/mark-strict', async (req, res, next) => {
     const label = STRICT_KIND_LABEL[kind];
     const meta = parseOperatorMeta(current);
     const siteKey = meta.site_key || 'my';
+    const prevLabel = STRICT_KIND_LABEL[meta.restrict_kind] || (meta.restrict_kind ? meta.restrict_kind : 'Active');
 
     let humanNote;
-    let metaPatch = { restrict_kind: kind };
-    if (kind === 'restrict_chat_new') {
+    let metaPatch;
+    let feedingStatus = 'Restrict';
+    let auditReason;
+    let strictScanPossible = false;
+
+    if (kind === 'active') {
+      humanNote = 'Active — restriction cleared';
+      metaPatch = { restrict_kind: null };
+      feedingStatus = 'Active';
+      auditReason = 'operator_status_active';
+    } else if (kind === 'restrict_chat_new') {
       humanNote = 'Restricted Chat New Contact — can scan; chat limited to existing contacts only';
+      metaPatch = { restrict_kind: kind };
+      auditReason = 'operator_strict_chat_new';
     } else {
       humanNote = 'Restricted Scan — cannot scan / re-link during restriction period';
-      // Demote to device-farm manual for later recovery (do not force scan now).
       metaPatch = {
-        ...metaPatch,
+        restrict_kind: kind,
         nurturing_phase: 'manual',
         nurturing_started_at: new Date(Date.now() - 2 * 86_400_000).toISOString(),
       };
+      auditReason = 'operator_strict_scan';
+      strictScanPossible = true;
     }
 
     const notes = mergeOperatorNotes(current.notes, metaPatch, humanNote);
@@ -535,10 +549,6 @@ router.post('/:id/mark-strict', async (req, res, next) => {
       .select(ACCOUNT_SELECT_WITH_SIM_LOCATION)
       .single();
     if (error) throw error;
-
-    const auditReason = kind === 'restrict_scan'
-      ? 'operator_strict_scan'
-      : 'operator_strict_chat_new';
 
     await writeAudit({
       entityType: 'account',
@@ -552,25 +562,24 @@ router.post('/:id/mark-strict', async (req, res, next) => {
       newValue: {
         account_name: data.account_name,
         phone_number: data.phone_number,
-        field: 'Strict',
-        from: '—',
+        field: 'Current Status',
+        from: prevLabel,
         to: label,
-        restrictKind: kind,
+        restrictKind: kind === 'active' ? null : kind,
         human_note: humanNote,
       },
       metadata: {
         account_name: data.account_name,
-        field: 'Strict',
-        from: '—',
+        field: 'Current Status',
+        from: prevLabel,
         to: label,
-        restrictKind: kind,
+        restrictKind: kind === 'active' ? null : kind,
         reason: auditReason,
       },
       userId: req.profile.id,
       req,
     });
 
-    // Feeding Log (FeedFlow audit) — best-effort; AMS audit already persisted.
     let feedingAudit = null;
     try {
       const ipJoin = data.ips;
@@ -580,13 +589,13 @@ router.post('/:id/mark-strict', async (req, res, next) => {
       feedingAudit = await postWsafAuditRecord({
         slot: data.wsaf_slot,
         accountName: data.account_name,
-        feedingStatus: 'Restrict',
+        feedingStatus,
         reason: auditReason,
-        restrictKind: kind,
-        runId: `ams-nurture-${auditReason}-${data.id}-${Date.now()}`,
+        restrictKind: kind === 'active' ? null : kind,
+        runId: `ams-status-${auditReason}-${data.id}-${Date.now()}`,
         location: SITE_AUDIT_LOCATION[siteKey] || null,
         ipAddress: ipAddress || null,
-        strictScanPossible: kind === 'restrict_scan',
+        strictScanPossible,
       });
     } catch (feedErr) {
       console.warn('[mark-strict] feeding audit skipped:', feedErr?.message || feedErr);

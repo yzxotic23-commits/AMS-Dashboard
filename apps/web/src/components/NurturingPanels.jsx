@@ -7,6 +7,7 @@ import DetailDialog from './DetailDialog';
 import IconTooltip from './IconTooltip';
 import Toast from './Toast';
 import LinkWhatsAppDrawer from './LinkWhatsAppDrawer';
+import ProxyIpPicker from './ProxyIpPicker';
 import { useSite } from '../context/SiteContext';
 import { SITES, getSiteChipClass } from '../lib/sites';
 import { useEngineStatus } from '../hooks/useEngineStatus';
@@ -16,7 +17,7 @@ import {
   isAutoGraduationDue, isManualScanDue, nurturingDay,
 } from '../lib/nurturing-day';
 import { NURT_STATUS, toastCopy } from '../lib/operator-copy';
-import { formatProxyOptionLabel, proxyUrlFromIp } from '../lib/proxy-display';
+import { proxyUrlFromIp } from '../lib/proxy-display';
 import {
   CURRENT_STATUS,
   FEEDING_STATUS,
@@ -24,6 +25,14 @@ import {
   nurturingOutcomeAuditPayload,
 } from '../lib/feeding-audit';
 import { buildSlotTakenByMap, liveSlotConnection } from '../lib/engine-slot';
+import {
+  clearSlotDisplayLabel,
+  isEngineSlotLinked,
+  recordFeedingAuditEntry,
+  syncSlotDisplayLabelToEngine,
+  syncSlotProxyToEngine,
+} from '../lib/bridge-client';
+import { buildIpBindings } from '../lib/ip-ready';
 
 /** FeedFlow Current Status overlays nurturing phase badge when set. */
 function nurturingStatusFromRestrict(row) {
@@ -35,19 +44,6 @@ function nurturingStatusFromRestrict(row) {
   }
   return null;
 }
-import {
-  clearSlotDisplayLabel,
-  isEngineSlotLinked,
-  recordFeedingAuditEntry,
-  syncSlotDisplayLabelToEngine,
-  syncSlotProxyToEngine,
-} from '../lib/bridge-client';
-import {
-  buildIpBindings,
-  isIpSelectableForAccount,
-  ipBindingCount,
-  proxyBindingSuffix,
-} from '../lib/ip-ready';
 
 const PROGRESS_FILL_CLASS = {
   warn: 'nurt-progress-fill nurt-progress-fill--warn',
@@ -57,12 +53,15 @@ const PROGRESS_FILL_CLASS = {
 
 function ProgressBar({ day, max, tone = 'warn' }) {
   const pct = Math.min(100, Math.round((day / max) * 100));
+  const label = day > max ? `Day ${day}` : `Day ${day}/${max}`;
   return (
     <div className="nurt-progress">
       <div className="nurt-progress-track">
         <div className={PROGRESS_FILL_CLASS[tone] || PROGRESS_FILL_CLASS.warn} style={{ width: `${pct}%` }} />
       </div>
-      <span className="nurt-progress-label">Day {day}/{max}</span>
+      <span className="nurt-progress-label" title={day > max ? `Extended past SOP day ${max}` : undefined}>
+        {label}
+      </span>
     </div>
   );
 }
@@ -559,7 +558,10 @@ export default function NurturingPanels() {
       </div>
 
       <div className="page-subhead">
-        <h3>Auto nurturing (days 4–7 · engine monitored)</h3>
+        <h3>Auto nurturing (day 4+ · engine monitored)</h3>
+        <p className="text-[11px] text-ams-faint">
+          SOP target day 7 — accounts can stay longer (extended nurture). Graduate to Ready manually when deliverable.
+        </p>
       </div>
 
       <div className="nurt-table-stack data-panel card overflow-hidden">
@@ -591,7 +593,7 @@ export default function NurturingPanels() {
                   statusLabel = NURT_STATUS.offline;
                   statusClass = 'badge-default';
                 } else if (gradDue) {
-                  statusLabel = 'Ready for standby';
+                  statusLabel = row.day > 7 ? `Extended · Day ${row.day}` : 'Ready for standby';
                   statusClass = 'badge-success';
                 }
                 return (
@@ -714,25 +716,15 @@ export default function NurturingPanels() {
 
             <section className="drawer-section">
               <div className="drawer-section-title">Engine proxy <span className="font-normal text-ams-muted">(optional)</span></div>
-              <select
-                className="input font-mono text-sm"
+              <ProxyIpPicker
+                ips={freeIps}
+                bindings={ipBindings}
                 value={scanIpId}
-                onChange={(e) => setScanIpId(e.target.value)}
-              >
-                <option value="">Phone / direct (Shadowrocket)</option>
-                {freeIps.length === 0 ? (
-                  <option value="" disabled>No active IPs in ledger</option>
-                ) : freeIps.map((ip) => {
-                  const bound = ipBindingCount(ip, ipBindings);
-                  const selectable = isIpSelectableForAccount(ip, ipBindings, scanRow.ip_id);
-                  const suffix = proxyBindingSuffix(bound, scanRow.ip_id, ip.id);
-                  return (
-                    <option key={ip.id} value={ip.id} disabled={!selectable}>
-                      {formatProxyOptionLabel(ip)}{suffix}
-                    </option>
-                  );
-                })}
-              </select>
+                accountIpId={scanRow.ip_id}
+                onChange={setScanIpId}
+                allowEmpty
+                emptyLabel="Phone / direct (Shadowrocket)"
+              />
             </section>
 
             <section className="drawer-section">

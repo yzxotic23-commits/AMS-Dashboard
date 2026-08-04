@@ -15,6 +15,7 @@ export const HUB_COLS = [
   { key: 'link', label: 'To Link', route: '/link', tone: 'link' },
   { key: 'man', label: 'Device Farm', route: '/link?tab=nurturing', tone: 'man' },
   { key: 'scan', label: 'To Scan In', route: '/link?tab=nurturing', tone: 'scan' },
+  { key: 'ready', label: 'Ready', route: '/tickets', tone: 'ready' },
   { key: 'rec', label: 'To Recover', route: '/recovery', tone: 'rec' },
   { key: 'tk', label: 'Tickets', route: '/tickets', tone: 'htk' },
 ];
@@ -25,6 +26,7 @@ export const HUB_TASK_TONE = {
   rec: 'text-ams-danger',
   man: 'text-ams-warn',
   scan: 'text-ams-blue',
+  ready: 'text-ams-success',
   htk: 'text-ams-success',
 };
 

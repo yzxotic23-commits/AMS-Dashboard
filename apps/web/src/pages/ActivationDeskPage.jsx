@@ -6,6 +6,7 @@ import PageHead from '../components/PageHead';
 import IconTooltip from '../components/IconTooltip';
 import NurturingPanels from '../components/NurturingPanels';
 import Toast from '../components/Toast';
+import ProxyIpPicker from '../components/ProxyIpPicker';
 import { useSite } from '../context/SiteContext';
 import { useAuth } from '../context/AuthContext';
 import { operatorDisplayLabel } from '../lib/operator-scope';
@@ -20,11 +21,8 @@ import {
 } from '../lib/nurturing-day';
 import {
   buildIpBindings,
-  ipBindingCount,
   isIpSelectableForAccount,
-  proxyBindingSuffix,
 } from '../lib/ip-ready';
-import { formatProxyOptionLabel } from '../lib/proxy-display';
 
 const ACTIVATION_STEPS = ['sim', 'device', 'ip', 'phone'];
 
@@ -447,26 +445,14 @@ export default function ActivationDeskPage() {
             </div>
             <section className="drawer-section">
               <div className="drawer-section-title">New IP</div>
-              <select
-                className="input font-mono text-sm"
+              <ProxyIpPicker
+                ips={freeIps}
+                bindings={ipBindings}
                 value={editIpId}
+                accountIpId={ipEditRow.ip_id}
+                onChange={setEditIpId}
                 disabled={ipResourcesLoading || ipBusy}
-                onChange={(e) => setEditIpId(e.target.value)}
-              >
-                <option value="">
-                  {ipResourcesLoading ? 'Loading…' : 'Select IP…'}
-                </option>
-                {freeIps.map((ip) => {
-                  const bound = ipBindingCount(ip, ipBindings);
-                  const selectable = isIpSelectableForAccount(ip, ipBindings, ipEditRow.ip_id);
-                  const suffix = proxyBindingSuffix(bound, ipEditRow.ip_id, ip.id);
-                  return (
-                    <option key={ip.id} value={ip.id} disabled={!selectable}>
-                      {formatProxyOptionLabel(ip)}{suffix}
-                    </option>
-                  );
-                })}
-              </select>
+              />
             </section>
           </div>
         )}

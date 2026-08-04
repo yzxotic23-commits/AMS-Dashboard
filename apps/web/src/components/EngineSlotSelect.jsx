@@ -1,7 +1,10 @@
 /**
  * Engine slot picker — FeedFlow connection is the source of truth.
  * Online/connected → locked. Disconnected → free (even if an old AMS name is sticky).
+ * Offline fallback lists up to MAX_ENGINE_SLOT_FALLBACK slots (matches FeedFlow MAX_PAIRS×2).
  */
+const MAX_ENGINE_SLOT_FALLBACK = 50;
+
 export default function EngineSlotSelect({
   value,
   onChange,
@@ -13,7 +16,7 @@ export default function EngineSlotSelect({
 }) {
   const slotNumbers = engineSlots.length
     ? [...new Set(engineSlots.map((s) => s.slot))].sort((a, b) => a - b)
-    : Array.from({ length: 8 }, (_, i) => i);
+    : Array.from({ length: MAX_ENGINE_SLOT_FALLBACK }, (_, i) => i);
 
   return (
     <select

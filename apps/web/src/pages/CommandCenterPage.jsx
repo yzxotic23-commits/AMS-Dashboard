@@ -15,7 +15,7 @@ export default function CommandCenterPage() {
     <div>
       <PageHead
         title="Control Center"
-        description="Live pipeline counts across Register → Activation → Nurturing → Recovery. Lit cells need action today."
+        description="Live pipeline counts across Register → Activation → Nurturing → Ready → Recovery. Lit cells need action today; Ready is deliverable inventory."
         actions={(
           <div className="page-meta-bubble">
             <span className="font-medium text-ams-ink">{SITES[site].name}</span>

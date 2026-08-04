@@ -224,7 +224,7 @@
     display: grid;
     width: 100%;
     min-width: min(100%, 38rem);
-    grid-template-columns: minmax(8.5rem, 1.15fr) repeat(6, minmax(0, 1fr));
+    grid-template-columns: minmax(8.5rem, 1.15fr) repeat(7, minmax(0, 1fr));
     border-bottom: 1px solid var(--ams-line);
   }
   .hub-grid:last-child {
@@ -1723,6 +1723,81 @@
     @apply text-center;
     width: 1%;
   }
+
+  /* Searchable proxy IP picker (Register / Change IP / scan-in) */
+  .proxy-ip-picker {
+    @apply relative w-full;
+  }
+  .proxy-ip-picker.is-disabled {
+    @apply opacity-60;
+  }
+  .proxy-ip-picker-trigger {
+    @apply flex w-full items-center justify-between gap-2 text-left font-mono text-[13px];
+  }
+  .proxy-ip-picker-trigger-text {
+    @apply min-w-0 flex-1 truncate;
+  }
+  .proxy-ip-picker-trigger-text.is-empty {
+    @apply font-sans text-ams-faint;
+  }
+  .proxy-ip-picker-chevron {
+    @apply shrink-0 text-ams-faint;
+  }
+  .proxy-ip-picker-panel {
+    @apply absolute left-0 right-0 z-40 mt-1 overflow-hidden rounded-lg border border-ams-line shadow-card;
+    background-color: var(--ams-surface-card);
+  }
+  .proxy-ip-picker-search {
+    @apply relative border-b border-ams-line p-2;
+  }
+  .proxy-ip-picker-search-icon {
+    @apply pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-ams-faint;
+  }
+  .proxy-ip-picker-search-input {
+    @apply h-9 w-full pl-8 text-[13px];
+  }
+  .proxy-ip-picker-filters {
+    @apply flex gap-1 border-b border-ams-line px-2 py-1.5;
+  }
+  .proxy-ip-picker-filter {
+    @apply rounded-md px-2.5 py-1 text-[11px] font-semibold text-ams-muted transition-colors;
+  }
+  .proxy-ip-picker-filter:hover {
+    background-color: var(--ams-surface-muted);
+  }
+  .proxy-ip-picker-filter.is-on {
+    background-color: var(--ams-surface-muted);
+    color: var(--ams-ink);
+  }
+  .proxy-ip-picker-list {
+    @apply max-h-56 overflow-y-auto py-1;
+  }
+  .proxy-ip-picker-empty {
+    @apply px-3 py-4 text-center text-[12px] text-ams-faint;
+  }
+  .proxy-ip-picker-option {
+    @apply flex w-full items-center justify-between gap-2 px-3 py-2 text-left transition-colors;
+  }
+  .proxy-ip-picker-option:hover:not(:disabled) {
+    background-color: var(--ams-surface-muted);
+  }
+  .proxy-ip-picker-option.is-selected {
+    background-color: color-mix(in srgb, var(--ams-accent) 10%, transparent);
+  }
+  .proxy-ip-picker-option.is-blocked,
+  .proxy-ip-picker-option:disabled {
+    @apply cursor-not-allowed opacity-55;
+  }
+  .proxy-ip-picker-option-main {
+    @apply flex min-w-0 flex-1 flex-col gap-0.5;
+  }
+  .proxy-ip-picker-ip {
+    @apply truncate text-[12.5px] font-semibold text-ams-ink;
+  }
+  .proxy-ip-picker-user {
+    @apply truncate text-[11px] text-ams-faint;
+  }
+
   .data-table .col-check,
   .data-table th.col-check {
     @apply text-center;

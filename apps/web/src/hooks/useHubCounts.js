@@ -21,6 +21,7 @@ function hubCountsFromAccounts(owned, tickets, site) {
   const nurturing = owned.filter((a) => a.status === 'NURTURING');
   const manual = nurturing.filter((a) => a.nurturing_phase === 'manual');
   const scan = manual.filter((a) => isManualScanDue(a));
+  const ready = owned.filter((a) => a.status === 'AVAILABLE');
   const recovering = owned.filter((a) => a.status === 'RECOVERING' || a.status === 'BANNED');
 
   const ownedIds = new Set(owned.map((a) => a.id));
@@ -36,11 +37,14 @@ function hubCountsFromAccounts(owned, tickets, site) {
     link: registering.length,
     man: manual.filter((a) => !isManualScanDue(a)).length,
     scan: scan.length,
+    ready: ready.length,
     rec: recovering.length,
     tk,
   };
 
+  // Pending = action needed today. Ready is deliverable inventory (not pending).
   counts.total = counts.reg + counts.link + counts.man + counts.scan + counts.rec + counts.tk;
+  counts.inventory = counts.ready;
   return counts;
 }
 
@@ -132,7 +136,8 @@ export function buildOperatorHubRows(
 
   const unassignedAccounts = filterSite(accounts, site).filter((a) => {
     if (claimedIds.has(a.id)) return false;
-    return hubCountsFromAccounts([a], tickets, site).total > 0;
+    const c = hubCountsFromAccounts([a], tickets, site);
+    return c.total > 0 || c.ready > 0;
   });
 
   if (unassignedAccounts.length > 0) {

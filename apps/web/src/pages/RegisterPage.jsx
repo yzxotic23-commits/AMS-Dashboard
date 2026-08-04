@@ -6,6 +6,7 @@ import Drawer from '../components/Drawer';
 import ConfirmDialog from '../components/ConfirmDialog';
 import IconTooltip from '../components/IconTooltip';
 import ProxyCredentialPanel from '../components/ProxyCredentialPanel';
+import ProxyIpPicker from '../components/ProxyIpPicker';
 import Toast from '../components/Toast';
 import { useSite } from '../context/SiteContext';
 import { useAuth } from '../context/AuthContext';
@@ -30,12 +31,10 @@ import {
   formatDeviceRegisterOption,
   normalizeDeviceChannel,
 } from '../lib/device-location';
-import { formatProxyOptionLabel, proxyFieldsFromIp, formatProxyOneLine } from '../lib/proxy-display';
+import { formatProxyOneLine, proxyFieldsFromIp } from '../lib/proxy-display';
 import {
   buildIpBindings,
-  ipBindingCount,
   isIpSelectableForAccount,
-  proxyBindingSuffix,
 } from '../lib/ip-ready';
 import { useAllAccounts } from '../hooks/useOperatorAccounts';
 import { toastCopy } from '../lib/operator-copy';
@@ -687,24 +686,16 @@ export default function RegisterPage() {
             <DrawerSection title="Proxy (IP ledger)">
               <label className="drawer-field">
                 <span className="drawer-label">Select proxy</span>
-                <select
-                  className="input font-mono text-[13px]"
+                <ProxyIpPicker
+                  ips={freeIps}
+                  bindings={ipBindings}
                   value={form.ipId}
-                  onChange={(e) => setForm((f) => ({ ...f, ipId: e.target.value }))}
-                >
-                  {freeIps.length === 0 ? (
-                    <option value="">No active IPs in ledger</option>
-                  ) : freeIps.map((ip) => {
-                    const bound = ipBindingCount(ip, ipBindings);
-                    const selectable = isIpSelectableForAccount(ip, ipBindings, null);
-                    const suffix = proxyBindingSuffix(bound, null, ip.id);
-                    return (
-                      <option key={ip.id} value={ip.id} disabled={!selectable}>
-                        {formatProxyOptionLabel(ip)}{suffix}
-                      </option>
-                    );
-                  })}
-                </select>
+                  onChange={(ipId) => setForm((f) => ({ ...f, ipId }))}
+                  disabled={ipsLoading}
+                />
+                <span className="mt-1 block text-[11px] text-ams-faint">
+                  Search by IP / username. Prefer Available (not full).
+                </span>
               </label>
               <ProxyCredentialPanel ip={selectedIp} />
             </DrawerSection>

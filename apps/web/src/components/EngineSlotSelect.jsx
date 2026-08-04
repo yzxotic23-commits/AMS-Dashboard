@@ -1,9 +1,9 @@
 /**
  * Engine slot picker — FeedFlow connection is the source of truth.
  * Online/connected → locked. Disconnected → free (even if an old AMS name is sticky).
- * Offline fallback lists up to MAX_ENGINE_SLOT_FALLBACK slots (matches FeedFlow MAX_PAIRS×2).
+ * Offline fallback when engine status is unreachable (engine live list is source of truth).
  */
-const MAX_ENGINE_SLOT_FALLBACK = 50;
+const MAX_ENGINE_SLOT_FALLBACK = 500;
 
 export default function EngineSlotSelect({
   value,

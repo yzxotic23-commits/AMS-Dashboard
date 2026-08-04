@@ -694,7 +694,7 @@ export default function RegisterPage() {
                   disabled={ipsLoading}
                 />
                 <span className="mt-1 block text-[11px] text-ams-faint">
-                  Search by IP / username. Prefer Available (not full).
+                  One row per IP with seats (0/2, 1/2). Full IPs (2/2) are hidden.
                 </span>
               </label>
               <ProxyCredentialPanel ip={selectedIp} />

@@ -7,23 +7,62 @@ import {
 } from '../lib/ip-ready';
 import { formatProxyOptionLabel } from '../lib/proxy-display';
 
-const FILTERS = [
-  { id: 'available', label: 'Available' },
-  { id: 'all', label: 'All' },
-  { id: 'full', label: 'Full' },
-];
+function normPort(port) {
+  if (port == null || port === '') return '8080';
+  return String(port);
+}
 
-function statusMeta(bound, selectable, isCurrent) {
-  if (isCurrent) return { label: 'Current', className: 'badge badge-accent' };
-  if (!selectable || bound >= IP_MAX_BINDINGS) {
-    return { label: `${IP_MAX_BINDINGS}/${IP_MAX_BINDINGS} full`, className: 'badge badge-danger' };
-  }
-  if (bound === 1) return { label: '1/2', className: 'badge badge-warn' };
-  return { label: 'Available', className: 'badge badge-success' };
+/** One row per host:port — ledger sometimes has duplicate IP rows. */
+function ipHostKey(ip) {
+  return `${String(ip?.ip_address || '').trim().toLowerCase()}:${normPort(ip?.port)}`;
 }
 
 /**
- * Searchable IP picker — reduces mis-selection vs long native <select>.
+ * Collapse duplicate ledger rows for the same IP into one option.
+ * Occupancy = sum of bindings across duplicate ids (capped display via max seats).
+ */
+function dedupeIpRows(ips, bindings, accountIpId) {
+  const groups = new Map();
+  for (const ip of ips) {
+    const key = ipHostKey(ip);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(ip);
+  }
+
+  const rows = [];
+  for (const group of groups.values()) {
+    const bound = group.reduce((n, ip) => n + ipBindingCount(ip, bindings), 0);
+    // Prefer the row already bound to this account, else the freest / first id
+    let preferred = group.find((ip) => ip.id === accountIpId)
+      || group.slice().sort((a, b) => {
+        const ba = ipBindingCount(a, bindings);
+        const bb = ipBindingCount(b, bindings);
+        if (ba !== bb) return ba - bb;
+        return String(a.id).localeCompare(String(b.id));
+      })[0];
+    const selectable = isIpSelectableForAccount(preferred, bindings, accountIpId)
+      && (bound < IP_MAX_BINDINGS || preferred.id === accountIpId);
+    rows.push({
+      ip: preferred,
+      bound: Math.min(bound, IP_MAX_BINDINGS),
+      selectable,
+      isCurrent: preferred.id === accountIpId,
+    });
+  }
+  return rows;
+}
+
+function seatBadge(bound, isCurrent) {
+  if (isCurrent) return { label: `${bound}/${IP_MAX_BINDINGS} · current`, className: 'badge badge-accent' };
+  if (bound >= IP_MAX_BINDINGS) {
+    return { label: `${IP_MAX_BINDINGS}/${IP_MAX_BINDINGS}`, className: 'badge badge-danger' };
+  }
+  if (bound === 1) return { label: '1/2', className: 'badge badge-warn' };
+  return { label: '0/2', className: 'badge badge-success' };
+}
+
+/**
+ * Simple IP picker: one row per IP, show 0/2 · 1/2, hide full (2/2).
  */
 export default function ProxyIpPicker({
   ips = [],
@@ -34,11 +73,10 @@ export default function ProxyIpPicker({
   allowEmpty = false,
   emptyLabel = 'No proxy',
   disabled = false,
-  placeholder = 'Search IP, port, or username…',
+  placeholder = 'Search IP or username…',
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState('available');
   const rootRef = useRef(null);
   const searchRef = useRef(null);
 
@@ -49,16 +87,13 @@ export default function ProxyIpPicker({
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return ips
-      .map((ip) => {
-        const bound = ipBindingCount(ip, bindings);
-        const selectable = isIpSelectableForAccount(ip, bindings, accountIpId);
-        const isCurrent = ip.id === accountIpId;
-        return { ip, bound, selectable, isCurrent };
+    return dedupeIpRows(ips, bindings, accountIpId)
+      .filter(({ bound, isCurrent }) => {
+        // Hide full IPs from the dropdown; keep current so the operator can see it
+        if (bound >= IP_MAX_BINDINGS && !isCurrent) return false;
+        return true;
       })
-      .filter(({ ip, bound, selectable }) => {
-        if (filter === 'available' && !selectable) return false;
-        if (filter === 'full' && bound < IP_MAX_BINDINGS) return false;
+      .filter(({ ip }) => {
         if (!q) return true;
         const hay = [
           ip.ip_address,
@@ -70,12 +105,11 @@ export default function ProxyIpPicker({
         return hay.includes(q);
       })
       .sort((a, b) => {
-        // Selectable first, then free seats, then IP string
-        if (a.selectable !== b.selectable) return a.selectable ? -1 : 1;
+        if (a.isCurrent !== b.isCurrent) return a.isCurrent ? -1 : 1;
         if (a.bound !== b.bound) return a.bound - b.bound;
         return String(a.ip.ip_address || '').localeCompare(String(b.ip.ip_address || ''));
       });
-  }, [ips, bindings, accountIpId, query, filter]);
+  }, [ips, bindings, accountIpId, query]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -89,7 +123,6 @@ export default function ProxyIpPicker({
   useEffect(() => {
     if (open) {
       setQuery('');
-      // Prefer Available tab when opening; keep if user left All selected previously is ok
       requestAnimationFrame(() => searchRef.current?.focus());
     }
   }, [open]);
@@ -134,21 +167,6 @@ export default function ProxyIpPicker({
             />
           </div>
 
-          <div className="proxy-ip-picker-filters" role="tablist" aria-label="IP availability filter">
-            {FILTERS.map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                role="tab"
-                aria-selected={filter === f.id}
-                className={`proxy-ip-picker-filter${filter === f.id ? ' is-on' : ''}`}
-                onClick={() => setFilter(f.id)}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-
           <div className="proxy-ip-picker-list">
             {allowEmpty && (
               <button
@@ -161,14 +179,18 @@ export default function ProxyIpPicker({
             )}
             {rows.length === 0 ? (
               <div className="proxy-ip-picker-empty">
-                {ips.length === 0 ? 'No active IPs in ledger' : 'No IPs match this search'}
+                {ips.length === 0
+                  ? 'No active IPs in ledger'
+                  : (query.trim()
+                    ? 'No IPs match this search'
+                    : 'No free IP seats (all at 2/2)')}
               </div>
             ) : rows.map(({ ip, bound, selectable, isCurrent }) => {
-              const meta = statusMeta(bound, selectable, isCurrent);
+              const meta = seatBadge(bound, isCurrent);
               const blocked = !selectable;
               return (
                 <button
-                  key={ip.id}
+                  key={ipHostKey(ip)}
                   type="button"
                   role="option"
                   aria-selected={value === ip.id}
@@ -182,7 +204,7 @@ export default function ProxyIpPicker({
                 >
                   <span className="proxy-ip-picker-option-main">
                     <span className="proxy-ip-picker-ip font-mono">
-                      {ip.ip_address}:{ip.port || '8080'}
+                      {ip.ip_address}:{normPort(ip.port)}
                     </span>
                     <span className="proxy-ip-picker-user">{ip.username || '—'}</span>
                   </span>

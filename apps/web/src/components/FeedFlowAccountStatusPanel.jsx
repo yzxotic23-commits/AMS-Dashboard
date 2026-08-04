@@ -65,6 +65,8 @@ export default function FeedFlowAccountStatusPanel() {
       ? accounts
       : accounts.filter((a) => a.siteKey === site);
 
+    // Always list every FeedFlow engine slot (fleet view). Do not hide slots
+    // just because AMS match is missing — that made a 20-slot engine look like 2.
     return (slots || []).map((slot) => {
       const account = matchAccountForEngineSlot(scoped, slot)
         || matchAccountForEngineSlot(accounts, slot);
@@ -79,10 +81,6 @@ export default function FeedFlowAccountStatusPanel() {
         kind: kindFromAccount(account),
         siteKey: account?.siteKey || null,
       };
-    }).filter((row) => {
-      if (site === 'all') return true;
-      if (!row.account) return false;
-      return row.account.siteKey === site;
     });
   }, [slots, accounts, site]);
 

@@ -3,35 +3,36 @@ import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tansta
 import PageHead from '../components/PageHead';
 import Drawer from '../components/Drawer';
 import Toast from '../components/Toast';
-import SegControl from '../components/SegControl';
 import SimTableRow from '../components/SimTableRow';
 import { useSite } from '../context/SiteContext';
 import { SITES } from '../lib/sites';
 import api from '../lib/api';
 import { mapSimRow } from '../lib/resource-mappers';
-import { expiryFromChargeDate } from '../lib/sim-meta';
+import {
+  daysLeftTagClass,
+  expiryFromChargeDate,
+  formatDaysLeft,
+  formatTopupAmount,
+  normalizeTopupCycleDays,
+  SIM_EXCEPTION_REASONS,
+  SIM_LEDGER_STATUSES,
+  SIM_TOPUP_CYCLE_DAYS,
+  SIM_TOPUP_CYCLE_OPTIONS,
+} from '../lib/sim-meta';
 import { toastCopy } from '../lib/operator-copy';
 import { telcoFilterOptionsForSite } from '../lib/telco-options';
+import { BRAND_OPTIONS } from '../lib/account-status-labels';
 import { useScrollRevealScrollbar } from '../hooks/useScrollRevealScrollbar';
 import { usePhoneSyncMutation, usePhoneSyncRows } from '../hooks/useSupply';
 
 function simDue(s) {
+  if (s.ledger_status === 'stop_topup') return false;
   return !s.last_charged;
 }
 
-function dueTag(days) {
-  if (days <= 3) return 'due-soon';
-  if (days <= 7) return 'due-mid';
-  return 'due-far';
-}
-
-function dueLabel(days) {
-  return `${days} day${days === 1 ? '' : 's'} left`;
-}
-
-function daysLeftFromChargeDate(chargeDate) {
-  const expiryIso = expiryFromChargeDate(chargeDate);
-  if (!expiryIso) return 0;
+function daysLeftFromChargeDate(chargeDate, cycleDays = SIM_TOPUP_CYCLE_DAYS) {
+  const expiryIso = expiryFromChargeDate(chargeDate, cycleDays);
+  if (!expiryIso) return null;
   const expiry = new Date(`${expiryIso}T12:00:00`);
   return Math.max(0, Math.ceil((expiry - Date.now()) / 86400000));
 }
@@ -40,23 +41,52 @@ function mapSim(row) {
   return mapSimRow(row);
 }
 
+function brandKey(row) {
+  return row.brand || 'Unassigned';
+}
+
+function canBulkCharge(row) {
+  return row.ledger_status !== 'stop_topup';
+}
+
 const SIM_PAGE_SIZE = 20;
 
 export default function SimsPage() {
   const { site } = useSite();
   const qc = useQueryClient();
   const [telco, setTelco] = useState('all');
+  const [brand, setBrand] = useState('all');
+  const [ledgerStatus, setLedgerStatus] = useState('all');
   const [onlyDue, setOnlyDue] = useState(false);
   const [filterSoon, setFilterSoon] = useState(false);
   const [drawer, setDrawer] = useState(null);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [selected, setSelected] = useState(() => new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [historySim, setHistorySim] = useState(null);
+  const [exceptionSim, setExceptionSim] = useState(null);
+  const [exceptionReason, setExceptionReason] = useState('topup_failed');
+  const [exceptionDetail, setExceptionDetail] = useState('');
+  const [refundDraft, setRefundDraft] = useState(null);
   const [chargeDate, setChargeDate] = useState('');
+  const [amount, setAmount] = useState('');
+  const [cycleDays, setCycleDays] = useState(String(SIM_TOPUP_CYCLE_DAYS));
+  const [plan, setPlan] = useState('');
   const [toast, setToast] = useState('');
+  const [toastTone, setToastTone] = useState('success');
   const [page, setPage] = useState(1);
+
+  function showToast(message, tone = 'success') {
+    setToastTone(tone);
+    setToast(message);
+    setTimeout(() => setToast(''), tone === 'success' ? 3500 : 4500);
+  }
 
   const telcoSegOptions = useMemo(() => telcoFilterOptionsForSite(), []);
 
   const [onlyMismatch, setOnlyMismatch] = useState(false);
   const [syncBusyId, setSyncBusyId] = useState(null);
+  const [remarkBusyId, setRemarkBusyId] = useState(null);
   const tableScrollRef = useScrollRevealScrollbar();
 
   function syncActionForIssue(issue) {
@@ -99,7 +129,11 @@ export default function SimsPage() {
 
   const stats = useMemo(() => {
     const due = siteRows.filter(simDue).length;
-    const soon = siteRows.filter((s) => simDue(s) && s.days_left <= 7).length;
+    const soon = siteRows.filter((s) => (
+      s.ledger_status !== 'stop_topup'
+      && s.days_left != null
+      && s.days_left <= 7
+    )).length;
     return { due, soon, total: siteRows.length };
   }, [siteRows]);
 
@@ -107,17 +141,28 @@ export default function SimsPage() {
     setOnlyDue(false);
     setFilterSoon(false);
     setOnlyMismatch(false);
+    setBrand('all');
+    setLedgerStatus('all');
+    setSelected(new Set());
     setPage(1);
   }, [site]);
 
   useEffect(() => {
     setPage(1);
-  }, [telco, onlyDue, filterSoon, onlyMismatch]);
+  }, [telco, brand, ledgerStatus, onlyDue, filterSoon, onlyMismatch]);
 
   const list = useMemo(() => {
     let rows = siteRows.filter((s) => telco === 'all' || s.carrier === telco);
-    if (onlyDue || filterSoon) rows = rows.filter(simDue);
-    if (filterSoon) rows = rows.filter((s) => s.days_left <= 7);
+    if (brand !== 'all') {
+      rows = rows.filter((s) => brandKey(s) === brand);
+    }
+    if (ledgerStatus !== 'all') {
+      rows = rows.filter((s) => (s.ledger_status || 'active') === ledgerStatus);
+    }
+    if (onlyDue) rows = rows.filter(simDue);
+    if (filterSoon) {
+      rows = rows.filter((s) => s.days_left != null && s.days_left <= 7 && s.ledger_status !== 'stop_topup');
+    }
     if (onlyMismatch) {
       rows = rows.filter((s) => syncBySimId.get(s.id)?.needs_action);
     }
@@ -125,14 +170,56 @@ export default function SimsPage() {
       const ad = simDue(a) ? 0 : 1;
       const bd = simDue(b) ? 0 : 1;
       if (ad !== bd) return ad - bd;
-      return a.days_left - b.days_left;
+      const da = a.days_left == null ? Number.POSITIVE_INFINITY : a.days_left;
+      const db = b.days_left == null ? Number.POSITIVE_INFINITY : b.days_left;
+      return da - db;
     });
-  }, [siteRows, telco, onlyDue, filterSoon, onlyMismatch, syncBySimId]);
+  }, [siteRows, telco, brand, ledgerStatus, onlyDue, filterSoon, onlyMismatch, syncBySimId]);
+
+  useEffect(() => {
+    setSelected((prev) => {
+      if (prev.size === 0) return prev;
+      const valid = new Set(list.map((r) => r.id));
+      const next = new Set([...prev].filter((id) => valid.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [list]);
 
   const openCharge = useCallback((row) => {
     const today = new Date().toISOString().slice(0, 10);
+    setBulkOpen(false);
     setChargeDate(row.last_charged || today);
+    setAmount(row.last_amount != null ? String(row.last_amount) : '');
+    setCycleDays(String(normalizeTopupCycleDays(row.last_cycle_days)));
+    setPlan(row.last_plan || '');
     setDrawer(row);
+  }, []);
+
+  const openBulkCharge = useCallback(() => {
+    if (selected.size === 0) return;
+    const today = new Date().toISOString().slice(0, 10);
+    setDrawer(null);
+    setChargeDate(today);
+    setAmount('');
+    setCycleDays(String(SIM_TOPUP_CYCLE_DAYS));
+    setPlan('');
+    setBulkOpen(true);
+  }, [selected.size]);
+
+  const closeChargeDrawer = useCallback(() => {
+    setDrawer(null);
+    setBulkOpen(false);
+  }, []);
+
+  const openHistory = useCallback((row) => {
+    setRefundDraft(null);
+    setHistorySim(row);
+  }, []);
+
+  const openException = useCallback((row) => {
+    setExceptionReason('topup_failed');
+    setExceptionDetail('');
+    setExceptionSim(row);
   }, []);
 
   const handleAlign = useCallback(async (row) => {
@@ -146,10 +233,9 @@ export default function SimsPage() {
         sim_id: row.id,
       });
       const fixed = syncRow.sim_phone || row.phone_number;
-      setToast(`Aligned — account now uses ${fixed}`);
-      setTimeout(() => setToast(''), 3500);
+      showToast(`Aligned — account now uses ${fixed}`);
     } catch (e) {
-      setToast(e?.response?.data?.error || e.message || 'Align failed');
+      showToast(e?.response?.data?.error || e.message || 'Align failed', 'error');
     } finally {
       setSyncBusyId(null);
     }
@@ -160,32 +246,250 @@ export default function SimsPage() {
   const pageRows = list.slice((safePage - 1) * SIM_PAGE_SIZE, safePage * SIM_PAGE_SIZE);
   const pageStart = list.length ? (safePage - 1) * SIM_PAGE_SIZE + 1 : 0;
   const pageEnd = Math.min(safePage * SIM_PAGE_SIZE, list.length);
+  const pageSelectableIds = useMemo(
+    () => pageRows.filter(canBulkCharge).map((r) => r.id),
+    [pageRows],
+  );
+  const allSelectableIds = useMemo(
+    () => list.filter(canBulkCharge).map((r) => r.id),
+    [list],
+  );
+  const allPageSelected = pageSelectableIds.length > 0
+    && pageSelectableIds.every((id) => selected.has(id));
+  const somePageSelected = pageSelectableIds.some((id) => selected.has(id));
+  const allFilteredSelected = allSelectableIds.length > 0
+    && allSelectableIds.every((id) => selected.has(id));
+  const selectedRows = useMemo(
+    () => list.filter((r) => selected.has(r.id) && canBulkCharge(r)),
+    [list, selected],
+  );
+  const chargeDrawerOpen = !!drawer || bulkOpen;
+
+  const toggleSelect = useCallback((id, on) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }, []);
+
+  const toggleSelectPage = useCallback((on) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      pageSelectableIds.forEach((id) => {
+        if (on) next.add(id);
+        else next.delete(id);
+      });
+      return next;
+    });
+  }, [pageSelectableIds]);
+
+  const selectAllFiltered = useCallback(() => {
+    setSelected(new Set(allSelectableIds));
+  }, [allSelectableIds]);
 
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
   }, [page, totalPages]);
 
   const previewDaysLeft = useMemo(() => {
-    if (!drawer) return 0;
-    if (chargeDate) return daysLeftFromChargeDate(chargeDate);
-    return drawer.days_left;
-  }, [drawer, chargeDate]);
+    if (!chargeDrawerOpen) return 0;
+    if (chargeDate) return daysLeftFromChargeDate(chargeDate, cycleDays);
+    return drawer?.days_left || 0;
+  }, [chargeDrawerOpen, drawer, chargeDate, cycleDays]);
+
+  const previewExpiry = useMemo(() => {
+    if (!chargeDate) return null;
+    return expiryFromChargeDate(chargeDate, cycleDays);
+  }, [chargeDate, cycleDays]);
+
+  const { data: historyData, isLoading: historyLoading } = useQuery({
+    queryKey: ['sim-topups', historySim?.id],
+    queryFn: async () => {
+      const res = await api.get(`/sims/${historySim.id}/topups`);
+      return res.data;
+    },
+    enabled: Boolean(historySim?.id),
+  });
 
   const patchMut = useMutation({
     mutationFn: ({ id, body }) => api.patch(`/sims/${id}`, body),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['sims'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sims'] });
+      qc.invalidateQueries({ queryKey: ['sim-topups'] });
+    },
   });
+
+  const exceptionMut = useMutation({
+    mutationFn: ({ id, body }) => api.post(`/sims/${id}/exception`, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sims'] });
+    },
+  });
+
+  const refundMut = useMutation({
+    mutationFn: ({ id, topupId, body }) => api.post(`/sims/${id}/topups/${topupId}/refund`, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sims'] });
+      qc.invalidateQueries({ queryKey: ['sim-topups'] });
+    },
+  });
+
+  function buildChargeBody() {
+    const date = chargeDate || new Date().toISOString().slice(0, 10);
+    const amountValue = amount === '' ? null : Number(amount);
+    if (amount !== '' && !Number.isFinite(amountValue)) {
+      return { error: 'Enter a valid top-up amount' };
+    }
+    return {
+      body: {
+        last_charged: date,
+        amount: amountValue,
+        cycle_days: normalizeTopupCycleDays(cycleDays),
+        plan: plan.trim() || null,
+        status: 'OK',
+      },
+      date,
+    };
+  }
 
   function submitCharge() {
     if (!drawer) return;
-    const date = chargeDate || new Date().toISOString().slice(0, 10);
+    const built = buildChargeBody();
+    if (built.error) {
+      showToast(built.error, 'error');
+      return;
+    }
     patchMut.mutate(
-      { id: drawer.id, body: { last_charged: date, status: 'OK' } },
+      { id: drawer.id, body: built.body },
       {
         onSuccess: () => {
-          setToast(toastCopy.simTopUp(drawer.phone_number, date));
-          setDrawer(null);
-          setTimeout(() => setToast(''), 3500);
+          showToast(toastCopy.simTopUp(drawer.phone_number, built.date));
+          closeChargeDrawer();
+        },
+      },
+    );
+  }
+
+  async function submitBulkCharge() {
+    if (selectedRows.length === 0) {
+      showToast('Select at least one SIM to mark charged', 'error');
+      return;
+    }
+    const built = buildChargeBody();
+    if (built.error) {
+      showToast(built.error, 'error');
+      return;
+    }
+    setBulkBusy(true);
+    let ok = 0;
+    let fail = 0;
+    for (const row of selectedRows) {
+      try {
+        await api.patch(`/sims/${row.id}`, built.body);
+        ok += 1;
+      } catch {
+        fail += 1;
+      }
+    }
+    setBulkBusy(false);
+    qc.invalidateQueries({ queryKey: ['sims'] });
+    qc.invalidateQueries({ queryKey: ['sim-topups'] });
+    if (ok) {
+      setSelected(new Set());
+      closeChargeDrawer();
+    }
+    showToast(
+      fail
+        ? `Bulk top-up: ${ok} saved, ${fail} failed`
+        : `Bulk top-up: ${ok} SIM${ok === 1 ? '' : 's'} · ${built.date}`,
+      fail ? 'warn' : 'success',
+    );
+  }
+
+  function submitException() {
+    if (!exceptionSim) return;
+    exceptionMut.mutate(
+      {
+        id: exceptionSim.id,
+        body: {
+          reason: exceptionReason,
+          detail: exceptionDetail.trim() || null,
+        },
+      },
+      {
+        onSuccess: (res) => {
+          const st = res?.data?.ledger_status || res?.ledger_status;
+          showToast(
+            st === 'pending_review'
+              ? `Exception saved — ${exceptionSim.phone_number} moved to Pending Review`
+              : `Exception saved for ${exceptionSim.phone_number}`,
+          );
+          setExceptionSim(null);
+        },
+        onError: (e) => {
+          showToast(e?.response?.data?.error || e.message || 'Exception failed', 'error');
+        },
+      },
+    );
+  }
+
+  function submitStatus(row, nextStatus) {
+    patchMut.mutate(
+      { id: row.id, body: { ledger_status: nextStatus } },
+      {
+        onSuccess: () => {
+          showToast(`Status → ${SIM_LEDGER_STATUSES.find((s) => s.value === nextStatus)?.label || nextStatus}`);
+        },
+        onError: (e) => {
+          showToast(e?.response?.data?.error || e.message || 'Status update failed', 'error');
+        },
+      },
+    );
+  }
+
+  function submitRemark(row, nextRemark) {
+    setRemarkBusyId(row.id);
+    patchMut.mutate(
+      { id: row.id, body: { remark: nextRemark } },
+      {
+        onSettled: () => setRemarkBusyId(null),
+        onSuccess: () => {
+          showToast(nextRemark ? `Remark saved for ${row.phone_number}` : `Remark cleared for ${row.phone_number}`);
+        },
+        onError: (e) => {
+          showToast(e?.response?.data?.error || e.message || 'Remark save failed', 'error');
+        },
+      },
+    );
+  }
+
+  function submitRefund() {
+    if (!historySim || !refundDraft?.topupId) return;
+    const amountValue = refundDraft.amount === '' || refundDraft.amount == null
+      ? null
+      : Number(refundDraft.amount);
+    if (refundDraft.amount !== '' && refundDraft.amount != null && !Number.isFinite(amountValue)) {
+      showToast('Enter a valid refund amount', 'error');
+      return;
+    }
+    refundMut.mutate(
+      {
+        id: historySim.id,
+        topupId: refundDraft.topupId,
+        body: {
+          amount: amountValue,
+          reason: refundDraft.reason?.trim() || null,
+        },
+      },
+      {
+        onSuccess: () => {
+          showToast(`Refund recorded for ${historySim.phone_number}`);
+          setRefundDraft(null);
+        },
+        onError: (e) => {
+          showToast(e?.response?.data?.error || e.message || 'Refund failed', 'error');
         },
       },
     );
@@ -237,17 +541,62 @@ export default function SimsPage() {
         </button>
       </div>
 
-      <div className="sim-toolbar mb-4 flex flex-wrap items-center gap-3">
-        <SegControl
-          value={telco}
-          onChange={(v) => setTelco(v)}
-          size="sm"
-          variant="notion"
-          options={telcoSegOptions}
-        />
-        <label className="flex items-center gap-2 text-[13px] text-ams-muted">
+      <div className="page-filter-bar">
+        <label className="page-filter-chip">
+          <select
+            className="page-filter-chip-select"
+            value={telco}
+            onChange={(e) => setTelco(e.target.value)}
+            aria-label="Filter by telco"
+          >
+            {telcoSegOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </label>
+        <label className="page-filter-chip">
+          <select
+            className="page-filter-chip-select"
+            value={brand}
+            onChange={(e) => setBrand(e.target.value)}
+            aria-label="Filter by brand"
+          >
+            <option value="all">All brands</option>
+            {BRAND_OPTIONS.map((b) => (
+              <option key={b} value={b}>{b}</option>
+            ))}
+            <option value="Unassigned">Unassigned</option>
+          </select>
+        </label>
+        <label className="page-filter-chip">
+          <select
+            className="page-filter-chip-select"
+            value={ledgerStatus}
+            onChange={(e) => setLedgerStatus(e.target.value)}
+            aria-label="Filter by SIM status"
+          >
+            <option value="all">All statuses</option>
+            {SIM_LEDGER_STATUSES.map((s) => (
+              <option key={s.value} value={s.value}>{s.label}</option>
+            ))}
+          </select>
+        </label>
+        <label className="inline-flex h-9 cursor-pointer items-center gap-2 px-1">
           <input
             type="checkbox"
+            className="accent-ams-accent"
+            checked={onlyDue}
+            onChange={(e) => {
+              setOnlyDue(e.target.checked);
+              if (!e.target.checked) setFilterSoon(false);
+            }}
+          />
+          <span className="text-[13px] font-semibold text-ams-ink">Due only</span>
+        </label>
+        <label className="inline-flex h-9 cursor-pointer items-center gap-2 px-1">
+          <input
+            type="checkbox"
+            className="accent-ams-accent"
             checked={onlyMismatch}
             onChange={(e) => {
               setOnlyMismatch(e.target.checked);
@@ -257,20 +606,69 @@ export default function SimsPage() {
               }
             }}
           />
-          Alignment issues only
-        </label>
-        <label className="flex items-center gap-2 text-[13px] text-ams-muted">
-          <input
-            type="checkbox"
-            checked={onlyDue}
-            onChange={(e) => { setOnlyDue(e.target.checked); if (!e.target.checked) setFilterSoon(false); }}
-          />
-          Show due only
+          <span className="text-[13px] font-semibold text-ams-ink">Align issues</span>
         </label>
         <span className="ml-auto text-[13px] text-ams-faint">
           {list.length} SIM{list.length !== 1 ? 's' : ''} · {stats.total} at site
           {isFetching && !showTableLoading ? ' · updating…' : ''}
         </span>
+      </div>
+
+      <div className="ip-bulkbar mb-3">
+        <div className="ip-bulkbar-start">
+          <label className="ip-bulkbar-check">
+            <input
+              type="checkbox"
+              className="ams-check"
+              checked={allPageSelected}
+              ref={(el) => {
+                if (el) el.indeterminate = somePageSelected && !allPageSelected;
+              }}
+              onChange={(e) => toggleSelectPage(e.target.checked)}
+              disabled={pageSelectableIds.length === 0}
+            />
+            Select page
+          </label>
+          <span
+            className={`ip-bulkbar-meta${selected.size > 0 ? ' is-visible' : ''}`}
+            aria-hidden={selected.size === 0}
+          >
+            <span className="ip-bulkbar-count">{selected.size}</span>
+            selected
+          </span>
+          <div
+            className={`ip-bulkbar-actions${selected.size > 0 || allSelectableIds.length > pageSelectableIds.length ? ' is-visible' : ''}`}
+            aria-hidden={selected.size === 0 && allSelectableIds.length <= pageSelectableIds.length}
+          >
+            {!allFilteredSelected && allSelectableIds.length > pageSelectableIds.length && (
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={selectAllFiltered}
+              >
+                Select all {allSelectableIds.length}
+              </button>
+            )}
+            {selected.size > 0 && (
+              <>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={openBulkCharge}
+                >
+                  Mark Charged
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => setSelected(new Set())}
+                >
+                  Clear
+                </button>
+              </>
+            )}
+          </div>
+        </div>
       </div>
 
       <div className="data-panel card overflow-hidden">
@@ -282,29 +680,53 @@ export default function SimsPage() {
               ref={tableScrollRef}
               className="data-table-wrap data-table-wrap--sticky scroll-reveal-scrollbar scroll-reveal-scrollbar--compact"
             >
-              <table className="data-table">
+              <table className="data-table data-table--sims">
                 <thead>
                   <tr>
+                    <th className="col-check">
+                      <input
+                        type="checkbox"
+                        className="ams-check"
+                        checked={allPageSelected}
+                        ref={(el) => {
+                          if (el) el.indeterminate = somePageSelected && !allPageSelected;
+                        }}
+                        onChange={(e) => toggleSelectPage(e.target.checked)}
+                        disabled={pageSelectableIds.length === 0}
+                        aria-label="Select all on this page"
+                      />
+                    </th>
                     <th>Phone</th>
                     <th>Telco</th>
                     <th>Location</th>
                     <th>Bound Account</th>
+                    <th>Brand</th>
+                    <th>SIM Status</th>
                     <th>Expiry</th>
                     <th>Top-up Status</th>
-                    <th className="col-action">Action</th>
+                    <th>Remark</th>
+                    <th className="col-action col-action--wide">Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {list.length === 0 ? (
-                    <tr><td colSpan={7} className="empty-cell">No SIM cards match the filters.</td></tr>
+                    <tr><td colSpan={11} className="empty-cell">No SIM cards match the filters.</td></tr>
                   ) : pageRows.map((row) => (
                     <SimTableRow
                       key={row.id}
                       row={row}
+                      selected={selected.has(row.id)}
+                      selectable={canBulkCharge(row)}
+                      onToggleSelect={toggleSelect}
                       syncRow={syncBySimId.get(row.id)}
                       syncBusy={syncBusyId === row.id}
+                      remarkBusy={remarkBusyId === row.id}
                       onAlign={handleAlign}
                       onCharge={openCharge}
+                      onHistory={openHistory}
+                      onException={openException}
+                      onStatusChange={submitStatus}
+                      onRemarkSave={submitRemark}
                     />
                   ))}
                 </tbody>
@@ -343,40 +765,74 @@ export default function SimsPage() {
       </div>
 
       <Drawer
-        open={!!drawer}
-        title="Record Top-up"
-        onClose={() => setDrawer(null)}
+        open={chargeDrawerOpen}
+        title={bulkOpen ? `Bulk Mark Charged (${selectedRows.length})` : 'Record Top-up'}
+        onClose={closeChargeDrawer}
         footer={(
           <>
-            <button type="button" className="btn btn-ghost" onClick={() => setDrawer(null)}>Cancel</button>
-            <button type="button" className="btn btn-primary" onClick={submitCharge}>Save</button>
+            <button type="button" className="btn btn-ghost" onClick={closeChargeDrawer} disabled={bulkBusy}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={bulkOpen ? submitBulkCharge : submitCharge}
+              disabled={bulkOpen ? bulkBusy : patchMut.isPending}
+            >
+              {bulkOpen
+                ? (bulkBusy ? `Saving ${selectedRows.length}…` : `Save ${selectedRows.length} SIM${selectedRows.length === 1 ? '' : 's'}`)
+                : (patchMut.isPending ? 'Saving…' : 'Save')}
+            </button>
           </>
         )}
       >
-        {drawer && (
+        {chargeDrawerOpen && (
           <>
             <p className="drawer-hint">
-              Top-up is done manually on the telco platform. AMS only records when it was charged.
+              {bulkOpen
+                ? 'Shared charge date, amount, and plan cycle will be applied to every selected SIM. Each save is written to the audit log individually.'
+                : 'Top-up is done manually on the telco platform. AMS records the charge date, amount, and plan cycle for bookkeeping.'}
             </p>
-            <div className="drawer-locked">
-              <div className="drawer-locked-label">Phone · Telco</div>
-              <div className="drawer-locked-value drawer-locked-value--mono">
-                {drawer.phone_number}
-                <span className="drawer-locked-meta">{drawer.carrier}</span>
+            {bulkOpen ? (
+              <div className="drawer-locked">
+                <div className="drawer-locked-label">Selected SIMs</div>
+                <div className="drawer-locked-value">
+                  {selectedRows.length} number{selectedRows.length === 1 ? '' : 's'}
+                  <span className="drawer-locked-meta">
+                    {selectedRows.slice(0, 4).map((r) => r.phone_number).join(', ')}
+                    {selectedRows.length > 4 ? ` +${selectedRows.length - 4} more` : ''}
+                  </span>
+                </div>
               </div>
-            </div>
-            <div className="drawer-locked">
-              <div className="drawer-locked-label">Bound account · Location</div>
-              <div className="drawer-locked-value">
-                {drawer.account_name || '—'} · {drawer.site_name || SITES[drawer.site]?.name || drawer.location || '—'}
-              </div>
-            </div>
+            ) : drawer && (
+              <>
+                <div className="drawer-locked">
+                  <div className="drawer-locked-label">Phone · Telco</div>
+                  <div className="drawer-locked-value drawer-locked-value--mono">
+                    {drawer.phone_number}
+                    <span className="drawer-locked-meta">{drawer.carrier}</span>
+                  </div>
+                </div>
+                <div className="drawer-locked">
+                  <div className="drawer-locked-label">Bound account · Brand · Location</div>
+                  <div className="drawer-locked-value">
+                    {drawer.account_name || '—'}
+                    {' · '}
+                    {drawer.brand || 'Unassigned'}
+                    {' · '}
+                    {drawer.site_name || SITES[drawer.site]?.name || drawer.location || '—'}
+                  </div>
+                </div>
+              </>
+            )}
             <div className="drawer-locked">
               <div className="drawer-locked-label">Expiry preview</div>
               <div className="drawer-locked-value">
-                <span className={`due-tag ${dueTag(previewDaysLeft)}`}>{dueLabel(previewDaysLeft)}</span>
-                {chargeDate && (
-                  <span className="drawer-locked-meta"> until {expiryFromChargeDate(chargeDate)}</span>
+                <span className={`due-tag ${daysLeftTagClass(previewDaysLeft)}`}>
+                  {formatDaysLeft(previewDaysLeft)}
+                </span>
+                {previewExpiry && (
+                  <span className="drawer-locked-meta"> until {previewExpiry} (+{normalizeTopupCycleDays(cycleDays)}d)</span>
                 )}
               </div>
             </div>
@@ -389,11 +845,231 @@ export default function SimsPage() {
                 onChange={(e) => setChargeDate(e.target.value)}
               />
             </label>
+            <label className="drawer-field">
+              <span className="drawer-label">Top-up amount</span>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                className="input font-mono"
+                placeholder="e.g. 10"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+              />
+            </label>
+            <label className="drawer-field">
+              <span className="drawer-label">Plan cycle</span>
+              <select
+                className="input"
+                value={cycleDays}
+                onChange={(e) => setCycleDays(e.target.value)}
+              >
+                {SIM_TOPUP_CYCLE_OPTIONS.map((d) => (
+                  <option key={d} value={d}>{d} days</option>
+                ))}
+              </select>
+            </label>
+            <label className="drawer-field">
+              <span className="drawer-label">Plan / remark (optional)</span>
+              <input
+                type="text"
+                className="input"
+                placeholder="e.g. Hotlink 30-day"
+                value={plan}
+                onChange={(e) => setPlan(e.target.value)}
+              />
+            </label>
           </>
         )}
       </Drawer>
 
-      <Toast open={!!toast} message={toast} tone="success" onClose={() => setToast('')} />
+      <Drawer
+        open={!!historySim}
+        title="Top-up history"
+        onClose={() => { setRefundDraft(null); setHistorySim(null); }}
+        footer={(
+          <button
+            type="button"
+            className="btn btn-ghost flex-1"
+            onClick={() => { setRefundDraft(null); setHistorySim(null); }}
+          >
+            Close
+          </button>
+        )}
+      >
+        {historySim && (
+          <div className="space-y-4">
+            <div className="drawer-locked">
+              <div className="drawer-locked-label">Phone · Brand</div>
+              <div className="drawer-locked-value drawer-locked-value--mono">
+                {historySim.phone_number}
+                <span className="drawer-locked-meta">{historySim.brand || 'Unassigned'}</span>
+              </div>
+            </div>
+            {historyLoading ? (
+              <p className="text-sm text-ams-faint">Loading history…</p>
+            ) : (historyData?.topups || []).length === 0 ? (
+              <p className="rounded-lg border border-dashed border-ams-line px-3 py-6 text-center text-[13px] text-ams-faint">
+                No top-up records yet. Use Mark Charged to add the first one.
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {(historyData.topups || []).map((tu) => {
+                  const isRefunding = refundDraft?.topupId === tu.id;
+                  return (
+                    <li
+                      key={tu.id}
+                      className="rounded-lg border border-ams-line px-3 py-2.5 text-[13px]"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="font-semibold text-ams-ink">{tu.charged_at}</div>
+                          <div className="mt-0.5 text-[12px] text-ams-muted">
+                            {tu.cycle_days || 30}d cycle
+                            {tu.expiry_date ? ` · expires ${tu.expiry_date}` : ''}
+                            {tu.plan ? ` · ${tu.plan}` : ''}
+                          </div>
+                          {tu.created_by && (
+                            <div className="mt-0.5 text-[11px] text-ams-faint">by {tu.created_by}</div>
+                          )}
+                          {tu.refund && (
+                            <div className="mt-1 text-[12px] text-ams-danger">
+                              Refunded {formatTopupAmount(tu.refund.amount)}
+                              {tu.refund.reason ? ` · ${tu.refund.reason}` : ''}
+                            </div>
+                          )}
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <div className="font-mono text-[13px] font-semibold text-ams-ink">
+                            {formatTopupAmount(tu.amount)}
+                          </div>
+                          {!tu.refund && !isRefunding && (
+                            <button
+                              type="button"
+                              className="btn btn-ghost btn-sm mt-1"
+                              onClick={() => setRefundDraft({
+                                topupId: tu.id,
+                                amount: tu.amount == null ? '' : String(tu.amount),
+                                reason: '',
+                              })}
+                            >
+                              Mark Refund
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      {isRefunding && (
+                        <div className="mt-3 space-y-2 border-t border-ams-line pt-3">
+                          <label className="drawer-field">
+                            <span className="drawer-label">Refund amount</span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              className="input font-mono"
+                              value={refundDraft.amount}
+                              onChange={(e) => setRefundDraft((d) => ({ ...d, amount: e.target.value }))}
+                            />
+                          </label>
+                          <label className="drawer-field">
+                            <span className="drawer-label">Reason (optional)</span>
+                            <input
+                              type="text"
+                              className="input"
+                              placeholder="e.g. telco refund / duplicate"
+                              value={refundDraft.reason}
+                              onChange={(e) => setRefundDraft((d) => ({ ...d, reason: e.target.value }))}
+                            />
+                          </label>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              className="btn btn-ghost btn-sm"
+                              onClick={() => setRefundDraft(null)}
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-danger btn-sm"
+                              onClick={submitRefund}
+                              disabled={refundMut.isPending}
+                            >
+                              {refundMut.isPending ? 'Saving…' : 'Confirm Refund'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        )}
+      </Drawer>
+
+      <Drawer
+        open={!!exceptionSim}
+        title="Unable to Top Up"
+        onClose={() => setExceptionSim(null)}
+        footer={(
+          <>
+            <button type="button" className="btn btn-ghost" onClick={() => setExceptionSim(null)}>Cancel</button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={submitException}
+              disabled={exceptionMut.isPending}
+            >
+              {exceptionMut.isPending ? 'Saving…' : 'Save Exception'}
+            </button>
+          </>
+        )}
+      >
+        {exceptionSim && (
+          <>
+            <p className="drawer-hint">
+              Record why this number could not be topped up. If the reason is account ban pending confirmation, SIM Status switches to Pending Review for R&amp;M.
+            </p>
+            <div className="drawer-locked">
+              <div className="drawer-locked-label">Phone · Telco · Brand</div>
+              <div className="drawer-locked-value drawer-locked-value--mono">
+                {exceptionSim.phone_number}
+                <span className="drawer-locked-meta">
+                  {exceptionSim.carrier}
+                  {' · '}
+                  {exceptionSim.brand || 'Unassigned'}
+                </span>
+              </div>
+            </div>
+            <label className="drawer-field">
+              <span className="drawer-label">Reason</span>
+              <select
+                className="input"
+                value={exceptionReason}
+                onChange={(e) => setExceptionReason(e.target.value)}
+              >
+                {SIM_EXCEPTION_REASONS.map((r) => (
+                  <option key={r.value} value={r.value}>{r.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="drawer-field">
+              <span className="drawer-label">Detail (optional)</span>
+              <input
+                type="text"
+                className="input"
+                placeholder="e.g. telco error message"
+                value={exceptionDetail}
+                onChange={(e) => setExceptionDetail(e.target.value)}
+              />
+            </label>
+          </>
+        )}
+      </Drawer>
+
+      <Toast open={!!toast} message={toast} tone={toastTone} onClose={() => setToast('')} />
     </div>
   );
 }

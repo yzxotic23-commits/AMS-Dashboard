@@ -16,6 +16,7 @@
     "start:api": "npm run start -w apps/api",
     "setup:supabase": "node scripts/setup-supabase.js",
     "migrate:supabase": "node scripts/run-migration.js",
+    "migrate:sim-ledger": "node scripts/run-migration.js supabase/migrations/009_sim_ledger_columns.sql",
     "migrate:screenshots": "node scripts/migrate-screenshot-bucket.js",
     "migrate:username": "node scripts/run-username-migration.js",
     "seed:sample": "node scripts/seed-sample-data.js",

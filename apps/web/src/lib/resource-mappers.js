@@ -1,5 +1,10 @@
 import { formatSimLabel, ipSiteKey } from './account-operator-meta';
-import { parseSimNotesMeta, simLocationLabel } from './sim-meta';
+import {
+  daysLeftFromExpiryDate,
+  parseSimNotesMeta,
+  resolveSimExpiryDate,
+  simLocationLabel,
+} from './sim-meta';
 
 export function mapIpRow(row) {
   const active = row.status === 'ACTIVE' || row.active === true;
@@ -13,11 +18,15 @@ export function mapIpRow(row) {
 
 export function mapSimRow(row) {
   const site = row.site_key || row.site || inferSimSite(row);
-  const expiry = row.expiry_date ? new Date(`${row.expiry_date}T12:00:00`) : null;
-  const daysLeft = row.days_left ?? (expiry
-    ? Math.max(0, Math.ceil((expiry - Date.now()) / 86400000))
-    : 0);
   const siteName = row.site_name || simLocationLabel(row);
+  const ledger = parseSimNotesMeta(row.notes).ledger;
+  const lastCharged = row.last_charged || ledger.last_charged || null;
+  const lastCycleDays = row.last_cycle_days || ledger.last_cycle_days || 30;
+  const expiryDate = resolveSimExpiryDate(
+    { ...row, last_charged: lastCharged, last_cycle_days: lastCycleDays },
+    ledger,
+  );
+  const daysLeft = daysLeftFromExpiryDate(expiryDate);
   return {
     id: row.id,
     phone_number: row.phone_number,
@@ -26,8 +35,20 @@ export function mapSimRow(row) {
     site,
     site_name: siteName,
     account_name: row.account_name || row.accounts?.account_name || '—',
+    brand: row.brand || null,
+    expiry_date: expiryDate,
     days_left: daysLeft,
-    last_charged: row.last_charged || parseSimNotesMeta(row.notes).ledger.last_charged || null,
+    last_charged: lastCharged,
+    last_amount: row.last_amount ?? ledger.last_amount ?? null,
+    last_cycle_days: lastCycleDays,
+    last_plan: row.last_plan || ledger.last_plan || null,
+    topup_count: row.topup_count
+      ?? (Array.isArray(ledger.topups) ? ledger.topups.length : (ledger.last_charged ? 1 : 0)),
+    ledger_status: row.ledger_status || ledger.ledger_status || 'active',
+    last_exception: row.last_exception || ledger.last_exception || null,
+    remark: row.remark ?? ledger.remark ?? null,
+    remark_updated_at: row.remark_updated_at || ledger.remark_updated_at || null,
+    remark_updated_by: row.remark_updated_by || ledger.remark_updated_by || null,
   };
 }
 

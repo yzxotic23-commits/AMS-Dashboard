@@ -1594,6 +1594,46 @@
     @apply max-w-[18rem] text-[0.8125rem] leading-relaxed;
     color: var(--ams-muted);
   }
+  .data-table--sims .col-remark {
+    min-width: 10rem;
+    max-width: 14rem;
+    width: 12rem;
+  }
+  .sim-remark-trigger {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.15rem;
+    width: 100%;
+    margin: 0;
+    padding: 0.15rem 0.2rem;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+  }
+  .sim-remark-trigger:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--ams-accent) 6%, transparent);
+  }
+  .sim-remark-trigger:disabled {
+    opacity: 0.6;
+    cursor: wait;
+  }
+  .sim-remark-text {
+    color: var(--ams-ink);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .sim-remark-meta {
+    font-size: 10.5px;
+    line-height: 1.3;
+    color: var(--ams-faint);
+  }
+  .sim-remark-input {
+    @apply input w-full resize-y text-[12.5px] leading-snug;
+    min-height: 2.5rem;
+  }
   .data-table .col-muted {
     color: var(--ams-faint);
   }
@@ -1616,6 +1656,16 @@
   .data-table th.col-action--wide,
   .data-table td.col-action--wide {
     min-width: 7.5rem;
+  }
+  /* SIM ledger: Mark Charged + Exception + History */
+  .data-table--sims th.col-action--wide,
+  .data-table--sims td.col-action--wide {
+    min-width: 15.5rem;
+    width: 15.5rem;
+  }
+  .data-table--sims td.col-action--wide .col-action-btns {
+    flex-wrap: nowrap;
+    justify-content: flex-end;
   }
   .data-table--recovery {
     table-layout: fixed;
@@ -2021,6 +2071,11 @@
   .due-far {
     background: var(--ams-surface-muted);
     color: var(--ams-muted);
+  }
+  .due-none {
+    background: transparent;
+    color: var(--ams-faint);
+    border: 1px dashed var(--ams-line);
   }
   .chip-site.chip-site-my {
     background-color: var(--site-my-bg);

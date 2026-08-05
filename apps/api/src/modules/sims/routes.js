@@ -63,7 +63,9 @@ function actorName(profile) {
 
 const EMPTY_PHONE_MAP = new Map();
 
-const ACCOUNT_SIM_SELECT = 'id, account_name, sim_id, phone_number, notes, device_id, devices(device_name)';
+// Keep selects embed-free for ledger maps — brand comes from account notes meta.
+// (Embedding devices() is ambiguous: accounts.device_id vs devices.current_account_id.)
+const ACCOUNT_SIM_SELECT = 'id, account_name, sim_id, phone_number, notes, device_id';
 
 function normalizeAccountRow(a) {
   if (!a) return a;
@@ -71,6 +73,32 @@ function normalizeAccountRow(a) {
     ...a,
     device_name: a.devices?.device_name || a.device_name || null,
   };
+}
+
+async function selectAccounts(filter) {
+  let q = supabaseAdmin.from('accounts').select(ACCOUNT_SIM_SELECT);
+  if (filter.simIds) q = q.in('sim_id', filter.simIds);
+  if (filter.ids) q = q.in('id', filter.ids);
+  if (filter.or) q = q.or(filter.or);
+  const { data, error } = await q;
+  if (error) throw error;
+  return data || [];
+}
+
+/** Optional device names for brand inference when meta.brand is missing. */
+async function attachDeviceNames(accounts) {
+  const deviceIds = [...new Set(accounts.map((a) => a.device_id).filter(Boolean))];
+  if (!deviceIds.length) return accounts.map(normalizeAccountRow);
+  const { data, error } = await supabaseAdmin
+    .from('devices')
+    .select('id, device_name')
+    .in('id', deviceIds);
+  if (error) throw error;
+  const byId = new Map((data || []).map((d) => [d.id, d.device_name]));
+  return accounts.map((a) => normalizeAccountRow({
+    ...a,
+    device_name: byId.get(a.device_id) || null,
+  }));
 }
 
 /** Ledger list — bind via sim_id / current_account_id only (skip slow phone OR scan). */
@@ -81,20 +109,14 @@ async function loadSimAccountMapsLite(simRows) {
   const accountByCurrentId = new Map();
 
   if (simIds.length) {
-    const { data } = await supabaseAdmin
-      .from('accounts')
-      .select(ACCOUNT_SIM_SELECT)
-      .in('sim_id', simIds);
-    (data || []).forEach((a) => {
-      if (a.sim_id) accountBySimId.set(a.sim_id, normalizeAccountRow(a));
+    const data = await attachDeviceNames(await selectAccounts({ simIds }));
+    data.forEach((a) => {
+      if (a.sim_id) accountBySimId.set(a.sim_id, a);
     });
   }
   if (currentIds.length) {
-    const { data } = await supabaseAdmin
-      .from('accounts')
-      .select(ACCOUNT_SIM_SELECT)
-      .in('id', currentIds);
-    (data || []).forEach((a) => accountByCurrentId.set(a.id, normalizeAccountRow(a)));
+    const data = await attachDeviceNames(await selectAccounts({ ids: currentIds }));
+    data.forEach((a) => accountByCurrentId.set(a.id, a));
   }
 
   return { accountBySimId, accountByCurrentId, accountByPhoneDigits: EMPTY_PHONE_MAP };
@@ -108,20 +130,14 @@ async function loadSimAccountMapsFull(simRows) {
   const accountByPhoneDigits = new Map();
 
   if (simIds.length) {
-    const { data } = await supabaseAdmin
-      .from('accounts')
-      .select(ACCOUNT_SIM_SELECT)
-      .in('sim_id', simIds);
-    (data || []).forEach((a) => {
-      if (a.sim_id) accountBySimId.set(a.sim_id, normalizeAccountRow(a));
+    const data = await attachDeviceNames(await selectAccounts({ simIds }));
+    data.forEach((a) => {
+      if (a.sim_id) accountBySimId.set(a.sim_id, a);
     });
   }
   if (currentIds.length) {
-    const { data } = await supabaseAdmin
-      .from('accounts')
-      .select(ACCOUNT_SIM_SELECT)
-      .in('id', currentIds);
-    (data || []).forEach((a) => accountByCurrentId.set(a.id, normalizeAccountRow(a)));
+    const data = await attachDeviceNames(await selectAccounts({ ids: currentIds }));
+    data.forEach((a) => accountByCurrentId.set(a.id, a));
   }
 
   const phoneDigitsList = [...new Set(
@@ -132,12 +148,8 @@ async function loadSimAccountMapsFull(simRows) {
       `phone_number.ilike.%${d}%`,
       `phone_number.ilike.%${d.slice(-9)}%`,
     ]);
-    const { data } = await supabaseAdmin
-      .from('accounts')
-      .select(ACCOUNT_SIM_SELECT)
-      .or(orParts.join(','));
-    (data || []).forEach((raw) => {
-      const a = normalizeAccountRow(raw);
+    const data = await attachDeviceNames(await selectAccounts({ or: orParts.join(',') }));
+    data.forEach((a) => {
       const digits = String(a.phone_number || '').replace(/\D/g, '');
       if (digits) accountByPhoneDigits.set(digits, a);
       if (digits.length >= 9) accountByPhoneDigits.set(digits.slice(-9), a);
@@ -191,7 +203,15 @@ router.get('/', async (req, res, next) => {
     const allLedgerRows = filterLedgerRows(data, maps, siteKey, topupCounts);
     const total = allLedgerRows.length;
     const rows = allLedgerRows.slice(offset, offset + limit);
-    res.set('Cache-Control', 'private, max-age=15');
+    const bound = rows.filter((r) => r.account_name).length;
+    // Avoid 304/ETag: axios treats empty 304 bodies as [] and RQ keeps stale dashed rows.
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.removeHeader('ETag');
+    res.set('X-AMS-Sim-Bound', String(bound));
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[sims] list bound=%s/%s sample=%s', bound, rows.length, rows[0]?.account_name || '—');
+    }
     res.json(paginatedResponse(rows, total, page, limit));
   } catch (e) {
     next(e);

@@ -21,7 +21,8 @@ import {
 } from '../lib/sim-meta';
 import { toastCopy } from '../lib/operator-copy';
 import { telcoFilterOptionsForSite } from '../lib/telco-options';
-import { BRAND_OPTIONS } from '../lib/account-status-labels';
+import { BRAND_OPTIONS, inferBrand, inferBrandFromDevice } from '../lib/account-status-labels';
+import { parseOperatorMeta } from '../lib/account-operator-meta';
 import { useScrollRevealScrollbar } from '../hooks/useScrollRevealScrollbar';
 import { usePhoneSyncMutation, usePhoneSyncRows } from '../hooks/useSupply';
 
@@ -39,6 +40,35 @@ function daysLeftFromChargeDate(chargeDate, cycleDays = SIM_TOPUP_CYCLE_DAYS) {
 
 function mapSim(row) {
   return mapSimRow(row);
+}
+
+function phoneDigits(phone) {
+  return String(phone || '').replace(/\D/g, '');
+}
+
+function brandFromAccount(account) {
+  if (!account) return null;
+  const meta = parseOperatorMeta(account);
+  const deviceName = account.devices?.device_name || account.device_name || '';
+  return meta.brand
+    || inferBrand(account.account_name)
+    || inferBrandFromDevice(deviceName)
+    || null;
+}
+
+/** Fill Bound Account / Brand when /sims omit them (stale API or empty embed). */
+function enrichSimFromAccounts(sim, bySimId, byPhone) {
+  const hasAccount = sim.account_name && sim.account_name !== '—';
+  if (hasAccount && sim.brand) return sim;
+  const acc = bySimId.get(sim.id)
+    || byPhone.get(phoneDigits(sim.phone_number))
+    || null;
+  if (!acc) return sim;
+  return {
+    ...sim,
+    account_name: hasAccount ? sim.account_name : (acc.account_name || '—'),
+    brand: sim.brand || brandFromAccount(acc),
+  };
 }
 
 function brandKey(row) {
@@ -112,15 +142,36 @@ export default function SimsPage() {
         params: {
           limit: 200,
           ...(site !== 'all' ? { site } : {}),
+          _nc: Date.now(),
         },
+        headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
       });
       return (res.data?.data || []).map(mapSim);
     },
-    staleTime: 30_000,
+    staleTime: 0,
+    gcTime: 0,
     placeholderData: keepPreviousData,
   });
 
-  const siteRows = allRows;
+  const { data: ledgerAccounts = [] } = useQuery({
+    queryKey: ['sims-bound-accounts'],
+    queryFn: async () => {
+      const res = await api.get('/accounts', { params: { limit: 500 } });
+      return res.data?.data || [];
+    },
+    staleTime: 60_000,
+  });
+
+  const siteRows = useMemo(() => {
+    const bySimId = new Map();
+    const byPhone = new Map();
+    ledgerAccounts.forEach((a) => {
+      if (a.sim_id) bySimId.set(a.sim_id, a);
+      const digits = phoneDigits(a.phone_number);
+      if (digits) byPhone.set(digits, a);
+    });
+    return allRows.map((row) => enrichSimFromAccounts(row, bySimId, byPhone));
+  }, [allRows, ledgerAccounts]);
 
   const mismatchCount = useMemo(
     () => siteRows.filter((row) => syncBySimId.get(row.id)?.needs_action).length,

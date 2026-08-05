@@ -25,7 +25,7 @@ router.get('/health', (_req, res) => {
     service: 'ams-api',
     version: '1.0.0',
     phase: 1,
-    buildTag: 'operators-roster-v1',
+    buildTag: 'sim-bound-fix-v5',
   });
 });
 

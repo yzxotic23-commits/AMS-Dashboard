@@ -3,6 +3,7 @@ import { authenticate, requireRole } from '../../middleware/auth.js';
 import { supabaseAdmin } from '../../lib/supabase.js';
 import { parseOperatorMeta, parsePrefixedJsonBlock } from '../../lib/accountMeta.js';
 import { parseDateRangeQuery, inDateRange } from '../../lib/dateRange.js';
+import { accountInBrandScope, profileBrandScope } from '../../lib/accountBrand.js';
 
 const REC_PREFIX = '_ams_rec:';
 
@@ -12,21 +13,22 @@ function parseRecoveryMeta(notes) {
 
 const router = Router();
 router.use(authenticate);
-router.use(requireRole('admin', 'operator'));
 
 // GET /recovery/stats — recovery success/fail breakdown (Feature 9)
-router.get('/stats', async (req, res, next) => {
+router.get('/stats', requireRole('admin', 'operator', 'business'), async (req, res, next) => {
   try {
     const siteKey = req.query.site || req.query.site_key;
     const range = parseDateRangeQuery(req.query);
+    const brandScope = profileBrandScope(req.profile);
     const { data: accounts, error } = await supabaseAdmin
       .from('accounts')
-      .select('id, notes, status')
+      .select('id, notes, status, account_name, device_id')
       .in('status', ['BANNED', 'RECOVERING', 'RECYCLED', 'AVAILABLE', 'NURTURING']);
     if (error) throw error;
 
     const attempts = [];
     (accounts || []).forEach((a) => {
+      if (!accountInBrandScope(a, brandScope)) return;
       const rec = parseRecoveryMeta(a.notes);
       if (!rec?.log?.length) return;
       const meta = parseOperatorMeta(a);
@@ -74,5 +76,7 @@ router.get('/stats', async (req, res, next) => {
     next(e);
   }
 });
+
+router.use(requireRole('admin', 'operator'));
 
 export default router;

@@ -8,10 +8,10 @@ import {
 } from '../../lib/banAnalytics.js';
 import { ACCOUNT_SELECT_BAN } from '../../lib/accountSelect.js';
 import { parseDateRangeQuery, inDateRange } from '../../lib/dateRange.js';
+import { accountInBrandScope, profileBrandScope } from '../../lib/accountBrand.js';
 
 const router = Router();
 router.use(authenticate);
-router.use(requireRole('admin', 'operator'));
 
 function enrichAccountRow(row) {
   const meta = parseOperatorMeta(row);
@@ -43,20 +43,40 @@ async function loadBanData() {
   return { records, accountsById };
 }
 
-router.get('/stats', async (req, res, next) => {
+function filterRecordsByBrand(records, accountsById, profile) {
+  const scope = profileBrandScope(profile);
+  if (!scope) return records;
+  if (!scope.length) return [];
+  return records.filter((r) => accountInBrandScope(accountsById[r.account_id], scope));
+}
+
+router.get('/stats', requireRole('admin', 'operator', 'business'), async (req, res, next) => {
   try {
     const siteKey = req.query.site || req.query.site_key || 'all';
     const range = parseDateRangeQuery(req.query);
-    const { records } = await loadBanData();
+    const { records, accountsById } = await loadBanData();
+    let scoped = filterRecordsByBrand(records, accountsById, req.profile);
     const filtered = range
-      ? records.filter((r) => inDateRange(r.changed_at, range))
-      : records;
+      ? scoped.filter((r) => inDateRange(r.changed_at, range))
+      : scoped;
     const stats = aggregateBanStats(filtered, { siteKey });
 
-    const { count: poolSize } = await supabaseAdmin
-      .from('accounts')
-      .select('id', { count: 'exact', head: true })
-      .neq('status', 'RECYCLED');
+    const brandScope = profileBrandScope(req.profile);
+    let poolSize = 0;
+    if (brandScope) {
+      const { data: poolAccounts } = await supabaseAdmin
+        .from('accounts')
+        .select('id, notes, account_name, device_id')
+        .neq('status', 'RECYCLED')
+        .limit(2000);
+      poolSize = (poolAccounts || []).filter((a) => accountInBrandScope(a, brandScope)).length;
+    } else {
+      const { count } = await supabaseAdmin
+        .from('accounts')
+        .select('id', { count: 'exact', head: true })
+        .neq('status', 'RECYCLED');
+      poolSize = count || 0;
+    }
 
     const overallPct = poolSize > 0
       ? Math.round((stats.total / poolSize) * 1000) / 10
@@ -72,7 +92,7 @@ router.get('/stats', async (req, res, next) => {
     res.json({
       ...stats,
       overallPct,
-      poolSize: poolSize || 0,
+      poolSize,
       flaggedIps: flaggedIps || [],
       date_range: range ? { from: range.from, to: range.to } : null,
     });
@@ -81,6 +101,7 @@ router.get('/stats', async (req, res, next) => {
   }
 });
 
+router.use(requireRole('admin', 'operator'));
 router.get('/', async (req, res, next) => {
   try {
     const { page, limit, offset } = parsePagination(req.query);

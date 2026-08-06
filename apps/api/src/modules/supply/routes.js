@@ -19,27 +19,36 @@ import {
   phonesMatch,
   syncIssueType,
 } from '../../lib/phoneSync.js';
+import { accountInBrandScope, profileBrandScope } from '../../lib/accountBrand.js';
 
 const router = Router();
 router.use(authenticate);
-router.use(requireRole('admin', 'operator'));
 
 function filterBySite(rows, siteKey) {
   if (!siteKey || siteKey === 'all') return rows;
   return rows.filter((a) => parseOperatorMeta(a).site_key === siteKey);
 }
 
+function filterByBrand(rows, profile) {
+  const scope = profileBrandScope(profile);
+  if (!scope) return rows;
+  if (!scope.length) return [];
+  return rows.filter((a) => accountInBrandScope(a, scope));
+}
+
 // GET /supply — pool counts vs targets (REGISTERING/NURTURING targets from RM model)
-router.get('/', async (req, res, next) => {
+// Business may read brand-scoped counts for Governance dashboard.
+router.get('/', requireRole('admin', 'operator', 'business'), async (req, res, next) => {
   try {
     const siteKey = req.query.site || req.query.site_key || 'all';
     const [{ data: accounts, error }, rm] = await Promise.all([
-      supabaseAdmin.from('accounts').select('id, status, notes').limit(1000),
+      supabaseAdmin.from('accounts').select('id, status, notes, account_name, device_id').limit(1000),
       loadRmSupplyModel(siteKey),
     ]);
     if (error) throw error;
 
-    const filtered = filterBySite(accounts || [], siteKey);
+    let filtered = filterBySite(accounts || [], siteKey);
+    filtered = filterByBrand(filtered, req.profile);
     const counts = { REGISTERING: 0, NURTURING: 0, AVAILABLE: 0, IN_USE: 0 };
     filtered.forEach((a) => {
       if (counts[a.status] !== undefined) counts[a.status] += 1;
@@ -98,6 +107,7 @@ router.get('/', async (req, res, next) => {
   }
 });
 
+router.use(requireRole('admin', 'operator'));
 // GET /supply/rm-model — RM Operation Logic v3.2 calculation
 router.get('/rm-model', async (req, res, next) => {
   try {

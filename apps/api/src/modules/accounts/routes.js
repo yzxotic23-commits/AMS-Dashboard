@@ -175,6 +175,7 @@ async function resolveAssignmentAuditChanges(diffs, updatedAccount) {
 router.get('/', async (req, res, next) => {
   try {
     const { page, limit, offset } = parsePagination(req.query);
+    const brandScope = profileBrandScope(req.profile);
     if (brandScope) {
       let q = supabaseAdmin.from('accounts').select(ACCOUNT_SELECT);
       if (req.query.status) q = q.eq('status', req.query.status);

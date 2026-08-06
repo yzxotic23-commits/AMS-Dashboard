@@ -17,6 +17,7 @@ function mapStandbyRows(accounts, site = 'all') {
       account_name: a.account_name,
       phone_number: a.phone_number || '',
       sim: a.sim || '',
+      brand: a.brand || '',
       siteKey: a.siteKey,
       bind_proxy: a.bind_proxy,
     }));

@@ -7,7 +7,7 @@ const HOST = process.env.API_HOST || '0.0.0.0';
 
 // API entry — restart picks up route changes under src/
 const startedAt = new Date().toISOString();
-const buildTag = 'sim-bound-fix-v5';
+const buildTag = 'business-brands-v1';
 app.listen(PORT, HOST, () => {
   console.log(`[AMS API] http://${HOST}:${PORT} (started ${startedAt}, ${buildTag})`);
   console.log(`[AMS API] Health: http://localhost:${PORT}/api/v1/health`);

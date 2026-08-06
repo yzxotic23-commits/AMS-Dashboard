@@ -7,6 +7,7 @@ import IconTooltip from '../../components/IconTooltip';
 import Toast from '../../components/Toast';
 import { useAuth } from '../../context/AuthContext';
 import { SITES, getSiteChipClass } from '../../lib/sites';
+import { BRAND_OPTIONS, normalizeBrands } from '../../lib/profile-brands';
 import api from '../../lib/api';
 
 const ROLES = [
@@ -45,6 +46,7 @@ const EMPTY_FORM = {
   password: '',
   role: 'operator',
   site_key: 'my',
+  brands: [],
 };
 
 function userToForm(user) {
@@ -54,6 +56,7 @@ function userToForm(user) {
     password: '',
     role: user?.role || 'operator',
     site_key: user?.site_key || 'my',
+    brands: normalizeBrands(user?.brands),
   };
 }
 
@@ -69,6 +72,7 @@ export default function UserManagementPage() {
   const isAdmin = profile?.role === 'admin';
   const isEdit = Boolean(editUser);
   const dialogOpen = createOpen || isEdit;
+  const brandsEditable = form.role === 'business';
 
   const { data: users = [], isLoading, isError, error } = useQuery({
     queryKey: ['users'],
@@ -127,12 +131,26 @@ export default function UserManagementPage() {
     setForm(userToForm(user));
   }
 
+  function toggleBrand(brand) {
+    setForm((f) => {
+      const set = new Set(f.brands);
+      if (set.has(brand)) set.delete(brand);
+      else set.add(brand);
+      return { ...f, brands: BRAND_OPTIONS.filter((b) => set.has(b)) };
+    });
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
+    if (form.role === 'business' && form.brands.length === 0) {
+      setToast('Business users need at least one brand');
+      return;
+    }
     const body = {
       full_name: form.full_name,
       role: form.role,
       site_key: form.site_key,
+      brands: form.role === 'business' ? form.brands : [],
     };
     if (form.password.trim()) body.password = form.password;
 
@@ -152,6 +170,7 @@ export default function UserManagementPage() {
     setForm((f) => {
       const next = { ...f, role };
       if (role === 'admin') next.site_key = 'all';
+      if (role !== 'business') next.brands = [];
       return next;
     });
   }
@@ -164,7 +183,7 @@ export default function UserManagementPage() {
       <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-ams-faint">Settings</p>
       <PageHead
         title="User management"
-        description="Admin Master manages users and settings only — not pipeline operators. Operators appear in Control Center when accounts are assigned to them."
+        description="Admin Master manages users and settings only — not pipeline operators. Operators appear in Control Center when accounts are assigned to them. Business users only see Standby accounts for their assigned brands."
         actions={(
           <button type="button" className="btn btn-primary btn-sm" onClick={openCreate}>
             <UserPlus size={15} strokeWidth={2.25} />
@@ -192,6 +211,7 @@ export default function UserManagementPage() {
                 <th>Username</th>
                 <th>Site</th>
                 <th>Role</th>
+                <th>Brands</th>
                 <th className="col-action">Actions</th>
               </tr>
             </thead>
@@ -211,6 +231,19 @@ export default function UserManagementPage() {
                       <span className={`badge ${u.role === 'admin' ? 'badge-accent' : 'badge-default'}`}>
                         {roleLabel(u.role)}
                       </span>
+                    </td>
+                    <td>
+                      {u.role === 'business' ? (
+                        <span className="flex flex-wrap gap-1">
+                          {normalizeBrands(u.brands).length ? normalizeBrands(u.brands).map((b) => (
+                            <span key={b} className="badge badge-accent">{b}</span>
+                          )) : (
+                            <span className="text-[12.5px] text-ams-faint">None</span>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="text-[12.5px] text-ams-faint">—</span>
+                      )}
                     </td>
                     <td className="col-action">
                       <div className="col-action-btns">
@@ -332,6 +365,37 @@ export default function UserManagementPage() {
               ))}
             </select>
           </label>
+          <fieldset className="drawer-field">
+            <legend className="drawer-label">
+              Brands{brandsEditable ? ' (required)' : ''}
+            </legend>
+            <p className="drawer-hint" style={{ marginTop: 0 }}>
+              {brandsEditable
+                ? 'Delivery ticket Standby list is limited to these brands.'
+                : 'Switch Role to Business to assign brands. Other roles see all brands.'}
+            </p>
+            <div className="flex flex-wrap gap-2" style={{ marginTop: 8, opacity: brandsEditable ? 1 : 0.45 }}>
+              {BRAND_OPTIONS.map((brand) => {
+                const checked = form.brands.includes(brand);
+                return (
+                  <label
+                    key={brand}
+                    className={`badge ${checked && brandsEditable ? 'badge-accent' : 'badge-default'}`}
+                    style={{ cursor: brandsEditable ? 'pointer' : 'not-allowed', userSelect: 'none' }}
+                  >
+                    <input
+                      type="checkbox"
+                      className="sr-only"
+                      checked={checked}
+                      disabled={!brandsEditable}
+                      onChange={() => toggleBrand(brand)}
+                    />
+                    {brand}
+                  </label>
+                );
+              })}
+            </div>
+          </fieldset>
           <label className="drawer-field">
             <span className="drawer-label">
               {isEdit ? 'New password (optional)' : 'Password'}

@@ -6,6 +6,7 @@ import { supabaseAdmin } from '../../lib/supabase.js';
 import { writeAudit } from '../../lib/audit.js';
 import {
   enrichProfilesSiteKey,
+  normalizeProfileBrands,
   normalizeSiteKey,
 } from '../../lib/profile-site.js';
 
@@ -14,21 +15,35 @@ router.use(authenticate);
 
 router.use(requireRole('admin'));
 
+const brandEnum = z.enum(['SBMY', 'JMMY', 'STMY', 'PP']);
+const brandsSchema = z.array(brandEnum).optional();
+
 const createSchema = z.object({
   password: z.string().min(8),
   full_name: z.string().min(1),
   username: z.string().min(3).max(32).regex(/^[a-zA-Z0-9._-]+$/),
   role: z.enum(['admin', 'operator', 'business', 'reviewer']).default('operator'),
   site_key: z.enum(['my', 'pp', 'all']).default('my'),
+  brands: brandsSchema,
 });
 
 const patchSchema = z.object({
   full_name: z.string().min(1).optional(),
   role: z.enum(['admin', 'operator', 'business', 'reviewer']).optional(),
   site_key: z.enum(['my', 'pp', 'all']).optional(),
+  brands: brandsSchema,
   is_active: z.boolean().optional(),
   password: z.string().min(8).optional(),
 });
+
+function resolveBrandsForRole(role, brands) {
+  const list = normalizeProfileBrands(role, brands);
+  if (role === 'business' && list.length === 0) {
+    throw new Error('Business users must have at least one brand assigned');
+  }
+  if (role !== 'business') return [];
+  return list;
+}
 
 function authEmailForUsername(username) {
   return `${username.toLowerCase()}@ams.internal`;
@@ -77,6 +92,10 @@ async function updateProfilePg(client, id, fields) {
     sets.push(`site_key = $${i++}`);
     vals.push(fields.site_key);
   }
+  if (fields.brands != null) {
+    sets.push(`brands = $${i++}::text[]`);
+    vals.push(fields.brands);
+  }
   if (fields.is_active != null) {
     sets.push(`is_active = $${i++}`);
     vals.push(fields.is_active);
@@ -92,18 +111,22 @@ async function updateProfilePg(client, id, fields) {
 
 async function upsertProfilePg(client, row) {
   await client.query(
-    `INSERT INTO profiles (id, email, username, full_name, role, site_key, is_active, password_hash)
-     VALUES ($1, $2, $3, $4, $5::user_role, $6, $7, $8)
+    `INSERT INTO profiles (id, email, username, full_name, role, site_key, brands, is_active, password_hash)
+     VALUES ($1, $2, $3, $4, $5::user_role, $6, $7::text[], $8, $9)
      ON CONFLICT (id) DO UPDATE SET
        email = EXCLUDED.email,
        username = EXCLUDED.username,
        full_name = EXCLUDED.full_name,
        role = EXCLUDED.role,
        site_key = EXCLUDED.site_key,
+       brands = EXCLUDED.brands,
        is_active = EXCLUDED.is_active,
        password_hash = COALESCE(EXCLUDED.password_hash, profiles.password_hash),
        updated_at = NOW()`,
-    [row.id, row.email, row.username, row.full_name, row.role, row.site_key, row.is_active, row.password_hash],
+    [
+      row.id, row.email, row.username, row.full_name, row.role, row.site_key,
+      row.brands || [], row.is_active, row.password_hash,
+    ],
   );
 }
 
@@ -112,7 +135,7 @@ router.get('/', async (_req, res, next) => {
   try {
     const { data, error } = await supabaseAdmin
       .from('profiles')
-      .select('id, email, username, full_name, role, site_key, is_active, created_at, updated_at')
+      .select('id, email, username, full_name, role, site_key, brands, is_active, created_at, updated_at')
       .order('created_at', { ascending: false });
     if (error) throw error;
     const rows = await enrichProfilesSiteKey(data || []);
@@ -131,6 +154,7 @@ router.post('/', async (req, res, next) => {
     const username = body.username.toLowerCase();
     const email = authEmailForUsername(username);
     const siteKey = normalizeSiteKey(body.role, body.site_key);
+    const brands = resolveBrandsForRole(body.role, body.brands);
     const url = process.env.SUPABASE_URL;
 
     const existingProfile = await findProfileByUsername(username);
@@ -175,6 +199,7 @@ router.post('/', async (req, res, next) => {
       full_name: body.full_name,
       role: body.role,
       site_key: siteKey,
+      brands,
       is_active: true,
       password_hash: body.password,
     };
@@ -192,7 +217,7 @@ router.post('/', async (req, res, next) => {
       entityType: 'profile',
       entityId: authUser.id,
       action: 'USER_CREATE',
-      newValue: { username, role: body.role, site_key: siteKey },
+      newValue: { username, role: body.role, site_key: siteKey, brands },
       userId: req.user.id,
       req,
     });
@@ -238,6 +263,12 @@ router.patch('/:id', async (req, res, next) => {
     if (body.site_key != null || body.role != null) {
       patch.site_key = normalizeSiteKey(nextRole, body.site_key ?? existing.site_key);
     }
+    if (body.brands != null || body.role != null) {
+      patch.brands = resolveBrandsForRole(
+        nextRole,
+        body.brands != null ? body.brands : existing.brands,
+      );
+    }
 
     let data;
     if (Object.keys(patch).length > 0) {
@@ -245,7 +276,7 @@ router.patch('/:id', async (req, res, next) => {
         .from('profiles')
         .update({ ...patch, updated_at: new Date().toISOString() })
         .eq('id', req.params.id)
-        .select('id, email, username, full_name, role, site_key, is_active, created_at, updated_at')
+        .select('id, email, username, full_name, role, site_key, brands, is_active, created_at, updated_at')
         .single();
       if (error) throw error;
       data = updated;

@@ -19,6 +19,11 @@ import { enrichAccountsIpEmbed, normalizeIpJoin } from '../../lib/accountEnrich.
 import {
   parseDateRangeQuery, inDateRange, rangeEvalAt,
 } from '../../lib/dateRange.js';
+import {
+  accountInBrandScope,
+  profileBrandScope,
+  resolveAccountBrand,
+} from '../../lib/accountBrand.js';
 
 const BACKLOG_MS = 30 * 60 * 1000;
 
@@ -245,6 +250,7 @@ router.get('/', async (req, res, next) => {
     if (error) throw error;
 
     const requesterMap = await loadRequesterNameMap((tickets || []).map((t) => t.requester_id));
+    const brandScope = profileBrandScope(req.profile);
     const rows = [];
     for (const t of tickets || []) {
       let account = null;
@@ -253,6 +259,7 @@ router.get('/', async (req, res, next) => {
       }
       const row = enrichRow(t, account, null, requesterMap.get(t.requester_id) || '');
       if (siteKey && siteKey !== 'all' && row.site_key !== siteKey) continue;
+      if (!accountInBrandScope(account, brandScope)) continue;
       rows.push(row);
     }
     res.json({ data: await attachScreenshotUrls(rows) });
@@ -269,6 +276,7 @@ router.get('/stats', async (req, res, next) => {
     const evalAt = rangeEvalAt(range);
     const { data: tickets } = await supabaseAdmin.from('tickets').select('*').limit(500);
     const requesterMap = await loadRequesterNameMap((tickets || []).map((t) => t.requester_id));
+    const brandScope = profileBrandScope(req.profile);
     const rows = [];
     for (const t of tickets || []) {
       let account = null;
@@ -277,6 +285,7 @@ router.get('/stats', async (req, res, next) => {
       }
       const row = enrichRow(t, account, null, requesterMap.get(t.requester_id) || '');
       if (siteKey && siteKey !== 'all' && row.site_key !== siteKey) continue;
+      if (!accountInBrandScope(account, brandScope)) continue;
       rows.push(row);
     }
 
@@ -372,6 +381,7 @@ function standbyAccountRow(account) {
     account_name: account.account_name,
     phone_number: account.phone_number || account.sims?.phone_number || '',
     sim: formatSimLabel(account.sims),
+    brand: resolveAccountBrand(account) || null,
     siteKey: inferSiteKey(meta, ip),
     bind_proxy: proxyFromIp(ip),
   };
@@ -381,6 +391,7 @@ function standbyAccountRow(account) {
 router.get('/standby-accounts', async (req, res, next) => {
   try {
     const siteKey = req.query.site || req.query.site_key;
+    const brandScope = profileBrandScope(req.profile);
     const { data, error } = await supabaseAdmin
       .from('accounts')
       .select(ACCOUNT_SELECT_TICKET)
@@ -392,7 +403,12 @@ router.get('/standby-accounts', async (req, res, next) => {
     const enriched = await enrichAccountsIpEmbed(data);
     const rows = enriched
       .map(standbyAccountRow)
-      .filter((row) => !siteKey || siteKey === 'all' || row.siteKey === siteKey);
+      .filter((row) => !siteKey || siteKey === 'all' || row.siteKey === siteKey)
+      .filter((row) => {
+        if (!brandScope) return true;
+        if (!brandScope.length) return false;
+        return row.brand && brandScope.includes(row.brand);
+      });
 
     res.set('Cache-Control', 'no-store');
     res.json({ data: rows });
@@ -408,6 +424,10 @@ router.post('/', async (req, res, next) => {
     const account = await loadAccount(body.account_id);
     if (account.status !== 'AVAILABLE') {
       return res.status(400).json({ error: 'Account must be in Standby (AVAILABLE) pool' });
+    }
+    const brandScope = profileBrandScope(req.profile);
+    if (!accountInBrandScope(account, brandScope)) {
+      return res.status(403).json({ error: 'Account brand is outside your assigned brands' });
     }
     const opMeta = parseOperatorMeta(account);
     const hubOwner = resolveHubOwner(account, opMeta);

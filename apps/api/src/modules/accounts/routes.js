@@ -18,6 +18,7 @@ import { enrichAccountsIpEmbed } from '../../lib/accountEnrich.js';
 import { parseOperatorMeta, mergeOperatorNotes } from '../../lib/accountMeta.js';
 import { assertDeviceSlotAvailable, DeviceSlotError } from '../../lib/deviceSlots.js';
 import { postWsafAuditRecord } from '../../lib/wsafBridge.js';
+import { accountInBrandScope, profileBrandScope } from '../../lib/accountBrand.js';
 
 const router = Router();
 router.use(authenticate);
@@ -174,6 +175,23 @@ async function resolveAssignmentAuditChanges(diffs, updatedAccount) {
 router.get('/', async (req, res, next) => {
   try {
     const { page, limit, offset } = parsePagination(req.query);
+    if (brandScope) {
+      let q = supabaseAdmin.from('accounts').select(ACCOUNT_SELECT);
+      if (req.query.status) q = q.eq('status', req.query.status);
+      if (req.query.search) {
+        q = q.or(`account_name.ilike.%${req.query.search}%,phone_number.ilike.%${req.query.search}%`);
+      }
+      const { data, error } = await q
+        .order('updated_at', { ascending: false })
+        .limit(500);
+      if (error) throw error;
+      const enriched = await enrichAccountsIpEmbed(data);
+      const filtered = enriched.filter((row) => accountInBrandScope(row, brandScope));
+      const pageRows = filtered.slice(offset, offset + limit);
+      res.set('Cache-Control', 'no-store');
+      return res.json(paginatedResponse(pageRows, filtered.length, page, limit));
+    }
+
     let q = supabaseAdmin
       .from('accounts')
       .select(ACCOUNT_SELECT, { count: 'exact' });

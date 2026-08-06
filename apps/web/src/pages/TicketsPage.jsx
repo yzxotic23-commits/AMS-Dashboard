@@ -165,7 +165,7 @@ function DeliveryTicketFormFields({
             <select className="input" value={selectedAcct} onChange={(e) => onSelectAccount(e.target.value)}>
               {standby.map((a) => (
                 <option key={a.id} value={a.id}>
-                  {a.account_name} ({a.sim || a.phone_number})
+                  {a.brand ? `${a.brand} · ` : ''}{a.account_name} ({a.sim || a.phone_number})
                 </option>
               ))}
             </select>

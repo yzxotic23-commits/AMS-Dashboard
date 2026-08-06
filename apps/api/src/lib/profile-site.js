@@ -1,8 +1,15 @@
 import pg from 'pg';
+import { normalizeBrands } from './accountBrand.js';
 
 export function normalizeSiteKey(role, siteKey) {
   if (siteKey === 'my' || siteKey === 'pp' || siteKey === 'all') return siteKey;
   return role === 'admin' ? 'all' : 'my';
+}
+
+export function normalizeProfileBrands(role, brands) {
+  const list = normalizeBrands(brands);
+  if (role === 'business') return list;
+  return list;
 }
 
 export function pgConfig() {
@@ -37,10 +44,15 @@ export async function enrichProfilesSiteKey(rows) {
   return rows.map((u) => ({
     ...u,
     site_key: normalizeSiteKey(u.role, u.site_key),
+    brands: normalizeProfileBrands(u.role, u.brands),
   }));
 }
 
 export async function enrichProfileSiteKey(profile) {
   if (!profile?.id) return profile;
-  return { ...profile, site_key: normalizeSiteKey(profile.role, profile.site_key) };
+  return {
+    ...profile,
+    site_key: normalizeSiteKey(profile.role, profile.site_key),
+    brands: normalizeProfileBrands(profile.role, profile.brands),
+  };
 }

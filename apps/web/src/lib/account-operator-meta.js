@@ -47,7 +47,8 @@ function inferSiteFromDevice(deviceName) {
   if (!deviceName) return null;
   const code = String(deviceName).toUpperCase();
   if (code.startsWith('PP-')) return 'pp';
-  if (code.startsWith('MYR-') || code.startsWith('MY-') || code.startsWith('SGD-')) return 'my';
+  if (code.startsWith('MYR-') || code.startsWith('MY-')) return 'my';
+  // SGD-* is not site-locked (usable on MY or PP)
   return null;
 }
 

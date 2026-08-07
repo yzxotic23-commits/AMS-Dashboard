@@ -14,6 +14,7 @@ import {
   groupAccountsByDeviceSlots,
   DEVICE_MAX_SLOTS,
 } from '../lib/device-location';
+import { filterDevicesBySite } from '../lib/resource-mappers';
 import { nurturingDay, nurturingProgress } from '../lib/nurturing-day';
 import { getBridgeSummary } from '../lib/bridge-client';
 import { liveSlotConnection } from '../lib/engine-slot';
@@ -311,11 +312,15 @@ export default function AccountsPage() {
     let acctCount = 0;
     const cards = [];
 
-    const sortedDevices = [...devices].sort(compareDeviceNames);
+    const sortedDevices = filterDevicesBySite([...devices].sort(compareDeviceNames), site);
 
     sortedDevices.forEach((device) => {
-      const siteKey = device.device_name?.startsWith('PP') ? 'pp' : 'my';
-      if (site !== 'all' && siteKey !== site) return;
+      const name = String(device.device_name || '').toUpperCase();
+      const siteKey = name.startsWith('PP')
+        ? 'pp'
+        : name.startsWith('SGD')
+          ? (site === 'pp' || site === 'my' ? site : 'all')
+          : 'my';
 
       const deviceAccounts = accounts
         .filter((a) => a.device_id === device.id)

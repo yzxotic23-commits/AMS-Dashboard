@@ -54,9 +54,10 @@ export function deviceNotesForUnit(siteKey, unit) {
 export function deviceMatchesSite(deviceName, siteKey) {
   const parsed = parseDeviceCode(deviceName);
   if (!parsed) return siteKey !== 'pp';
+  // SGD farm is shared across MY + PP (auto-expand still creates MYR-* / PP-* only)
+  if (parsed.sitePrefix === 'SGD') return siteKey === 'my' || siteKey === 'pp';
   if (siteKey === 'pp') return parsed.sitePrefix === 'PP';
-  // Malaysia: MYR + SGD farm devices (auto-expand still creates MYR-* only)
-  return parsed.sitePrefix === 'MYR' || parsed.sitePrefix === 'SGD';
+  return parsed.sitePrefix === 'MYR';
 }
 
 export function slotsUsedOnDevice(deviceId, accounts = []) {

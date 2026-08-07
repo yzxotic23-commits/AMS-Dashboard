@@ -74,13 +74,12 @@ export function filterIpsBySite(rows, siteKey) {
 
 export function filterDevicesBySite(rows, siteKey) {
   if (siteKey === 'all') return rows;
-  if (siteKey === 'pp') {
-    return rows.filter((d) => String(d.device_name || '').toUpperCase().startsWith('PP'));
-  }
-  // Malaysia site: MYR farm + SGD farm (SG trading brands: FWSG / WBSG / M24SG)
   return rows.filter((d) => {
     const name = String(d.device_name || '').toUpperCase();
-    return name.startsWith('MYR') || name.startsWith('SGD');
+    // SGD farm devices are usable on both Malaysia and Poipet register flows
+    if (name.startsWith('SGD')) return true;
+    if (siteKey === 'pp') return name.startsWith('PP');
+    return name.startsWith('MYR');
   });
 }
 

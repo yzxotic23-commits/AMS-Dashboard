@@ -183,7 +183,7 @@ export default function UserManagementPage() {
       <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-ams-faint">Settings</p>
       <PageHead
         title="User management"
-        description="Admin Master manages users and settings only — not pipeline operators. Operators register accounts (Owner) and can assign Staff names for Business. Business users see Standby for their brands with Staff labels."
+        description="Admin Master manages users and settings only — not pipeline operators. Operators register accounts (Owner) and can assign Staff names for Business. Business users only see Delivery tickets and Governance for their brands."
         actions={(
           <button type="button" className="btn btn-primary btn-sm" onClick={openCreate}>
             <UserPlus size={15} strokeWidth={2.25} />

@@ -32,6 +32,17 @@ const NAV = [
   ]},
 ];
 
+const BUSINESS_NAV = [
+  {
+    section: 'DELIVERY / DATA',
+    collapsible: true,
+    items: [
+      { to: '/tickets', icon: Ticket, label: 'Business Self-Service Delivery' },
+      { to: '/governance', icon: LineChart, label: 'Dashboard (Governance)' },
+    ],
+  },
+];
+
 const USER_MGMT_ITEM = {
   to: '/settings/users',
   icon: Users,
@@ -48,8 +59,11 @@ const SETTINGS_GROUP = {
 };
 
 function buildNav(profile) {
-  if (profile?.role !== 'admin') return NAV;
-  return [...NAV, SETTINGS_GROUP];
+  // Wait for profile — avoid flashing the full operator nav for Business users.
+  if (!profile?.role) return [];
+  if (profile.role === 'business') return BUSINESS_NAV;
+  if (profile.role === 'admin') return [...NAV, SETTINGS_GROUP];
+  return NAV;
 }
 
 function groupIsOpen(section, items, pathname, openMap) {
@@ -91,7 +105,9 @@ function AppSidebar({ pathname, openMap, initialOpenMap, onGroupToggle, onSignOu
       </div>
 
       <nav ref={navRef} className="sidebar-nav min-h-0 flex-1 px-5 py-4">
-        {nav.map((group) => (
+        {nav.length === 0 ? (
+          <div className="px-2 py-3 text-[11px] text-ams-sidebar-text/70">Loading menu…</div>
+        ) : nav.map((group) => (
           <SidebarNavGroup
             key={group.section}
             section={group.section}

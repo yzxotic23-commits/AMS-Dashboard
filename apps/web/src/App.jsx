@@ -17,11 +17,34 @@ import TicketsPage from './pages/TicketsPage';
 import UserManagementPage from './pages/settings/UserManagementPage';
 import SettingsPage from './pages/settings/SettingsPage';
 import AdminRoute from './components/AdminRoute';
+import { homePathForRole } from './lib/role-access';
 
 function ProtectedShell() {
-  const { session, loading } = useAuth();
+  const { session, profile, loading } = useAuth();
   if (!loading && !session) return <Navigate to="/login" replace />;
-  return <Layout authBooting={loading && !session} />;
+  // Wait for profile so Business nav doesn't flash the full operator sidebar.
+  const authBooting = loading || Boolean(session && !profile);
+  return <Layout authBooting={authBooting} />;
+}
+
+function HomeRedirect() {
+  const { profile, loading } = useAuth();
+  if (loading && !profile) {
+    return (
+      <div className="flex justify-center py-24">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-ams-line border-t-ams-accent" />
+      </div>
+    );
+  }
+  if (profile?.role === 'business') {
+    return <Navigate to={homePathForRole('business')} replace />;
+  }
+  return <CommandCenterPage />;
+}
+
+function LoginRedirect() {
+  const { profile } = useAuth();
+  return <Navigate to={homePathForRole(profile?.role)} replace />;
 }
 
 export default function App() {
@@ -29,9 +52,9 @@ export default function App() {
 
   return (
     <Routes>
-      <Route path="/login" element={session ? <Navigate to="/" replace /> : <LoginPage />} />
+      <Route path="/login" element={session ? <LoginRedirect /> : <LoginPage />} />
       <Route element={<ProtectedShell />}>
-        <Route index element={<CommandCenterPage />} />
+        <Route index element={<HomeRedirect />} />
         <Route path="governance" element={<GovernancePage />} />
         <Route path="accounts" element={<AccountsPage />} />
         <Route path="register" element={<RegisterPage />} />

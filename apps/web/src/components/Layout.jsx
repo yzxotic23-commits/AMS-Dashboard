@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { Navigate, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSite } from '../context/SiteContext';
 import { getSiteStripMessage, SITE_STRIP_PATHS } from '../lib/sites';
 import { operatorSiteKey, siteOptionsForProfile } from '../lib/operator-scope';
+import { homePathForRole, isPathAllowedForRole } from '../lib/role-access';
 import { readSidebarOpenMap, writeSidebarOpenMap } from '../lib/sidebar-prefs';
 import { useScrollRevealScrollbar } from '../hooks/useScrollRevealScrollbar';
 import { pathInGroup } from './SidebarNavGroup';
@@ -99,6 +100,10 @@ export default function Layout({ authBooting = false }) {
   const amsBridgeSync = AMS_BRIDGE_SYNC_PATHS.some(
     (p) => location.pathname === p || location.pathname.startsWith(`${p}/`),
   );
+
+  if (profile?.role === 'business' && !isPathAllowedForRole(location.pathname, 'business')) {
+    return <Navigate to={homePathForRole('business')} replace />;
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-ams-sidebar">

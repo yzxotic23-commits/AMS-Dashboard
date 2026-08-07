@@ -679,15 +679,21 @@ export default function TicketsPage() {
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <SegControl
-          value={role}
-          onChange={setRole}
-          size="sm"
-          options={[
-            { value: 'business', label: 'Business' },
-            { value: 'operator', label: 'Operator' },
-          ]}
-        />
+        {isAdminUser ? (
+          <SegControl
+            value={role}
+            onChange={setRole}
+            size="sm"
+            options={[
+              { value: 'business', label: 'Business' },
+              { value: 'operator', label: 'Operator' },
+            ]}
+          />
+        ) : (
+          <span className="badge badge-default">
+            {profile?.role === 'operator' ? 'Operator' : 'Business'}
+          </span>
+        )}
         {ownerFilter && (
           <button
             type="button"
@@ -703,7 +709,7 @@ export default function TicketsPage() {
         )}
         <p className="text-xs text-ams-muted">
           {isAdminUser
-            ? 'Admin: tab Operator untuk review IP · tab Business untuk confirm delivery (mis. PP-Ben).'
+            ? 'Admin: tab Operator untuk review IP · tab Business untuk confirm delivery.'
             : role === 'business'
               ? 'Submit tickets and confirm when the account is live.'
               : 'Review IP match, go live on phone, or reject mismatches.'}

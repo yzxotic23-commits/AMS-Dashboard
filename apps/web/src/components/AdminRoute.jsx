@@ -1,5 +1,6 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { homePathForRole } from '../lib/role-access';
 
 export default function AdminRoute({ children }) {
   const { profile, loading } = useAuth();
@@ -13,7 +14,7 @@ export default function AdminRoute({ children }) {
   }
 
   if (profile?.role !== 'admin') {
-    return <Navigate to="/" replace />;
+    return <Navigate to={homePathForRole(profile?.role)} replace />;
   }
 
   return children;

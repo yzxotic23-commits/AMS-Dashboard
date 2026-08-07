@@ -19,6 +19,8 @@ function mapStandbyRows(accounts, site = 'all') {
       sim: a.sim || '',
       brand: a.brand || '',
       siteKey: a.siteKey,
+      owner: a.owner || '',
+      staff: a.staff || '',
       bind_proxy: a.bind_proxy,
     }));
 }

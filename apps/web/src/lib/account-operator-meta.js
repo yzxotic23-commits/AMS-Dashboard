@@ -47,7 +47,7 @@ function inferSiteFromDevice(deviceName) {
   if (!deviceName) return null;
   const code = String(deviceName).toUpperCase();
   if (code.startsWith('PP-')) return 'pp';
-  if (code.startsWith('MYR-') || code.startsWith('MY-')) return 'my';
+  if (code.startsWith('MYR-') || code.startsWith('MY-') || code.startsWith('SGD-')) return 'my';
   return null;
 }
 
@@ -94,6 +94,7 @@ export function accountToOperatorRow(account) {
     last_health_check_at: meta.last_health_check_at || null,
     engine_status: meta.engine_status || null,
     owner: normalizeHubOwner(meta.owner),
+    staff: String(meta.staff || '').trim(),
     brand: meta.brand
       || inferBrand(account.account_name)
       || inferBrandFromDevice(deviceJoin?.device_name)
@@ -139,6 +140,7 @@ export function buildMetaPatch(row, patch) {
     last_health_check_at: row.last_health_check_at,
     engine_status: row.engine_status,
     owner: row.owner,
+    staff: row.staff,
     brand: row.brand,
     ...patch,
   };
@@ -157,6 +159,7 @@ export function buildMetaPatch(row, patch) {
       last_health_check_at: next.last_health_check_at,
       engine_status: next.engine_status,
       owner: next.owner || undefined,
+      staff: next.staff || undefined,
       brand: next.brand || undefined,
     },
     next.human_note || '',

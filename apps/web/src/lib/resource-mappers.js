@@ -74,8 +74,14 @@ export function filterIpsBySite(rows, siteKey) {
 
 export function filterDevicesBySite(rows, siteKey) {
   if (siteKey === 'all') return rows;
-  const prefix = siteKey === 'my' ? 'MYR' : 'PP';
-  return rows.filter((d) => d.device_name?.startsWith(prefix));
+  if (siteKey === 'pp') {
+    return rows.filter((d) => String(d.device_name || '').toUpperCase().startsWith('PP'));
+  }
+  // Malaysia site: MYR farm + SGD farm (SG trading brands: FWSG / WBSG / M24SG)
+  return rows.filter((d) => {
+    const name = String(d.device_name || '').toUpperCase();
+    return name.startsWith('MYR') || name.startsWith('SGD');
+  });
 }
 
 export function filterSimsBySite(rows, siteKey) {

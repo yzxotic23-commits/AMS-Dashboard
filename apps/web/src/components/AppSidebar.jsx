@@ -2,7 +2,7 @@ import { memo, useEffect, useRef } from 'react';
 import { LogOut } from 'lucide-react';
 import {
   LayoutGrid, Plus, RotateCcw, Globe, CreditCard, Table2,
-  Ticket, LineChart, ScrollText, Zap, MessageSquare, Users,
+  Ticket, LineChart, ScrollText, Zap, MessageSquare, Users, Smartphone,
 } from 'lucide-react';
 import { readSidebarScrollTop, writeSidebarScrollTop } from '../lib/sidebar-prefs';
 import SidebarNavGroup, { pathInGroup } from './SidebarNavGroup';
@@ -18,6 +18,7 @@ const NAV = [
     { to: '/recovery', icon: RotateCcw, label: 'Account Recovery' },
   ]},
   { section: 'RESOURCE MGMT', collapsible: true, items: [
+    { to: '/devices', icon: Smartphone, label: 'Device Ledger' },
     { to: '/ips', icon: Globe, label: 'IP Ledger' },
     { to: '/sims', icon: CreditCard, label: 'SIM Card Ledger' },
   ]},

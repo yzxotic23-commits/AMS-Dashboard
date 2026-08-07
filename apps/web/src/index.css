@@ -172,6 +172,9 @@
   .input::placeholder {
     color: rgba(6, 6, 6, 0.4);
   }
+  .input:disabled {
+    @apply cursor-not-allowed opacity-60;
+  }
   select {
     color: inherit;
   }
@@ -780,8 +783,12 @@
   .rl-acct-row .rl-col-status {
     @apply flex flex-wrap items-center pr-2;
   }
-  .rl-col-owner-head {
+  .rl-col-staff-head,
+  .rl-col-staff {
     @apply text-center;
+  }
+  .rl-col-staff {
+    @apply text-[12.5px] text-ams-muted;
   }
   .rl-acct-row:last-child {
     border-bottom: none;
@@ -1854,6 +1861,89 @@
     @apply truncate text-[11px] text-ams-faint;
   }
 
+  /* Searchable standby account picker (Business delivery) */
+  .standby-acct-picker {
+    @apply relative w-full;
+  }
+  .standby-acct-picker.is-disabled {
+    @apply opacity-60;
+  }
+  .standby-acct-picker-trigger {
+    @apply flex w-full items-center justify-between gap-2 text-left;
+  }
+  .standby-acct-picker-trigger-text {
+    @apply flex min-w-0 flex-1 flex-col gap-0.5;
+  }
+  .standby-acct-picker-trigger-text.is-empty {
+    @apply text-ams-faint;
+  }
+  .standby-acct-picker-trigger-main {
+    @apply truncate text-[13px] font-semibold text-ams-ink;
+  }
+  .standby-acct-picker-trigger-sub {
+    @apply truncate text-[11px] text-ams-faint;
+  }
+  .standby-acct-picker-chevron {
+    @apply shrink-0 text-ams-faint;
+  }
+  .standby-acct-picker-panel {
+    @apply absolute left-0 right-0 z-40 mt-1 overflow-hidden rounded-lg border border-ams-line shadow-card;
+    background-color: var(--ams-surface-card);
+  }
+  .standby-acct-picker-search {
+    @apply relative border-b border-ams-line p-2;
+  }
+  .standby-acct-picker-search-icon {
+    @apply pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-ams-faint;
+  }
+  .standby-acct-picker-search-input {
+    @apply h-9 w-full pl-8 text-[13px];
+  }
+  .standby-acct-picker-filters {
+    @apply flex gap-1 overflow-x-auto border-b border-ams-line px-2 py-1.5;
+  }
+  .standby-acct-picker-filter {
+    @apply shrink-0 rounded-md px-2.5 py-1 text-[11px] font-semibold text-ams-muted transition-colors;
+  }
+  .standby-acct-picker-filter:hover {
+    background-color: var(--ams-surface-muted);
+  }
+  .standby-acct-picker-filter.is-on {
+    background-color: color-mix(in srgb, var(--ams-accent) 12%, white);
+    color: var(--ams-accent);
+  }
+  .standby-acct-picker-list {
+    @apply max-h-72 overflow-y-auto py-1;
+  }
+  .standby-acct-picker-empty {
+    @apply px-3 py-4 text-center text-[12px] text-ams-faint;
+  }
+  .standby-acct-picker-group-head {
+    @apply sticky top-0 z-[1] flex items-center justify-between gap-2 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-ams-faint;
+    background-color: var(--ams-surface);
+  }
+  .standby-acct-picker-group-count {
+    @apply rounded-full bg-ams-surface-muted px-1.5 py-px text-[10px] font-semibold tabular-nums text-ams-muted;
+  }
+  .standby-acct-picker-option {
+    @apply flex w-full items-center justify-between gap-2 px-3 py-2 text-left transition-colors;
+  }
+  .standby-acct-picker-option:hover {
+    background-color: var(--ams-surface-muted);
+  }
+  .standby-acct-picker-option.is-selected {
+    background-color: color-mix(in srgb, var(--ams-accent) 10%, transparent);
+  }
+  .standby-acct-picker-option-main {
+    @apply flex min-w-0 flex-1 flex-col gap-0.5;
+  }
+  .standby-acct-picker-name {
+    @apply truncate text-[13px] font-semibold text-ams-ink;
+  }
+  .standby-acct-picker-phone {
+    @apply truncate text-[11px] text-ams-faint;
+  }
+
   .data-table .col-check,
   .data-table th.col-check {
     @apply text-center;
@@ -2543,6 +2633,9 @@
   }
   .tk-acct-sub {
     @apply mt-0.5 text-xs font-medium text-ams-muted;
+  }
+  .tk-staff-line {
+    @apply mt-0.5 text-[12px] font-medium text-ams-muted;
   }
   .tk-tid {
     @apply font-mono text-[11px] font-medium text-ams-faint;

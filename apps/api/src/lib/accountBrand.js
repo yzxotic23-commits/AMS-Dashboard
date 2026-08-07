@@ -1,19 +1,15 @@
 import { parseOperatorMeta } from './accountMeta.js';
+import { tradingBrandFromDeviceCode } from './deviceCapacity.js';
 
-export const ACCOUNT_BRAND_OPTIONS = ['SBMY', 'JMMY', 'STMY', 'PP'];
+export const ACCOUNT_BRAND_OPTIONS = [
+  'SBMY', 'JMMY', 'STMY', 'PP', 'FWSG', 'WBSG', 'M24SG',
+];
+
+const NAME_BRAND_RE = /^(SBMY|JMMY|STMY|PP|FWSG|WBSG|M24SG)\b/i;
 
 function inferBrandFromName(accountName) {
-  const m = String(accountName || '').match(/^(SBMY|JMMY|STMY|PP)\b/i);
+  const m = String(accountName || '').match(NAME_BRAND_RE);
   return m ? m[1].toUpperCase() : '';
-}
-
-function inferBrandFromDevice(deviceName) {
-  const name = String(deviceName || '').toUpperCase();
-  if (name.includes('-SB') || name.includes('SB-')) return 'SBMY';
-  if (name.includes('-JM') || name.includes('JM-')) return 'JMMY';
-  if (name.includes('-ST') || name.includes('ST-')) return 'STMY';
-  if (name.startsWith('PP')) return 'STMY';
-  return '';
 }
 
 /** Cost-attribution brand from account meta → name → device. */
@@ -26,7 +22,7 @@ export function resolveAccountBrand(account) {
     || account.device?.device_name
     || '';
   return inferBrandFromName(account.account_name)
-    || inferBrandFromDevice(deviceName)
+    || tradingBrandFromDeviceCode(deviceName)
     || '';
 }
 

@@ -3,11 +3,11 @@ import { Search } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import PageHead from '../components/PageHead';
 import { useSite } from '../context/SiteContext';
+import { useAuth } from '../context/AuthContext';
 import { SITES, getSiteChipClass } from '../lib/sites';
-import { useAllAccounts, useAccountDetail } from '../hooks/useOperatorAccounts';
+import { useAllAccounts, useAccountDetail, useAccountMutations } from '../hooks/useOperatorAccounts';
 import { statusMeta, resolveAccountBrand, BRAND_OPTIONS } from '../lib/account-status-labels';
 import {
-  deviceShelf,
   compareDeviceNames,
   displayDeviceChannel,
   channelSlotIndex,
@@ -42,7 +42,7 @@ function EmptySlotRow({ slotLabel }) {
       <div className="font-mono text-[12px] text-ams-faint">—</div>
       <div className="font-mono text-[12px] text-ams-faint">—</div>
       <div className="text-[12.5px] text-ams-faint">—</div>
-      <div className="text-[12.5px] text-ams-faint">—</div>
+      <div className="rl-col-staff text-ams-faint">—</div>
     </div>
   );
 }
@@ -93,13 +93,23 @@ function AcctRow({ account, onOpen, showSiteBubble = false, slotLabel, extra = f
       <div className="font-mono text-[12px]">{account.phone_number || '—'}</div>
       <div className="font-mono text-[12px]">{account.ip || '—'}</div>
       <div className="text-[12.5px] text-ams-muted">{resolveAccountBrand(account) || '—'}</div>
-      <div className="text-[12.5px] text-ams-muted">{account.owner || '—'}</div>
+      <div className="rl-col-staff">{account.staff || '—'}</div>
     </div>
   );
 }
 
-function AccountDetail({ accountId, onBack }) {
+function AccountDetail({ accountId, onBack, staffOptions = [] }) {
+  const { profile } = useAuth();
   const { data: account, isLoading } = useAccountDetail(accountId);
+  const { patchAccount } = useAccountMutations();
+  const canSetStaff = profile?.role === 'admin' || profile?.role === 'operator';
+  const [staffDraft, setStaffDraft] = useState('');
+  const [staffToast, setStaffToast] = useState('');
+
+  useEffect(() => {
+    setStaffDraft(account?.staff || '');
+  }, [account?.id, account?.staff]);
+
   const { data: bridge } = useQuery({
     queryKey: ['bridge', 'summary'],
     queryFn: getBridgeSummary,
@@ -126,13 +136,30 @@ function AccountDetail({ accountId, onBack }) {
     ? new Date(bridge.engine.lastFeedingComplete.at).toLocaleString()
     : new Date().toLocaleString();
 
+  async function saveStaff() {
+    const next = staffDraft.trim();
+    if (next === (account.staff || '')) return;
+    try {
+      await patchAccount.mutateAsync({
+        id: account.id,
+        row: account,
+        patch: { staff: next },
+      });
+      setStaffToast(next ? `Staff set to ${next}` : 'Staff cleared');
+      setTimeout(() => setStaffToast(''), 3200);
+    } catch (e) {
+      setStaffToast(e.message || 'Failed to save staff');
+      setTimeout(() => setStaffToast(''), 4200);
+    }
+  }
+
   const infoRows = [
     ['Account', account.account_name],
     ['Phone', account.phone_number || '—'],
     ['Channel', displayDeviceChannel(account.channel) || '—'],
     ['Status', statusMeta(account.status).label],
     ['Brand', resolveAccountBrand(account) || '—'],
-    ['Owner', account.owner || '—'],
+    ['Owner (registered by)', account.owner || '—'],
     ['Device', account.device || '—'],
     ['Site', SITES[account.siteKey]?.name || account.siteKey],
     ['Reference IP', account.reference_ip_address || account.ip || '—'],
@@ -163,10 +190,52 @@ function AccountDetail({ accountId, onBack }) {
         </p>
       )}
 
+      {canSetStaff && (
+        <div className="card mb-4 p-4">
+          <div className="mb-2 text-sm font-semibold">Staff (Business assignee)</div>
+          <p className="mb-3 text-[12px] text-ams-muted">
+            Name of the business staff this account belongs to. Separate from Owner (who registered it).
+          </p>
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="min-w-[14rem] flex-1">
+              <span className="drawer-label">Staff name</span>
+              <input
+                className="input"
+                list="account-staff-suggestions"
+                value={staffDraft}
+                onChange={(e) => setStaffDraft(e.target.value)}
+                placeholder="e.g. Abby"
+                autoComplete="off"
+              />
+              <datalist id="account-staff-suggestions">
+                {staffOptions.map((name) => (
+                  <option key={name} value={name} />
+                ))}
+              </datalist>
+            </label>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              disabled={patchAccount.isPending || staffDraft.trim() === (account.staff || '')}
+              onClick={saveStaff}
+            >
+              {patchAccount.isPending ? 'Saving…' : 'Save staff'}
+            </button>
+          </div>
+          {staffToast && (
+            <p className="mt-2 text-[12px] text-ams-muted">{staffToast}</p>
+          )}
+        </div>
+      )}
+
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="card">
           <div className="border-b border-ams-line px-4 py-3 text-sm font-semibold">Account Info</div>
           <div className="space-y-0 p-4 text-[13.5px]">
+            <div className="flex justify-between gap-4 border-b border-ams-line py-2.5">
+              <span className="shrink-0 text-ams-faint">Staff</span>
+              <span className="text-right font-semibold">{account.staff || '—'}</span>
+            </div>
             {infoRows.map(([k, v]) => (
               <div key={k} className="flex justify-between gap-4 border-b border-ams-line py-2.5 last:border-0">
                 <span className="shrink-0 text-ams-faint">{k}</span>
@@ -212,18 +281,18 @@ export default function AccountsPage() {
   const { site } = useSite();
   const [search, setSearch] = useState('');
   const [fBrand, setFBrand] = useState('');
-  const [fOwner, setFOwner] = useState('');
+  const [fStaff, setFStaff] = useState('');
   const [fSt, setFSt] = useState('');
   const [detailId, setDetailId] = useState(null);
   const [page, setPage] = useState(1);
 
   const { data: accounts = [], isLoading } = useAllAccounts();
 
-  const ownerOptions = useMemo(() => {
+  const staffOptions = useMemo(() => {
     const names = new Set();
     accounts.forEach((a) => {
-      const o = String(a.owner || '').trim();
-      if (o) names.add(o);
+      const s = String(a.staff || '').trim();
+      if (s) names.add(s);
     });
     return [...names].sort((a, b) => a.localeCompare(b));
   }, [accounts]);
@@ -258,10 +327,10 @@ export default function AccountsPage() {
 
       function acctMatch(a) {
         if (fBrand && resolveAccountBrand(a) !== fBrand) return false;
-        if (fOwner && a.owner !== fOwner) return false;
+        if (fStaff && a.staff !== fStaff) return false;
         if (fSt && statusMeta(a.status).filter !== fSt) return false;
         if (q) {
-          const hay = `${a.account_name} ${a.phone_number} ${device.device_name}`.toLowerCase();
+          const hay = `${a.account_name} ${a.phone_number} ${a.staff} ${device.device_name}`.toLowerCase();
           if (!hay.includes(q)) return false;
         }
         return true;
@@ -282,10 +351,10 @@ export default function AccountsPage() {
       if (a.device_id) return false;
       if (site !== 'all' && a.siteKey !== site) return false;
       if (fBrand && resolveAccountBrand(a) !== fBrand) return false;
-      if (fOwner && a.owner !== fOwner) return false;
+      if (fStaff && a.staff !== fStaff) return false;
       if (fSt && statusMeta(a.status).filter !== fSt) return false;
       if (q) {
-        const hay = `${a.account_name} ${a.phone_number}`.toLowerCase();
+        const hay = `${a.account_name} ${a.phone_number} ${a.staff}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -305,7 +374,7 @@ export default function AccountsPage() {
       : null;
 
     return { deviceCards: cards, orphanCard, devCount, acctCount };
-  }, [accounts, devices, search, site, fBrand, fOwner, fSt]);
+  }, [accounts, devices, search, site, fBrand, fStaff, fSt]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.deviceCards.length / LEDGER_PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -318,14 +387,20 @@ export default function AccountsPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [search, fBrand, fOwner, fSt, site]);
+  }, [search, fBrand, fStaff, fSt, site]);
 
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
   }, [page, totalPages]);
 
   if (detailId) {
-    return <AccountDetail accountId={detailId} onBack={() => setDetailId(null)} />;
+    return (
+      <AccountDetail
+        accountId={detailId}
+        onBack={() => setDetailId(null)}
+        staffOptions={staffOptions}
+      />
+    );
   }
 
   const statusFilters = [
@@ -360,7 +435,6 @@ export default function AccountsPage() {
                 )}
               </span>
               <span className={getSiteChipClass(siteKey)}>{siteChipLabel(siteKey)}</span>
-              <span className="chip-site">{deviceShelf(device)}</span>
             </div>
           )}
         </div>
@@ -407,7 +481,7 @@ export default function AccountsPage() {
     <div>
       <PageHead
         title="Resource Ledger"
-        description="Read-only lookup by device (max 2 WA slots: WS Normal + WS Business per device), account, or phone. For actions, use Register / Activation & Nurturing / Recovery."
+        description="Lookup by device, account, phone, brand, or Staff. Owner = who registered; Staff = business assignee (set by operators)."
       />
 
       <div className="page-filter-bar">
@@ -415,7 +489,7 @@ export default function AccountsPage() {
           <Search size={15} className="page-filter-search-icon" strokeWidth={2} />
           <input
             className="input"
-            placeholder="Search device ID, account, or phone…"
+            placeholder="Search device ID, account, staff, or phone…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -434,12 +508,12 @@ export default function AccountsPage() {
         <label className="page-filter-chip">
           <select
             className="page-filter-chip-select"
-            value={fOwner}
-            onChange={(e) => setFOwner(e.target.value)}
-            aria-label="Filter by owner"
+            value={fStaff}
+            onChange={(e) => setFStaff(e.target.value)}
+            aria-label="Filter by staff"
           >
-            <option value="">All owners</option>
-            {ownerOptions.map((o) => <option key={o} value={o}>{o}</option>)}
+            <option value="">All staff</option>
+            {staffOptions.map((o) => <option key={o} value={o}>{o}</option>)}
           </select>
         </label>
         <label className="page-filter-chip">
@@ -463,7 +537,7 @@ export default function AccountsPage() {
       ) : (
         <>
           <div className="rl-head-row mb-1 hidden lg:grid">
-            <span>Account</span><span>Status</span><span>Phone</span><span>IP</span><span>Brand</span><span className="rl-col-owner-head">Owner</span>
+            <span>Account</span><span>Status</span><span>Phone</span><span>IP</span><span>Brand</span><span className="rl-col-staff-head">Staff</span>
           </div>
 
           {pageCards.map(renderDevCard)}

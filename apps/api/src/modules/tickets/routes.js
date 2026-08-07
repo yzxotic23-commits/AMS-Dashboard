@@ -190,6 +190,7 @@ function enrichRow(ticket, account, screenshotUrl = null, requesterName = '') {
     device_name: account?.devices?.device_name || meta.device_name || '—',
     account_name: accountName,
     owner: hubOwner,
+    staff: String(opMeta.staff || '').trim(),
     customer_name: hubOwner,
     requester_name: requesterName || '',
     phone_number: account?.phone_number || account?.sims?.phone_number || '—',
@@ -383,6 +384,8 @@ function standbyAccountRow(account) {
     sim: formatSimLabel(account.sims),
     brand: resolveAccountBrand(account) || null,
     siteKey: inferSiteKey(meta, ip),
+    owner: resolveHubOwner(account, meta) || '',
+    staff: String(meta.staff || '').trim(),
     bind_proxy: proxyFromIp(ip),
   };
 }

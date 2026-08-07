@@ -1,22 +1,44 @@
-/** Device farm codes — {SITE}-{BRAND}-{UNIT}, unit starts at 003 per site. */
+/** Device farm codes — {PREFIX}-{MIDDLE}-{UNIT}, unit starts at 003 per site. */
 
 export const DEVICE_UNIT_START = 3;
 export const DEVICE_AUTO_EXPAND_COUNT = 5;
 export const DEVICE_MAX_WA_SLOTS = 2;
 const META_PREFIX = '_ams_loc:';
 
+/** Middle segment of device code → AMS trading brand. */
+export const DEVICE_MIDDLE_TO_BRAND = {
+  SB: 'SBMY',
+  JM: 'JMMY',
+  ST: 'STMY',
+  FW: 'FWSG',
+  WB: 'WBSG',
+  M24: 'M24SG',
+};
+
 export function siteDevicePrefix(siteKey) {
   return siteKey === 'pp' ? 'PP' : 'MYR';
 }
 
 export function parseDeviceCode(deviceName) {
-  const m = String(deviceName || '').match(/^([A-Z]+)-([A-Z]+)-(\d+)$/i);
+  const m = String(deviceName || '').match(/^([A-Z]+)-([A-Z0-9]+)-(\d+)$/i);
   if (!m) return null;
   return {
     sitePrefix: m[1].toUpperCase(),
     brand: m[2].toUpperCase(),
     unit: parseInt(m[3], 10),
   };
+}
+
+/** Trading brand from device code middle segment (SGD-FW-001 → FWSG). */
+export function tradingBrandFromDeviceCode(deviceName) {
+  const parsed = parseDeviceCode(deviceName);
+  if (parsed) {
+    const mapped = DEVICE_MIDDLE_TO_BRAND[parsed.brand];
+    if (mapped) return mapped;
+  }
+  const name = String(deviceName || '').toUpperCase();
+  if (name.startsWith('PP-') || name === 'PP') return 'STMY';
+  return '';
 }
 
 export function formatDeviceCode(siteKey, unit, brand = 'SB') {
@@ -32,7 +54,9 @@ export function deviceNotesForUnit(siteKey, unit) {
 export function deviceMatchesSite(deviceName, siteKey) {
   const parsed = parseDeviceCode(deviceName);
   if (!parsed) return siteKey !== 'pp';
-  return parsed.sitePrefix === siteDevicePrefix(siteKey);
+  if (siteKey === 'pp') return parsed.sitePrefix === 'PP';
+  // Malaysia: MYR + SGD farm devices (auto-expand still creates MYR-* only)
+  return parsed.sitePrefix === 'MYR' || parsed.sitePrefix === 'SGD';
 }
 
 export function slotsUsedOnDevice(deviceId, accounts = []) {

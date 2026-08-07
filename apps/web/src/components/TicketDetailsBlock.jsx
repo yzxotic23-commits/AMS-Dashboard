@@ -35,6 +35,8 @@ export default function TicketDetailsBlock({ ticket, bind }) {
     <>
       <div className="tk-meta">
         <MetaItem label="Name" value={ticket.account_name} />
+        <MetaItem label="Staff" value={ticket.staff} />
+        <MetaItem label="Registered by" value={ticket.owner || ticket.customer_name} />
         <MetaItem label="Phone" value={ticket.phone_number} mono />
         <MetaItem label="Device" value={deviceSlot} mono />
         <MetaItem label="Channel" value={ticket.channel} />

@@ -1,3 +1,5 @@
+import { tradingBrandFromDeviceCode } from './device-code';
+
 /** Map DB account_status → operator-facing labels (Stage A ledger). */
 
 export const STATUS_DISPLAY = {
@@ -16,18 +18,13 @@ export function statusMeta(status) {
 }
 
 export function inferBrand(accountName) {
-  const m = String(accountName || '').match(/^(SBMY|JMMY|STMY|PP)/i);
+  const m = String(accountName || '').match(/^(SBMY|JMMY|STMY|PP|FWSG|WBSG|M24SG)\b/i);
   return m ? m[1].toUpperCase() : '';
 }
 
-/** Infer trading brand from device shelf code (MYR-SB-001 → SBMY). */
+/** Infer trading brand from device code middle (MYR-SB-001 → SBMY, SGD-FW-001 → FWSG). */
 export function inferBrandFromDevice(deviceName) {
-  const name = String(deviceName || '').toUpperCase();
-  if (name.includes('-SB') || name.includes('SB-')) return 'SBMY';
-  if (name.includes('-JM') || name.includes('JM-')) return 'JMMY';
-  if (name.includes('-ST') || name.includes('ST-')) return 'STMY';
-  if (name.startsWith('PP')) return 'STMY';
-  return '';
+  return tradingBrandFromDeviceCode(deviceName);
 }
 
 export function resolveAccountBrand(account) {
@@ -38,4 +35,4 @@ export function resolveAccountBrand(account) {
     || '';
 }
 
-export const BRAND_OPTIONS = ['SBMY', 'JMMY', 'STMY', 'PP'];
+export const BRAND_OPTIONS = ['SBMY', 'JMMY', 'STMY', 'PP', 'FWSG', 'WBSG', 'M24SG'];

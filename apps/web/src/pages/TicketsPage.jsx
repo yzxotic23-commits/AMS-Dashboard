@@ -8,6 +8,7 @@ import Drawer from '../components/Drawer';
 import IconTooltip from '../components/IconTooltip';
 import ScreenshotReviewPanel from '../components/ScreenshotReviewPanel';
 import TicketDetailsBlock from '../components/TicketDetailsBlock';
+import StandbyAccountPicker from '../components/StandbyAccountPicker';
 import Toast from '../components/Toast';
 import SegControl from '../components/SegControl';
 import ScreenshotUpload from '../components/ScreenshotUpload';
@@ -146,6 +147,7 @@ function DeliveryTicketFormFields({
   onLinkCodeChange,
   rejectReason,
   showAccountPicker = true,
+  selectedStaff = '',
 }) {
   return (
     <>
@@ -155,21 +157,29 @@ function DeliveryTicketFormFields({
 
       <p className="drawer-hint drawer-hint--info">
         Select an account — phone and proxy fill in below. Set proxy on PC, upload screenshot,
-        enter 6-digit code.
+        enter 6-digit code. Accounts are grouped by Staff (Business assignee).
       </p>
 
       <div className="drawer-fields">
         {showAccountPicker && standby.length > 0 && (
-          <label className="drawer-field">
+          <div className="drawer-field">
             <span className="drawer-label">Select account (yours · {siteLabel})</span>
-            <select className="input" value={selectedAcct} onChange={(e) => onSelectAccount(e.target.value)}>
-              {standby.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.brand ? `${a.brand} · ` : ''}{a.account_name} ({a.sim || a.phone_number})
-                </option>
-              ))}
-            </select>
-          </label>
+            <StandbyAccountPicker
+              accounts={standby}
+              value={selectedAcct}
+              onChange={onSelectAccount}
+            />
+            <span className="mt-1 block text-[11px] text-ams-faint">
+              Grouped by Staff — search or filter to find the right account.
+            </span>
+          </div>
+        )}
+
+        {selectedStaff && (
+          <div className="drawer-locked">
+            <span className="drawer-locked-label">Staff</span>
+            <span className="drawer-locked-value">{selectedStaff}</span>
+          </div>
         )}
 
         {phoneNumber && (
@@ -298,6 +308,7 @@ function TicketCard({
 
   const siteChip = getSiteChipClass(ticket.site_key);
   const hubOwner = (ticket.owner || ticket.customer_name || '').trim();
+  const staffName = (ticket.staff || '').trim();
   const accountLabel = ticket.account_name || '—';
   const headline = role === 'operator' && hubOwner ? hubOwner : accountLabel;
 
@@ -310,6 +321,14 @@ function TicketCard({
             <span className="tk-tid">#{ticketNo}</span>
             <span className={siteChip}>{SITES[ticket.site_key]?.short || ticket.site_key}</span>
           </div>
+          {role === 'business' && (
+            <p className="tk-staff-line">
+              {staffName ? `Staff · ${staffName}` : 'Staff · Unassigned'}
+            </p>
+          )}
+          {role === 'operator' && hubOwner && accountLabel && accountLabel !== '—' && (
+            <p className="tk-staff-line">{accountLabel}</p>
+          )}
         </div>
         <div className="tk-head-badges">
           <span className={`tk-status-pill ${sl.pill}`}>{sl.label}</span>
@@ -679,7 +698,7 @@ export default function TicketsPage() {
               setSearchParams(next, { replace: true });
             }}
           >
-            Operator: {ownerFilter} ×
+            Staff: {ownerFilter} ×
           </button>
         )}
         <p className="text-xs text-ams-muted">
@@ -945,6 +964,7 @@ export default function TicketsPage() {
               onScreenshotError={showToast}
               linkCode={linkCode}
               onLinkCodeChange={setLinkCode}
+              selectedStaff={(selectedRow?.staff || '').trim()}
             />
           </form>
         )}
@@ -982,6 +1002,7 @@ export default function TicketsPage() {
             onLinkCodeChange={setLinkCode}
             rejectReason={resubmitTicket?.reject_reason}
             showAccountPicker={false}
+            selectedStaff={(resubmitTicket?.staff || '').trim()}
           />
         </form>
       </Drawer>

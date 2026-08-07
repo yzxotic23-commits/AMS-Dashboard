@@ -15,7 +15,7 @@ router.use(authenticate);
 
 router.use(requireRole('admin'));
 
-const brandEnum = z.enum(['SBMY', 'JMMY', 'STMY', 'PP']);
+const brandEnum = z.enum(['SBMY', 'JMMY', 'STMY', 'PP', 'FWSG', 'WBSG', 'M24SG']);
 const brandsSchema = z.array(brandEnum).optional();
 
 const createSchema = z.object({

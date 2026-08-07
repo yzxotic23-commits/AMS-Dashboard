@@ -30,6 +30,7 @@ import {
   deviceSlotAvailability,
   formatDeviceRegisterOption,
   normalizeDeviceChannel,
+  pickDeviceAndSlot,
 } from '../lib/device-location';
 import { formatProxyOneLine, proxyFieldsFromIp } from '../lib/proxy-display';
 import {
@@ -87,7 +88,14 @@ export default function RegisterPage() {
   });
   const [addSubmitting, setAddSubmitting] = useState(false);
   const [form, setForm] = useState({
-    deviceId: '', slot: DEVICE_CHANNEL_SLOTS[0], ipId: '', accountName: '', owner: '', result: 'ok', failReason: FAIL_REASONS[0],
+    deviceMode: 'auto',
+    deviceId: '',
+    slot: DEVICE_CHANNEL_SLOTS[0],
+    ipId: '',
+    accountName: '',
+    owner: '',
+    result: 'ok',
+    failReason: FAIL_REASONS[0],
   });
   const { data: operatorsRaw = [] } = useOperatorRoster();
   const operators = useMemo(
@@ -155,6 +163,19 @@ export default function RegisterPage() {
     );
     return DEVICE_CHANNEL_SLOTS.filter((slot) => !taken.has(slot));
   }, [form.deviceId, ledgerAccounts]);
+
+  const openDevices = useMemo(
+    () => devices.filter((d) => deviceSlotAvailability(d.id, ledgerAccounts).free > 0),
+    [devices, ledgerAccounts],
+  );
+
+  const autoDeviceLabel = useMemo(() => {
+    if (!form.deviceId) return 'No devices with free slots';
+    const row = openDevices.find((d) => d.id === form.deviceId)
+      || devices.find((d) => d.id === form.deviceId);
+    if (!row) return '—';
+    return formatDeviceRegisterOption(row, ledgerAccounts);
+  }, [form.deviceId, openDevices, devices, ledgerAccounts]);
 
   const selectedIp = useMemo(
     () => freeIps.find((ip) => ip.id === form.ipId) || null,
@@ -248,6 +269,17 @@ export default function RegisterPage() {
     return defaultOperator;
   }
 
+  function applyAutoDevice(prev = {}) {
+    const { deviceId, slot } = pickDeviceAndSlot(devices, ledgerAccounts);
+    return {
+      ...prev,
+      deviceMode: 'auto',
+      deviceId,
+      slot,
+      owner: ownerForDeviceSlot(),
+    };
+  }
+
   function openReg(row) {
     setDrawer(row);
   }
@@ -260,17 +292,9 @@ export default function RegisterPage() {
     if (resourcesLoading) return;
     if (drawerFormInit.current === drawer.id) return;
 
-    const deviceWithSlot = devices.find(
-      (d) => deviceSlotAvailability(d.id, ledgerAccounts).free > 0,
-    );
-    const deviceId = deviceWithSlot?.id || devices[0]?.id || '';
-    const taken = new Set(
-      ledgerAccounts
-        .filter((a) => a.device_id === deviceId)
-        .map((a) => normalizeDeviceChannel(a.channel)),
-    );
-    const slot = DEVICE_CHANNEL_SLOTS.find((s) => !taken.has(s)) || DEVICE_CHANNEL_SLOTS[0];
+    const { deviceId, slot } = pickDeviceAndSlot(devices, ledgerAccounts);
     setForm({
+      deviceMode: 'auto',
       deviceId,
       slot,
       ipId: freeIps.find((ip) => isIpSelectableForAccount(ip, ipBindings, null))?.id
@@ -282,6 +306,24 @@ export default function RegisterPage() {
     });
     drawerFormInit.current = drawer.id;
   }, [drawer, resourcesLoading, devices, ledgerAccounts, freeIps, ipBindings, defaultOperator]);
+
+  // Keep Auto mode on a free device if the current pick fills up or inventory expands.
+  useEffect(() => {
+    if (!drawer || resourcesLoading) return;
+    if (drawerFormInit.current !== drawer.id) return;
+    if (form.deviceMode !== 'auto') return;
+    const free = form.deviceId
+      ? deviceSlotAvailability(form.deviceId, ledgerAccounts).free
+      : 0;
+    if (form.deviceId && free > 0) return;
+    const { deviceId, slot } = pickDeviceAndSlot(devices, ledgerAccounts);
+    if (deviceId === form.deviceId) return;
+    setForm((f) => (
+      f.deviceMode === 'auto'
+        ? { ...f, deviceId, slot, owner: defaultOperator }
+        : f
+    ));
+  }, [drawer, resourcesLoading, form.deviceMode, form.deviceId, devices, ledgerAccounts, defaultOperator]);
 
   async function submitReg() {
     if (!drawer || submitting) return;
@@ -500,7 +542,7 @@ export default function RegisterPage() {
                 <th>Proxy</th>
                 <th>Result</th>
                 <th>Reason / Account</th>
-                <th>Operator</th>
+                <th>Owner</th>
               </tr>
             </thead>
             <tbody>
@@ -602,50 +644,83 @@ export default function RegisterPage() {
 
             <DrawerSection title="Device assignment">
             <div className="drawer-fields">
-              <label className="drawer-field">
-                <span className="drawer-label">Register to device</span>
-                <select
-                  className="input font-mono text-[13px]"
-                  value={form.deviceId}
-                  onChange={(e) => {
-                    const deviceId = e.target.value;
-                    const taken = new Set(
-                      ledgerAccounts
-                        .filter((a) => a.device_id === deviceId)
-                        .map((a) => normalizeDeviceChannel(a.channel)),
-                    );
-                    const free = DEVICE_CHANNEL_SLOTS.filter((s) => !taken.has(s));
-                    setForm((f) => {
-                      const slot = free[0] || DEVICE_CHANNEL_SLOTS[0];
-                      return {
-                        ...f,
-                        deviceId,
-                        slot,
-                        owner: ownerForDeviceSlot(),
-                      };
-                    });
-                  }}
-                >
-                  {devices.length === 0 ? (
-                    <option value="">No devices for this site</option>
-                  ) : devices.map((d) => {
-                    const full = deviceSlotAvailability(d.id, ledgerAccounts).free === 0;
-                    return (
-                      <option key={d.id} value={d.id} disabled={full}>
+              <div className="drawer-field">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="drawer-label mb-0">Device ID</span>
+                  <div className="rm-source-toggle" role="group" aria-label="Device selection mode">
+                    {[
+                      { key: 'auto', label: 'Auto' },
+                      { key: 'manual', label: 'Manual' },
+                    ].map(({ key, label }) => (
+                      <button
+                        key={key}
+                        type="button"
+                        className={`rm-source-toggle-btn${form.deviceMode === key ? ' rm-source-toggle-btn--on' : ''}`}
+                        onClick={() => {
+                          if (key === 'auto') {
+                            setForm((f) => applyAutoDevice(f));
+                            return;
+                          }
+                          setForm((f) => ({ ...f, deviceMode: 'manual' }));
+                        }}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {form.deviceMode === 'auto' ? (
+                  <div className="drawer-locked mt-1.5 cursor-not-allowed" title="Auto mode — switch to Manual to pick a device">
+                    <div className="drawer-locked-value drawer-locked-value--mono pointer-events-none select-none">
+                      {autoDeviceLabel}
+                    </div>
+                  </div>
+                ) : (
+                  <select
+                    className="input mt-1.5 font-mono text-[13px]"
+                    value={form.deviceId}
+                    disabled={openDevices.length === 0}
+                    onChange={(e) => {
+                      const deviceId = e.target.value;
+                      const taken = new Set(
+                        ledgerAccounts
+                          .filter((a) => a.device_id === deviceId)
+                          .map((a) => normalizeDeviceChannel(a.channel)),
+                      );
+                      const free = DEVICE_CHANNEL_SLOTS.filter((s) => !taken.has(s));
+                      setForm((f) => {
+                        const slot = free[0] || DEVICE_CHANNEL_SLOTS[0];
+                        return {
+                          ...f,
+                          deviceMode: 'manual',
+                          deviceId,
+                          slot,
+                          owner: ownerForDeviceSlot(),
+                        };
+                      });
+                    }}
+                  >
+                    {openDevices.length === 0 ? (
+                      <option value="">No devices with free slots</option>
+                    ) : openDevices.map((d) => (
+                      <option key={d.id} value={d.id}>
                         {formatDeviceRegisterOption(d, ledgerAccounts)}
                       </option>
-                    );
-                  })}
-                </select>
+                    ))}
+                  </select>
+                )}
                 <span className="mt-1 block text-[11px] text-ams-faint">
-                  Max {DEVICE_MAX_SLOTS} WA slots per device — WS Normal + WS Business.
+                  {form.deviceMode === 'auto'
+                    ? 'Auto — device locked. Switch to Manual to pick yourself.'
+                    : `Manual — choose any device with a free slot (max ${DEVICE_MAX_SLOTS} WA per device).`}
                 </span>
-              </label>
+              </div>
               <label className="drawer-field">
                 <span className="drawer-label">WA slot (max 2 per device)</span>
                 <select
                   className="input"
                   value={availableSlots.includes(form.slot) ? form.slot : (availableSlots[0] || '')}
+                  disabled={availableSlots.length === 0}
                   onChange={(e) => {
                     const slot = e.target.value;
                     setForm((f) => ({
@@ -661,7 +736,7 @@ export default function RegisterPage() {
                 </select>
               </label>
               <label className="drawer-field">
-                <span className="drawer-label">Operator</span>
+                <span className="drawer-label">Owner (registered by)</span>
                 <select
                   className="input"
                   value={form.owner}
@@ -677,7 +752,7 @@ export default function RegisterPage() {
                   })}
                 </select>
                 <span className="mt-1 block text-[11px] text-ams-faint">
-                  Control Center groups accounts by this operator.
+                  Who registered this account. Staff (Business assignee) is set later on the account.
                 </span>
               </label>
             </div>

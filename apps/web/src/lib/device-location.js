@@ -124,13 +124,28 @@ export function deviceSlotAvailability(deviceId, accounts = []) {
   };
 }
 
-/** Register drawer — mark only when both WA slots are taken. */
+/** First device with a free WA slot, plus the first free channel on that device. */
+export function pickDeviceAndSlot(devices = [], accounts = []) {
+  const list = devices || [];
+  const device = list.find((d) => deviceSlotAvailability(d.id, accounts).free > 0) || list[0] || null;
+  const deviceId = device?.id || '';
+  if (!deviceId) return { deviceId: '', slot: DEVICE_CHANNEL_SLOTS[0] };
+  const taken = new Set(
+    (accounts || [])
+      .filter((a) => a.device_id === deviceId)
+      .map((a) => normalizeDeviceChannel(a.channel)),
+  );
+  const slot = DEVICE_CHANNEL_SLOTS.find((s) => !taken.has(s)) || DEVICE_CHANNEL_SLOTS[0];
+  return { deviceId, slot };
+}
+
+/** Register drawer option label — e.g. MYR-SB-039 · 0/2 */
 export function formatDeviceRegisterOption(device, accounts = []) {
-  const base = formatDeviceOptionLabel(device);
-  if (!base) return '';
-  const { free } = deviceSlotAvailability(device.id, accounts);
-  if (free === 0) return `${base} (full)`;
-  return base;
+  const name = device?.device_name || '';
+  if (!name) return '';
+  const { taken } = deviceSlotAvailability(device.id, accounts);
+  const seats = Math.min(taken, DEVICE_MAX_SLOTS);
+  return `${name} · ${seats}/${DEVICE_MAX_SLOTS}`;
 }
 
 /** Sort MYR-SB-001 before MYR-SB-002 … MYR-SB-011 (wireframe ledger order). */

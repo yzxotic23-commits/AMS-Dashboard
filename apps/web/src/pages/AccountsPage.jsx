@@ -191,51 +191,54 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
         </p>
       )}
 
-      {canSetStaff && (
-        <div className="card mb-4 p-4">
-          <div className="mb-2 text-sm font-semibold">Staff (Business assignee)</div>
-          <p className="mb-3 text-[12px] text-ams-muted">
-            Name of the business staff this account belongs to. Separate from Owner (who registered it).
-          </p>
-          <div className="flex flex-wrap items-end gap-2">
-            <label className="min-w-[14rem] flex-1">
-              <span className="drawer-label">Staff name</span>
-              <input
-                className="input"
-                list="account-staff-suggestions"
-                value={staffDraft}
-                onChange={(e) => setStaffDraft(e.target.value)}
-                placeholder="e.g. Abby"
-                autoComplete="off"
-              />
-              <datalist id="account-staff-suggestions">
-                {staffOptions.map((name) => (
-                  <option key={name} value={name} />
-                ))}
-              </datalist>
-            </label>
-            <button
-              type="button"
-              className="btn btn-primary btn-sm"
-              disabled={patchAccount.isPending || staffDraft.trim() === (account.staff || '')}
-              onClick={saveStaff}
-            >
-              {patchAccount.isPending ? 'Saving…' : 'Save staff'}
-            </button>
-          </div>
-          {staffToast && (
-            <p className="mt-2 text-[12px] text-ams-muted">{staffToast}</p>
-          )}
-        </div>
-      )}
-
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="card">
           <div className="border-b border-ams-line px-4 py-3 text-sm font-semibold">Account Info</div>
           <div className="space-y-0 p-4 text-[13.5px]">
-            <div className="flex justify-between gap-4 border-b border-ams-line py-2.5">
-              <span className="shrink-0 text-ams-faint">Staff</span>
-              <span className="text-right font-semibold">{account.staff || '—'}</span>
+            <div className="mb-1 flex items-center justify-between gap-4 border-b border-ams-line py-3 pl-3" style={{ boxShadow: 'inset 3px 0 0 var(--ams-accent)' }}>
+              <div className="shrink-0">
+                <div className="text-[13px] font-semibold text-ams-ink">Staff</div>
+                <div className="text-[11px] text-ams-faint">Business assignee</div>
+              </div>
+              {canSetStaff ? (
+                <div className="min-w-0 flex-1 max-w-sm">
+                  <div className="flex items-center gap-2">
+                    <input
+                      className="input h-9 min-w-0 flex-1 border-ams-ink/20 bg-white text-[13px] shadow-sm ring-1 ring-ams-accent/25 placeholder:text-ams-faint"
+                      list="account-staff-suggestions"
+                      value={staffDraft}
+                      onChange={(e) => setStaffDraft(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          saveStaff();
+                        }
+                      }}
+                      placeholder="Type staff name…"
+                      autoComplete="off"
+                      aria-label="Staff name"
+                    />
+                    <datalist id="account-staff-suggestions">
+                      {staffOptions.map((name) => (
+                        <option key={name} value={name} />
+                      ))}
+                    </datalist>
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm shrink-0"
+                      disabled={patchAccount.isPending || staffDraft.trim() === (account.staff || '')}
+                      onClick={saveStaff}
+                    >
+                      {patchAccount.isPending ? 'Saving…' : 'Save'}
+                    </button>
+                  </div>
+                  {staffToast ? (
+                    <p className="mt-1.5 text-right text-[11px] text-ams-muted">{staffToast}</p>
+                  ) : null}
+                </div>
+              ) : (
+                <span className="font-semibold">{account.staff || '—'}</span>
+              )}
             </div>
             {infoRows.map(([k, v]) => (
               <div key={k} className="flex justify-between gap-4 border-b border-ams-line py-2.5 last:border-0">

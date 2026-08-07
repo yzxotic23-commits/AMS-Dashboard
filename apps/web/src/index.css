@@ -711,6 +711,12 @@
   .page-filter-chip-select:focus {
     @apply ring-0;
   }
+  .page-filter-chip--toggle {
+    @apply cursor-pointer gap-2 text-[13px] font-semibold text-ams-ink;
+  }
+  .page-filter-chip--toggle input {
+    @apply shrink-0;
+  }
 
   .rl-dev-card {
     @apply mb-3.5 overflow-hidden;

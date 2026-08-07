@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { Search } from 'lucide-react';
 import PageHead from '../components/PageHead';
 import Drawer from '../components/Drawer';
 import Toast from '../components/Toast';
@@ -84,6 +85,7 @@ const SIM_PAGE_SIZE = 20;
 export default function SimsPage() {
   const { site } = useSite();
   const qc = useQueryClient();
+  const [search, setSearch] = useState('');
   const [telco, setTelco] = useState('all');
   const [brand, setBrand] = useState('all');
   const [ledgerStatus, setLedgerStatus] = useState('all');
@@ -189,9 +191,11 @@ export default function SimsPage() {
   }, [siteRows]);
 
   useEffect(() => {
+    setSearch('');
     setOnlyDue(false);
     setFilterSoon(false);
     setOnlyMismatch(false);
+    setTelco('all');
     setBrand('all');
     setLedgerStatus('all');
     setSelected(new Set());
@@ -200,7 +204,9 @@ export default function SimsPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [telco, brand, ledgerStatus, onlyDue, filterSoon, onlyMismatch]);
+  }, [search, telco, brand, ledgerStatus, onlyDue, filterSoon, onlyMismatch]);
+
+  const searchQuery = search.trim().toLowerCase();
 
   const list = useMemo(() => {
     let rows = siteRows.filter((s) => telco === 'all' || s.carrier === telco);
@@ -217,6 +223,24 @@ export default function SimsPage() {
     if (onlyMismatch) {
       rows = rows.filter((s) => syncBySimId.get(s.id)?.needs_action);
     }
+    if (searchQuery) {
+      const digits = searchQuery.replace(/\D/g, '');
+      rows = rows.filter((s) => {
+        const phone = String(s.phone_number || '').toLowerCase();
+        const account = String(s.account_name || '').toLowerCase();
+        const carrier = String(s.carrier || '').toLowerCase();
+        const location = String(s.location || '').toLowerCase();
+        const b = brandKey(s).toLowerCase();
+        const remark = String(s.remark || '').toLowerCase();
+        if (phone.includes(searchQuery) || account.includes(searchQuery)
+          || carrier.includes(searchQuery) || location.includes(searchQuery)
+          || b.includes(searchQuery) || remark.includes(searchQuery)) {
+          return true;
+        }
+        if (digits && phoneDigits(s.phone_number).includes(digits)) return true;
+        return false;
+      });
+    }
     return rows.slice().sort((a, b) => {
       const ad = simDue(a) ? 0 : 1;
       const bd = simDue(b) ? 0 : 1;
@@ -225,7 +249,7 @@ export default function SimsPage() {
       const db = b.days_left == null ? Number.POSITIVE_INFINITY : b.days_left;
       return da - db;
     });
-  }, [siteRows, telco, brand, ledgerStatus, onlyDue, filterSoon, onlyMismatch, syncBySimId]);
+  }, [siteRows, searchQuery, telco, brand, ledgerStatus, onlyDue, filterSoon, onlyMismatch, syncBySimId]);
 
   useEffect(() => {
     setSelected((prev) => {
@@ -553,6 +577,15 @@ export default function SimsPage() {
       <PageHead
         title="SIM Card Ledger"
         description="Top-up tracking for registered numbers. Numbers enter here after a successful Register result."
+        actions={(
+          <div className="page-meta-bubble">
+            <span className="font-semibold text-ams-ink">{list.length}</span>
+            <span>shown ·</span>
+            <span className="font-semibold text-ams-ink">{stats.total}</span>
+            <span>at site</span>
+            {isFetching && !showTableLoading ? <span>· updating…</span> : null}
+          </div>
+        )}
       />
 
       <div className="sim-attn mb-4 grid gap-3 sm:grid-cols-3">
@@ -593,6 +626,17 @@ export default function SimsPage() {
       </div>
 
       <div className="page-filter-bar">
+        <div className="page-filter-search">
+          <Search size={15} className="page-filter-search-icon" strokeWidth={2} />
+          <input
+            className="input"
+            type="search"
+            placeholder="Search phone, account, brand, location…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            aria-label="Search SIM ledger"
+          />
+        </div>
         <label className="page-filter-chip">
           <select
             className="page-filter-chip-select"
@@ -632,7 +676,7 @@ export default function SimsPage() {
             ))}
           </select>
         </label>
-        <label className="inline-flex h-9 cursor-pointer items-center gap-2 px-1">
+        <label className="page-filter-chip page-filter-chip--toggle">
           <input
             type="checkbox"
             className="accent-ams-accent"
@@ -642,9 +686,9 @@ export default function SimsPage() {
               if (!e.target.checked) setFilterSoon(false);
             }}
           />
-          <span className="text-[13px] font-semibold text-ams-ink">Due only</span>
+          <span>Due only</span>
         </label>
-        <label className="inline-flex h-9 cursor-pointer items-center gap-2 px-1">
+        <label className="page-filter-chip page-filter-chip--toggle">
           <input
             type="checkbox"
             className="accent-ams-accent"
@@ -657,12 +701,8 @@ export default function SimsPage() {
               }
             }}
           />
-          <span className="text-[13px] font-semibold text-ams-ink">Align issues</span>
+          <span>Align issues</span>
         </label>
-        <span className="ml-auto text-[13px] text-ams-faint">
-          {list.length} SIM{list.length !== 1 ? 's' : ''} · {stats.total} at site
-          {isFetching && !showTableLoading ? ' · updating…' : ''}
-        </span>
       </div>
 
       <div className="ip-bulkbar mb-3">
@@ -680,6 +720,15 @@ export default function SimsPage() {
             />
             Select page
           </label>
+          {!allFilteredSelected && allSelectableIds.length > pageSelectableIds.length && (
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={selectAllFiltered}
+            >
+              Select all {allSelectableIds.length}
+            </button>
+          )}
           <span
             className={`ip-bulkbar-meta${selected.size > 0 ? ' is-visible' : ''}`}
             aria-hidden={selected.size === 0}
@@ -688,36 +737,25 @@ export default function SimsPage() {
             selected
           </span>
           <div
-            className={`ip-bulkbar-actions${selected.size > 0 || allSelectableIds.length > pageSelectableIds.length ? ' is-visible' : ''}`}
-            aria-hidden={selected.size === 0 && allSelectableIds.length <= pageSelectableIds.length}
+            className={`ip-bulkbar-actions${selected.size > 0 ? ' is-visible' : ''}`}
+            aria-hidden={selected.size === 0}
           >
-            {!allFilteredSelected && allSelectableIds.length > pageSelectableIds.length && (
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                onClick={selectAllFiltered}
-              >
-                Select all {allSelectableIds.length}
-              </button>
-            )}
-            {selected.size > 0 && (
-              <>
-                <button
-                  type="button"
-                  className="btn btn-primary btn-sm"
-                  onClick={openBulkCharge}
-                >
-                  Mark Charged
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-sm"
-                  onClick={() => setSelected(new Set())}
-                >
-                  Clear
-                </button>
-              </>
-            )}
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={openBulkCharge}
+              tabIndex={selected.size > 0 ? 0 : -1}
+            >
+              Mark Charged
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() => setSelected(new Set())}
+              tabIndex={selected.size > 0 ? 0 : -1}
+            >
+              Clear
+            </button>
           </div>
         </div>
       </div>

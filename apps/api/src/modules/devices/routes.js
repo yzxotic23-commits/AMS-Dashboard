@@ -13,6 +13,7 @@ const createSchema = z.object({
   serial_number: z.string().optional().nullable(),
   status: z.enum(['ACTIVE', 'INACTIVE', 'MAINTENANCE', 'RETIRED']).optional(),
   notes: z.string().optional().nullable(),
+  site_key: z.enum(['my', 'pp']).optional().nullable(),
 });
 
 const crud = createCrudRouter({

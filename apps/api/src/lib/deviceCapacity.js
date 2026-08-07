@@ -51,10 +51,13 @@ export function deviceNotesForUnit(siteKey, unit) {
   return `${META_PREFIX}${JSON.stringify({ shelf: `${shelf} · Unit ${unit}` })}`;
 }
 
-export function deviceMatchesSite(deviceName, siteKey) {
+export function deviceMatchesSite(deviceName, siteKey, storedSiteKey = null) {
+  if (storedSiteKey === 'my' || storedSiteKey === 'pp') {
+    return storedSiteKey === siteKey;
+  }
   const parsed = parseDeviceCode(deviceName);
   if (!parsed) return siteKey !== 'pp';
-  // SGD farm is shared across MY + PP (auto-expand still creates MYR-* / PP-* only)
+  // Legacy SGD without site_key: still usable on both MY + PP
   if (parsed.sitePrefix === 'SGD') return siteKey === 'my' || siteKey === 'pp';
   if (siteKey === 'pp') return parsed.sitePrefix === 'PP';
   return parsed.sitePrefix === 'MYR';
@@ -68,7 +71,7 @@ export function slotsUsedOnDevice(deviceId, accounts = []) {
 
 export function siteDevicesForCapacity(devices, siteKey) {
   return (devices || []).filter(
-    (d) => d.status === 'ACTIVE' && deviceMatchesSite(d.device_name, siteKey),
+    (d) => d.status === 'ACTIVE' && deviceMatchesSite(d.device_name, siteKey, d.site_key),
   );
 }
 
@@ -114,7 +117,7 @@ export async function ensureDeviceCapacity(supabase, siteKey) {
   }
 
   const [{ data: devices, error: devErr }, { data: accounts, error: accErr }] = await Promise.all([
-    supabase.from('devices').select('id, device_name, status, serial_number').limit(500),
+    supabase.from('devices').select('id, device_name, status, serial_number, site_key').limit(500),
     supabase.from('accounts').select('id, device_id, status').limit(1000),
   ]);
   if (devErr) throw devErr;
@@ -139,6 +142,7 @@ export async function ensureDeviceCapacity(supabase, siteKey) {
       model: 'A14',
       serial_number: usedSerials.has(serial) ? null : serial,
       status: 'ACTIVE',
+      site_key: siteKey,
       notes: deviceNotesForUnit(siteKey, row.unit),
     };
     const { data, error } = await supabase.from('devices').insert(payload).select().single();

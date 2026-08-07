@@ -61,6 +61,7 @@ const STRIP_PAGE = {
   '/recovery': 'operator',
   '/tickets': 'operator',
   '/accounts': 'ledger',
+  '/devices': 'ledger',
   '/sims': 'resources',
   '/ips': 'ips',
   '/governance': 'governance',

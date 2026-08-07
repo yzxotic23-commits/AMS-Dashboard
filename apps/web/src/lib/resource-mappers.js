@@ -75,11 +75,12 @@ export function filterIpsBySite(rows, siteKey) {
 export function filterDevicesBySite(rows, siteKey) {
   if (siteKey === 'all') return rows;
   return rows.filter((d) => {
+    if (d.site_key === 'my' || d.site_key === 'pp') return d.site_key === siteKey;
     const name = String(d.device_name || '').toUpperCase();
-    // SGD farm devices are usable on both Malaysia and Poipet register flows
+    // Legacy SGD without site_key stays visible on both sites
     if (name.startsWith('SGD')) return true;
     if (siteKey === 'pp') return name.startsWith('PP');
-    return name.startsWith('MYR');
+    return name.startsWith('MYR') || name.startsWith('MY');
   });
 }
 

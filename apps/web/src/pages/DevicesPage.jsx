@@ -6,14 +6,67 @@ import Drawer from '../components/Drawer';
 import ConfirmDialog from '../components/ConfirmDialog';
 import Toast from '../components/Toast';
 import api from '../lib/api';
-import { deviceShelf } from '../lib/device-location';
+import { useAuth } from '../context/AuthContext';
+import { useSite } from '../context/SiteContext';
 import { isDeviceCodePattern, tradingBrandFromDeviceCode } from '../lib/device-code';
 import { statusMeta } from '../lib/account-status-labels';
 import { accountToOperatorRow } from '../lib/account-operator-meta';
+import { getSiteChipClass, SITES } from '../lib/sites';
+import { filterDevicesBySite } from '../lib/resource-mappers';
+import { operatorSiteKey } from '../lib/operator-scope';
 
 const STATUS_OPTIONS = ['ACTIVE', 'INACTIVE', 'MAINTENANCE', 'RETIRED'];
 const CURRENCY_OPTIONS = ['MYR', 'SGD'];
 const DEVICE_PAGE_SIZE = 20;
+const LOCATION_OPTIONS = [
+  { value: 'my', label: 'Malaysia' },
+  { value: 'pp', label: 'Poipet' },
+  // Legacy SGD rows without site_key
+  { value: 'shared', label: 'Unassigned' },
+];
+
+function devicePrefix(deviceName = '') {
+  return String(deviceName || '').split('-')[0]?.toUpperCase() || '';
+}
+
+/** Site implied by Device ID prefix (MYR/PP). SGD has no implied site. */
+function prefixImpliedSite(deviceName = '') {
+  const prefix = devicePrefix(deviceName);
+  if (prefix === 'PP') return 'pp';
+  if (prefix === 'MYR' || prefix === 'MY') return 'my';
+  return null;
+}
+
+function deviceLocationKey(device = {}) {
+  const name = typeof device === 'string' ? device : device?.device_name;
+  const stored = typeof device === 'object' ? device?.site_key : null;
+  if (stored === 'my' || stored === 'pp') return stored;
+  const implied = prefixImpliedSite(name);
+  if (implied) return implied;
+  if (devicePrefix(name) === 'SGD') return 'shared';
+  return '';
+}
+
+function deviceLocationLabel(device = {}) {
+  const key = deviceLocationKey(device);
+  return LOCATION_OPTIONS.find((o) => o.value === key)?.label || '—';
+}
+
+/** Resolve site_key when adding/editing a device. */
+function resolveDeviceSiteKey(deviceName, { profile, headerSite, manualSite } = {}) {
+  const implied = prefixImpliedSite(deviceName);
+  if (implied) return implied;
+  if (devicePrefix(deviceName) !== 'SGD') return null;
+  if (manualSite === 'my' || manualSite === 'pp') return manualSite;
+  const op = operatorSiteKey(profile);
+  if (op === 'my' || op === 'pp') return op;
+  if (headerSite === 'my' || headerSite === 'pp') return headerSite;
+  return null;
+}
+
+function isSgdDevice(deviceName = '') {
+  return devicePrefix(deviceName) === 'SGD';
+}
 
 function currencyFromStored(value, deviceName = '') {
   const raw = String(value || '').trim().toUpperCase();
@@ -50,18 +103,23 @@ const emptyForm = () => ({
 });
 
 export default function DevicesPage() {
+  const { profile } = useAuth();
+  const { site } = useSite();
   const qc = useQueryClient();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [brandFilter, setBrandFilter] = useState('all');
   const [currencyFilter, setCurrencyFilter] = useState('all');
+  const [locationFilter, setLocationFilter] = useState('all');
   const [page, setPage] = useState(1);
   const [detailDevice, setDetailDevice] = useState(null);
   const [addOpen, setAddOpen] = useState(false);
   const [editName, setEditName] = useState('');
   const [editStatus, setEditStatus] = useState('ACTIVE');
   const [editCurrency, setEditCurrency] = useState('');
+  const [editSiteKey, setEditSiteKey] = useState('');
   const [addForm, setAddForm] = useState(emptyForm);
+  const [addSiteKey, setAddSiteKey] = useState('');
   const [toast, setToast] = useState('');
   const [toastTone, setToastTone] = useState('success');
   const [statusBusyId, setStatusBusyId] = useState(null);
@@ -97,11 +155,13 @@ export default function DevicesPage() {
         return acc;
       }, {});
 
-    return devices.map((d) => {
+    return filterDevicesBySite(devices, site).map((d) => {
       const bound = accountsRaw.filter((a) => a.device_id === d.id && a.status !== 'RECYCLED');
+      const locationKey = deviceLocationKey(d);
       return {
         ...d,
-        shelf: deviceShelf(d),
+        locationKey,
+        location: deviceLocationLabel(d),
         tradingBrand: tradingBrandFromDeviceCode(d.device_name),
         currency: currencyFromStored(d.serial_number, d.device_name),
         boundAccount: boundAccountLabel(bound),
@@ -110,7 +170,7 @@ export default function DevicesPage() {
         history: bound,
       };
     });
-  }, [devices, accountsRaw]);
+  }, [devices, accountsRaw, site]);
 
   const brandOptions = useMemo(() => {
     const set = new Set();
@@ -127,10 +187,13 @@ export default function DevicesPage() {
     if (currencyFilter !== 'all') {
       list = list.filter((r) => (r.currency || '') === currencyFilter);
     }
+    if (locationFilter !== 'all') {
+      list = list.filter((r) => r.locationKey === locationFilter);
+    }
     if (searchQuery) {
       list = list.filter((r) => {
         const hay = [
-          r.device_name, r.shelf, r.boundAccount, r.tradingBrand, r.currency, r.status,
+          r.device_name, r.location, r.boundAccount, r.tradingBrand, r.currency, r.status,
         ].join(' ').toLowerCase();
         return hay.includes(searchQuery);
       });
@@ -140,9 +203,9 @@ export default function DevicesPage() {
       undefined,
       { numeric: true },
     ));
-  }, [rows, statusFilter, brandFilter, currencyFilter, searchQuery]);
+  }, [rows, statusFilter, brandFilter, currencyFilter, locationFilter, searchQuery]);
 
-  useEffect(() => { setPage(1); }, [search, statusFilter, brandFilter, currencyFilter]);
+  useEffect(() => { setPage(1); }, [search, statusFilter, brandFilter, currencyFilter, locationFilter, site]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / DEVICE_PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -179,6 +242,7 @@ export default function DevicesPage() {
       qc.invalidateQueries({ queryKey: ['devices'] });
       setAddOpen(false);
       setAddForm(emptyForm());
+      setAddSiteKey('');
       showToast(`Device ${data.device_name} added`);
     },
     onError: (e) => {
@@ -210,6 +274,8 @@ export default function DevicesPage() {
     setEditName(row.device_name || '');
     setEditStatus(row.status || 'ACTIVE');
     setEditCurrency(currencyFromStored(row.serial_number, row.device_name) || '');
+    const loc = deviceLocationKey(row);
+    setEditSiteKey(loc === 'my' || loc === 'pp' ? loc : '');
   }
 
   function saveDetail() {
@@ -220,12 +286,22 @@ export default function DevicesPage() {
     }
     if (!detailRow?.id) return;
     const currency = (editCurrency || currencyFromStored('', name) || '').toUpperCase() || null;
+    const site_key = resolveDeviceSiteKey(name, {
+      profile,
+      headerSite: site,
+      manualSite: isSgdDevice(name) ? editSiteKey : null,
+    });
+    if (isSgdDevice(name) && !site_key) {
+      showToast('Choose Location (Malaysia or Poipet) for SGD devices', 'error');
+      return;
+    }
     patchMut.mutate({
       id: detailRow.id,
       body: {
         device_name: name,
         status: editStatus,
         serial_number: currency,
+        site_key: site_key || null,
       },
     });
   }
@@ -241,13 +317,33 @@ export default function DevicesPage() {
       || currencyFromStored('', name)
       || ''
     ).toUpperCase() || null;
+    const site_key = resolveDeviceSiteKey(name, {
+      profile,
+      headerSite: site,
+      manualSite: isSgdDevice(name) ? addSiteKey : null,
+    });
+    if (isSgdDevice(name) && !site_key) {
+      showToast('Choose Location (Malaysia or Poipet) for SGD devices', 'error');
+      return;
+    }
     createMut.mutate({
       device_name: name,
       serial_number: currency,
       status: addForm.status || 'ACTIVE',
       model: addForm.model.trim() || null,
       brand: 'Samsung',
+      site_key: site_key || null,
     });
+  }
+
+  function openAdd() {
+    const op = operatorSiteKey(profile);
+    const preset = (op === 'my' || op === 'pp')
+      ? op
+      : (site === 'my' || site === 'pp' ? site : '');
+    setAddSiteKey(preset);
+    setAddForm(emptyForm());
+    setAddOpen(true);
   }
 
   function changeRowStatus(row, nextStatus) {
@@ -283,12 +379,21 @@ export default function DevicesPage() {
   const addPreviewBrand = tradingBrandFromDeviceCode(addForm.device_name);
   const editPatternOk = !editName.trim() || isDeviceCodePattern(editName.trim());
   const addPatternOk = !addForm.device_name.trim() || isDeviceCodePattern(addForm.device_name.trim());
+  const opSite = operatorSiteKey(profile);
+  const locationLockedToOp = opSite === 'my' || opSite === 'pp';
+  const addResolvedSite = resolveDeviceSiteKey(addForm.device_name, {
+    profile,
+    headerSite: site,
+    manualSite: addSiteKey,
+  });
+  const addNeedsSitePick = isSgdDevice(addForm.device_name) && !locationLockedToOp && !(site === 'my' || site === 'pp');
+  const editNeedsSitePick = isSgdDevice(editName);
 
   return (
     <div>
       <PageHead
         title="Devices"
-        description="Farm phone inventory — Device ID, shelf location, currency, and bound accounts. Trading brand follows the middle of the Device ID."
+        description="Farm phone inventory — Device ID, site location, currency, and bound accounts. SGD location follows the operator’s site."
         actions={(
           <div className="page-meta-bubble">
             <span className="font-semibold text-ams-ink">{filtered.length}</span>
@@ -340,7 +445,7 @@ export default function DevicesPage() {
         <button
           type="button"
           className="btn btn-primary ml-auto inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-3 text-[13px] font-semibold shadow-card"
-          onClick={() => { setAddForm(emptyForm()); setAddOpen(true); }}
+          onClick={openAdd}
         >
           <Plus size={15} strokeWidth={2} />
           Add device
@@ -357,7 +462,19 @@ export default function DevicesPage() {
                 <thead>
                   <tr>
                     <th>Device ID</th>
-                    <th>Location</th>
+                    <th className="ip-th-filter">
+                      <select
+                        className="ip-th-filter-select"
+                        value={locationFilter}
+                        onChange={(e) => setLocationFilter(e.target.value)}
+                        aria-label="Filter by location"
+                      >
+                        <option value="all">Location</option>
+                        {LOCATION_OPTIONS.map((o) => (
+                          <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
+                      </select>
+                    </th>
                     <th>Bound Account</th>
                     <th className="col-center">Accounts</th>
                     <th className="col-center">Bans</th>
@@ -392,7 +509,13 @@ export default function DevicesPage() {
                           {row.device_name}
                         </button>
                       </td>
-                      <td className="text-[13px]">{row.shelf}</td>
+                      <td>
+                        {row.locationKey === 'shared'
+                          ? <span className="badge badge-default" title="Assign Malaysia or Poipet when editing">{row.location}</span>
+                          : row.locationKey
+                            ? <span className={getSiteChipClass(row.locationKey)}>{row.location}</span>
+                            : <span className="col-muted">—</span>}
+                      </td>
                       <td className="font-semibold text-ams-blue">{row.boundAccount}</td>
                       <td className="col-center">{row.accountCount}</td>
                       <td className={`col-center ${row.banCount >= 3 ? 'text-ams-warn font-semibold' : ''}`}>
@@ -529,10 +652,31 @@ export default function DevicesPage() {
                   ))}
                 </select>
               </label>
-            </div>
-            <div className="drawer-locked">
-              <div className="drawer-locked-label">Location</div>
-              <div className="text-sm">{detailRow.shelf}</div>
+              {editNeedsSitePick ? (
+                <label className="drawer-field">
+                  <span className="drawer-label">Location</span>
+                  <select
+                    className="input"
+                    value={editSiteKey}
+                    onChange={(e) => setEditSiteKey(e.target.value)}
+                    disabled={locationLockedToOp}
+                  >
+                    <option value="">Select site</option>
+                    <option value="my">{SITES.my.name}</option>
+                    <option value="pp">{SITES.pp.name}</option>
+                  </select>
+                  {locationLockedToOp && (
+                    <span className="mt-1 text-[12px] text-ams-muted">
+                      Locked to your site ({SITES[opSite]?.name}).
+                    </span>
+                  )}
+                </label>
+              ) : (
+                <div className="drawer-locked">
+                  <div className="drawer-locked-label">Location</div>
+                  <div className="text-sm">{deviceLocationLabel({ device_name: editName, site_key: editSiteKey || detailRow.site_key })}</div>
+                </div>
+              )}
             </div>
             <div>
               <div className="mb-2 text-xs font-semibold uppercase text-ams-muted">Accounts on this device</div>
@@ -624,6 +768,41 @@ export default function DevicesPage() {
               ))}
             </select>
           </label>
+          {isSgdDevice(addForm.device_name) || prefixImpliedSite(addForm.device_name) ? (
+            addNeedsSitePick ? (
+              <label className="drawer-field">
+                <span className="drawer-label">Location</span>
+                <select
+                  className="input"
+                  value={addSiteKey}
+                  onChange={(e) => setAddSiteKey(e.target.value)}
+                >
+                  <option value="">Select site</option>
+                  <option value="my">{SITES.my.name}</option>
+                  <option value="pp">{SITES.pp.name}</option>
+                </select>
+              </label>
+            ) : (
+              <div className="drawer-locked">
+                <div className="drawer-locked-label">Location</div>
+                <div className="text-sm">
+                  {addResolvedSite
+                    ? SITES[addResolvedSite]?.name
+                    : '—'}
+                  {isSgdDevice(addForm.device_name) && locationLockedToOp && (
+                    <span className="mt-1 block text-[12px] text-ams-muted">
+                      Auto from your site profile.
+                    </span>
+                  )}
+                  {isSgdDevice(addForm.device_name) && !locationLockedToOp && (site === 'my' || site === 'pp') && (
+                    <span className="mt-1 block text-[12px] text-ams-muted">
+                      Auto from active site filter.
+                    </span>
+                  )}
+                </div>
+              </div>
+            )
+          ) : null}
           <label className="drawer-field">
             <span className="drawer-label">Model</span>
             <input

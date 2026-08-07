@@ -161,6 +161,7 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
     ['Status', statusMeta(account.status).label],
     ['Brand', resolveAccountBrand(account) || '—'],
     ['Owner (registered by)', account.owner || '—'],
+    ['Staff', account.staff || '—'],
     ['Device', account.device || '—'],
     ['Site', SITES[account.siteKey]?.name || account.siteKey],
     ['Reference IP', account.reference_ip_address || account.ip || '—'],

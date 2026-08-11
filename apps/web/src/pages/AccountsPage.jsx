@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import PageHead from '../components/PageHead';
 import { useSite } from '../context/SiteContext';
 import { useAuth } from '../context/AuthContext';
@@ -21,15 +22,32 @@ import { liveSlotConnection } from '../lib/engine-slot';
 import api from '../lib/api';
 
 const LEDGER_PAGE_SIZE = 5;
+const BUSINESS_PAGE_SIZE = 10;
 
 function siteChipLabel(siteKey) {
   if (siteKey === 'all') return 'All';
   return SITES[siteKey]?.name || siteKey;
 }
 
-function StatusPill({ status }) {
+function StatusPill({ status, note }) {
   const meta = statusMeta(status);
-  return <span className={`badge ${meta.pill}`}>{meta.label}</span>;
+  return (
+    <span className={`badge ${meta.pill}`}>
+      {meta.label}
+      {note ? <span className="rl-status-note"> · {note}</span> : null}
+    </span>
+  );
+}
+
+/** WA-level restriction overlay (set via operator "Mark Strict") — separate from account.status. */
+function restrictionMeta(kind) {
+  if (kind === 'restrict_scan') {
+    return { label: 'Restricted Scan', short: 'Restrict scan', pill: 'badge-warn' };
+  }
+  if (kind === 'restrict_chat_new') {
+    return { label: 'Restricted Chat New Contact', short: 'Restrict chat', pill: 'badge-warn' };
+  }
+  return { label: 'Active', short: 'Active', pill: 'badge-success' };
 }
 
 function EmptySlotRow({ slotLabel }) {
@@ -52,10 +70,22 @@ function AcctRow({ account, onOpen, showSiteBubble = false, slotLabel, extra = f
   const day = account.status === 'NURTURING'
     ? nurturingDay(account.nurturing_started_at, account.nurturing_phase)
     : null;
+  const dayNote = day != null
+    ? `${day}/${account.nurturing_phase === 'manual' ? 3 : 7}`
+    : null;
 
   const siteTag = showSiteBubble && account.siteKey && account.siteKey !== 'all'
     ? account.siteKey
     : null;
+
+  const flag = account.disconnect_report
+    ? { text: 'Reported', title: 'Business reported a disconnect — awaiting review' }
+    : account.restrict_kind
+      ? {
+          text: restrictionMeta(account.restrict_kind).short,
+          title: restrictionMeta(account.restrict_kind).label,
+        }
+      : null;
 
   return (
     <div className={`rl-acct-row${siteTag ? ` rl-acct-row--site-${siteTag}` : ''}${extra ? ' rl-acct-row--extra' : ''}`}>
@@ -84,11 +114,9 @@ function AcctRow({ account, onOpen, showSiteBubble = false, slotLabel, extra = f
         )}
       </div>
       <div className="rl-col-status">
-        <StatusPill status={account.status} />
-        {day != null && (
-          <span className="ml-1 font-mono text-[11px] text-ams-faint">
-            ({day}/{account.nurturing_phase === 'manual' ? 3 : 7})
-          </span>
+        <StatusPill status={account.status} note={dayNote} />
+        {flag && (
+          <span className="rl-flag-chip" title={flag.title}>{flag.text}</span>
         )}
       </div>
       <div className="font-mono text-[12px]">{account.phone_number || '—'}</div>
@@ -99,13 +127,29 @@ function AcctRow({ account, onOpen, showSiteBubble = false, slotLabel, extra = f
   );
 }
 
+const RESOLVE_OUTCOMES = [
+  ['logged_out', 'Logged out'],
+  ['restrict_scan', 'Restricted Scan'],
+  ['restrict_chat_new', 'Restricted Chat New Contact'],
+  ['banned', 'Banned'],
+];
+
 function AccountDetail({ accountId, onBack, staffOptions = [] }) {
   const { profile } = useAuth();
+  const isBusinessUser = profile?.role === 'business';
   const { data: account, isLoading } = useAccountDetail(accountId);
-  const { patchAccount } = useAccountMutations();
+  const {
+    patchAccount, reportDisconnect, resolveDisconnect,
+  } = useAccountMutations();
   const canSetStaff = profile?.role === 'admin' || profile?.role === 'operator';
   const [staffDraft, setStaffDraft] = useState('');
   const [staffToast, setStaffToast] = useState('');
+  const [reportNote, setReportNote] = useState('');
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportToast, setReportToast] = useState('');
+  const [resolveOutcome, setResolveOutcome] = useState('logged_out');
+  const [resolveReason, setResolveReason] = useState('');
+  const [resolveToast, setResolveToast] = useState('');
 
   useEffect(() => {
     setStaffDraft(account?.staff || '');
@@ -154,11 +198,48 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
     }
   }
 
+  async function submitReport() {
+    try {
+      await reportDisconnect.mutateAsync({ id: account.id, note: reportNote.trim() });
+      setReportOpen(false);
+      setReportNote('');
+      setReportToast('Reported — R&M will review and update the status shortly.');
+      setTimeout(() => setReportToast(''), 4200);
+    } catch (e) {
+      setReportToast(e?.response?.data?.error || e.message || 'Failed to report');
+      setTimeout(() => setReportToast(''), 4200);
+    }
+  }
+
+  async function submitResolve() {
+    if (!resolveReason.trim()) {
+      setResolveToast('Reason is required');
+      setTimeout(() => setResolveToast(''), 3200);
+      return;
+    }
+    try {
+      await resolveDisconnect.mutateAsync({
+        id: account.id,
+        outcome: resolveOutcome,
+        reason: resolveReason.trim(),
+      });
+      setResolveReason('');
+      setResolveToast('Status updated — business can now see it themselves.');
+      setTimeout(() => setResolveToast(''), 4200);
+    } catch (e) {
+      setResolveToast(e?.response?.data?.error || e.message || 'Failed to update status');
+      setTimeout(() => setResolveToast(''), 4200);
+    }
+  }
+
+  const restriction = restrictionMeta(account.restrict_kind);
+
   const infoRows = [
     ['Account', account.account_name],
     ['Phone', account.phone_number || '—'],
     ['Channel', displayDeviceChannel(account.channel) || '—'],
     ['Status', statusMeta(account.status).label],
+    ['Restriction (WA)', <span className={`badge ${restriction.pill}`}>{restriction.label}</span>],
     ['Brand', resolveAccountBrand(account) || '—'],
     ['Owner (registered by)', account.owner || '—'],
     ['Staff', account.staff || '—'],
@@ -177,6 +258,11 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
         <button type="button" className="btn btn-secondary btn-sm" onClick={onBack}>‹ Back</button>
         <h1 className="text-[22px] font-bold">{account.account_name}</h1>
         <StatusPill status={account.status} />
+        {account.restrict_kind && (
+          <span className={`badge ${restrictionMeta(account.restrict_kind).pill}`}>
+            {restrictionMeta(account.restrict_kind).label}
+          </span>
+        )}
       </div>
 
       {ipMismatch && (
@@ -190,6 +276,91 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
         <p className="mb-4 text-xs text-ams-faint">
           Engine last checked: {lastChecked} · may lag a few minutes
         </p>
+      )}
+
+      {isBusinessUser && account.status === 'IN_USE' && (
+        account.disconnect_report ? (
+          <div className="mb-4 rounded-lg border border-ams-warn/40 bg-ams-warn/10 px-4 py-3 text-[13px] text-ams-warn">
+            Disconnect reported on {new Date(account.disconnect_report.reported_at).toLocaleString()} — awaiting R&amp;M review.
+          </div>
+        ) : (
+          <div className="mb-4 rounded-lg border border-ams-line bg-ams-panel px-4 py-3">
+            {reportOpen ? (
+              <div className="space-y-2">
+                <p className="text-[13px] font-semibold text-ams-ink">Report this account as disconnected/logged out</p>
+                <textarea
+                  className="input min-h-[70px] w-full text-[13px]"
+                  placeholder="Optional note (e.g. when it logged out, what happened)…"
+                  value={reportNote}
+                  onChange={(e) => setReportNote(e.target.value)}
+                />
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    disabled={reportDisconnect.isPending}
+                    onClick={submitReport}
+                  >
+                    {reportDisconnect.isPending ? 'Sending…' : 'Submit report'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => { setReportOpen(false); setReportNote(''); }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-[13px] text-ams-muted">Got logged out? Report it here instead of the group.</p>
+                <button type="button" className="btn btn-secondary btn-sm shrink-0" onClick={() => setReportOpen(true)}>
+                  Report Disconnect
+                </button>
+              </div>
+            )}
+            {reportToast && <p className="mt-2 text-[12px] text-ams-muted">{reportToast}</p>}
+          </div>
+        )
+      )}
+
+      {!isBusinessUser && account.disconnect_report && (
+        <div className="mb-4 rounded-lg border border-ams-warn/50 bg-ams-warn/10 p-4">
+          <p className="text-[13px] font-semibold text-ams-warn">
+            ⚠ Business reported a disconnect — {account.disconnect_report.reported_by}
+            {' · '}
+            {new Date(account.disconnect_report.reported_at).toLocaleString()}
+          </p>
+          {account.disconnect_report.note && (
+            <p className="mt-1 text-[13px] text-ams-muted">“{account.disconnect_report.note}”</p>
+          )}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <select
+              className="input h-9 w-auto text-[13px]"
+              value={resolveOutcome}
+              onChange={(e) => setResolveOutcome(e.target.value)}
+              aria-label="Resolution outcome"
+            >
+              {RESOLVE_OUTCOMES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+            <input
+              className="input h-9 min-w-[220px] flex-1 text-[13px]"
+              placeholder="Reason (required)…"
+              value={resolveReason}
+              onChange={(e) => setResolveReason(e.target.value)}
+            />
+            <button
+              type="button"
+              className="btn btn-primary btn-sm shrink-0"
+              disabled={resolveDisconnect.isPending}
+              onClick={submitResolve}
+            >
+              {resolveDisconnect.isPending ? 'Saving…' : 'Confirm'}
+            </button>
+          </div>
+          {resolveToast && <p className="mt-2 text-[12px] text-ams-muted">{resolveToast}</p>}
+        </div>
       )}
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -284,6 +455,9 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
 
 export default function AccountsPage() {
   const { site } = useSite();
+  const { profile } = useAuth();
+  const isBusiness = profile?.role === 'business';
+  const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
   const [fBrand, setFBrand] = useState('');
   const [fStaff, setFStaff] = useState('');
@@ -292,6 +466,15 @@ export default function AccountsPage() {
   const [page, setPage] = useState(1);
 
   const { data: accounts = [], isLoading } = useAllAccounts();
+
+  useEffect(() => {
+    const openId = searchParams.get('open');
+    if (!openId) return;
+    setDetailId(openId);
+    const next = new URLSearchParams(searchParams);
+    next.delete('open');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const staffOptions = useMemo(() => {
     const names = new Set();
@@ -302,13 +485,45 @@ export default function AccountsPage() {
     return [...names].sort((a, b) => a.localeCompare(b));
   }, [accounts]);
 
+  const pendingDisconnects = useMemo(() => {
+    if (isBusiness) return [];
+    return accounts
+      .filter((a) => a.disconnect_report)
+      .filter((a) => site === 'all' || a.siteKey === site || a.siteKey === 'all')
+      .sort((a, b) => {
+        const ta = new Date(a.disconnect_report?.reported_at || 0).getTime();
+        const tb = new Date(b.disconnect_report?.reported_at || 0).getTime();
+        return tb - ta;
+      });
+  }, [accounts, isBusiness, site]);
+
+  // Business can't read /devices (ops-only asset ledger) — skip the device-card grouping
+  // and show a flat, brand-scoped account list instead.
   const { data: devices = [] } = useQuery({
     queryKey: ['devices'],
     queryFn: async () => {
       const res = await api.get('/devices', { params: { limit: 200 } });
       return res.data?.data || [];
     },
+    enabled: !isBusiness,
   });
+
+  const businessRows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return accounts
+      .filter((a) => {
+        if (site !== 'all' && a.siteKey !== site && a.siteKey !== 'all') return false;
+        if (fBrand && resolveAccountBrand(a) !== fBrand) return false;
+        if (fStaff && a.staff !== fStaff) return false;
+        if (fSt && statusMeta(a.status).filter !== fSt) return false;
+        if (q) {
+          const hay = `${a.account_name} ${a.phone_number} ${a.staff}`.toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        return true;
+      })
+      .sort((a, b) => String(a.account_name || '').localeCompare(String(b.account_name || '')));
+  }, [accounts, search, site, fBrand, fStaff, fSt]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -385,14 +600,20 @@ export default function AccountsPage() {
     return { deviceCards: cards, orphanCard, devCount, acctCount };
   }, [accounts, devices, search, site, fBrand, fStaff, fSt]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.deviceCards.length / LEDGER_PAGE_SIZE));
+  const pageSize = isBusiness ? BUSINESS_PAGE_SIZE : LEDGER_PAGE_SIZE;
+  const totalItems = isBusiness ? businessRows.length : filtered.deviceCards.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
   const safePage = Math.min(page, totalPages);
   const pageCards = filtered.deviceCards.slice(
-    (safePage - 1) * LEDGER_PAGE_SIZE,
-    safePage * LEDGER_PAGE_SIZE,
+    (safePage - 1) * pageSize,
+    safePage * pageSize,
   );
-  const pageStart = filtered.deviceCards.length ? (safePage - 1) * LEDGER_PAGE_SIZE + 1 : 0;
-  const pageEnd = Math.min(safePage * LEDGER_PAGE_SIZE, filtered.deviceCards.length);
+  const pageRows = businessRows.slice(
+    (safePage - 1) * pageSize,
+    safePage * pageSize,
+  );
+  const pageStart = totalItems ? (safePage - 1) * pageSize + 1 : 0;
+  const pageEnd = Math.min(safePage * pageSize, totalItems);
 
   useEffect(() => {
     setPage(1);
@@ -412,15 +633,25 @@ export default function AccountsPage() {
     );
   }
 
-  const statusFilters = [
-    ['', 'All statuses'],
-    ['registering', 'Registering'],
-    ['nurturing', 'Nurturing'],
-    ['standby', 'Standby'],
-    ['inuse', 'In Use'],
-    ['recovering', 'Recovering'],
-    ['banned', 'Banned'],
-  ];
+  // Business only ever sees post-delivery statuses — Registering/Nurturing/Standby are
+  // internal pool states that never reach them, so hide those filter options entirely.
+  const statusFilters = isBusiness
+    ? [
+        ['', 'All statuses'],
+        ['inuse', 'In Use'],
+        ['loggedout', 'Logged out'],
+        ['recovering', 'Recovering'],
+        ['banned', 'Banned'],
+      ]
+    : [
+        ['', 'All statuses'],
+        ['registering', 'Registering'],
+        ['nurturing', 'Nurturing'],
+        ['standby', 'Standby'],
+        ['inuse', 'In Use'],
+        ['recovering', 'Recovering'],
+        ['banned', 'Banned'],
+      ];
 
   function renderDevCard({ device, siteKey, accounts: deviceAccts, allAccounts: deviceAllAccts, unassigned = false }) {
     const displayAccounts = deviceAccts;
@@ -484,21 +715,56 @@ export default function AccountsPage() {
     );
   }
 
-  const hasResults = filtered.deviceCards.length > 0 || filtered.orphanCard;
+  const hasResults = isBusiness
+    ? businessRows.length > 0
+    : filtered.deviceCards.length > 0 || filtered.orphanCard;
 
   return (
     <div>
       <PageHead
-        title="Resource Ledger"
-        description="Lookup by device, account, phone, brand, or Staff. Owner = who registered; Staff = business assignee (set by operators)."
+        title={isBusiness ? 'Check Account Status' : 'Resource Ledger'}
+        description={isBusiness
+          ? 'Accounts already delivered to you — check their current status (In Use, Logged out, Restricted, Banned, Recovering) without asking R&M in the group.'
+          : 'Lookup by device, account, phone, brand, or Staff. Disconnect reports from business appear at the top — open an account to set Restricted / Logged out / Banned.'}
       />
+
+      {!isBusiness && pendingDisconnects.length > 0 && (
+        <div className="mb-4 rounded-lg border border-ams-warn/40 bg-ams-warn/10 px-4 py-3">
+          <p className="text-[13px] font-semibold text-ams-warn">
+            {pendingDisconnects.length} disconnect report{pendingDisconnects.length === 1 ? '' : 's'} from business — action needed
+          </p>
+          <ul className="mt-2 space-y-1.5">
+            {pendingDisconnects.map((a) => (
+              <li key={a.id} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[13px]">
+                <button
+                  type="button"
+                  className="font-semibold text-ams-ink underline-offset-2 hover:underline"
+                  onClick={() => setDetailId(a.id)}
+                >
+                  {a.account_name}
+                </button>
+                <span className="text-ams-muted">
+                  {a.staff ? `Staff · ${a.staff}` : (a.disconnect_report.reported_by || 'Business')}
+                  {' · '}
+                  {new Date(a.disconnect_report.reported_at).toLocaleString()}
+                </span>
+                {a.disconnect_report.note ? (
+                  <span className="w-full text-[12px] text-ams-faint sm:w-auto">
+                    “{a.disconnect_report.note}”
+                  </span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="page-filter-bar">
         <div className="page-filter-search">
           <Search size={15} className="page-filter-search-icon" strokeWidth={2} />
           <input
             className="input"
-            placeholder="Search device ID, account, staff, or phone…"
+            placeholder={isBusiness ? 'Search account or phone…' : 'Search device ID, account, staff, or phone…'}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -542,7 +808,55 @@ export default function AccountsPage() {
       {isLoading ? (
         <p className="py-10 text-center text-sm text-ams-faint">Loading ledger…</p>
       ) : !hasResults ? (
-        <p className="py-10 text-center text-sm text-ams-faint">No devices or accounts match the filters.</p>
+        <p className="py-10 text-center text-sm text-ams-faint">
+          {isBusiness ? 'No accounts match the filters.' : 'No devices or accounts match the filters.'}
+        </p>
+      ) : isBusiness ? (
+        <>
+          <div className="rl-head-row mb-1 hidden lg:grid">
+            <span>Account</span><span>Status</span><span>Phone</span><span>IP</span><span>Brand</span><span className="rl-col-staff-head">Staff</span>
+          </div>
+
+          <div className="rl-dev-card">
+            {pageRows.map((a) => (
+              <AcctRow
+                key={a.id}
+                account={a}
+                onOpen={(row) => setDetailId(row.id)}
+                showSiteBubble={site === 'all'}
+              />
+            ))}
+          </div>
+
+          {businessRows.length > BUSINESS_PAGE_SIZE && (
+            <div className="tk-pager">
+              <p className="tk-pager-meta">
+                Showing {pageStart}–{pageEnd} of {businessRows.length} accounts
+              </p>
+              <div className="tk-pager-actions">
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  disabled={safePage <= 1}
+                  onClick={() => setPage(safePage - 1)}
+                >
+                  Previous
+                </button>
+                <span className="tk-pager-page">
+                  Page {safePage} / {totalPages}
+                </span>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  disabled={safePage >= totalPages}
+                  onClick={() => setPage(safePage + 1)}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
+        </>
       ) : (
         <>
           <div className="rl-head-row mb-1 hidden lg:grid">
@@ -589,7 +903,9 @@ export default function AccountsPage() {
       )}
 
       <p className="mt-3 text-center text-[13px] text-ams-muted">
-        {SITES[site].name} · {filtered.devCount} devices · {filtered.acctCount} accounts
+        {isBusiness
+          ? `${SITES[site].name} · ${businessRows.length} accounts`
+          : `${SITES[site].name} · ${filtered.devCount} devices · ${filtered.acctCount} accounts`}
       </p>
     </div>
   );

@@ -5,7 +5,8 @@ export function isAdminProfile(profile) {
 /** Site filter: admin and all-site operators may use all/my/pp; others locked to assigned site. */
 export function operatorSiteKey(profile) {
   const sk = profile?.site_key;
-  if (isAdminProfile(profile)) {
+  // Business is scoped by brand (server-side), not site — never lock their site switcher.
+  if (isAdminProfile(profile) || profile?.role === 'business') {
     if (sk === 'my' || sk === 'pp') return sk;
     return 'all';
   }
@@ -14,7 +15,7 @@ export function operatorSiteKey(profile) {
 }
 
 export function siteOptionsForProfile(profile) {
-  if (isAdminProfile(profile)) return ['all', 'my', 'pp'];
+  if (isAdminProfile(profile) || profile?.role === 'business') return ['all', 'my', 'pp'];
   if (profile?.site_key === 'all') return ['all', 'my', 'pp'];
   return [operatorSiteKey(profile)];
 }

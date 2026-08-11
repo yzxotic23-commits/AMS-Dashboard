@@ -13,6 +13,7 @@ import SiteSwitcher from './SiteSwitcher';
 import GovernanceDateControls from './GovernanceDateControls';
 import AppSidebar from './AppSidebar';
 import EngineBackgroundSync from './EngineBackgroundSync';
+import DisconnectBell from './DisconnectBell';
 
 /** AMS bridge sync only on pages that explicitly use FeedFlow engine — not global. */
 const AMS_BRIDGE_SYNC_PATHS = [
@@ -126,7 +127,8 @@ export default function Layout({ authBooting = false }) {
                 <SiteSwitcher />
                 {isGovernance && <GovernanceDateControls />}
               </div>
-              <div className="flex justify-end">
+              <div className="flex items-center justify-end gap-3">
+                <DisconnectBell />
                 <div className="header-user">
                   <div className="header-user-avatar">{initials}</div>
                   <span className="header-user-name">

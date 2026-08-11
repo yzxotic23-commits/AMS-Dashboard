@@ -19,19 +19,67 @@ import { parseOperatorMeta, mergeOperatorNotes } from '../../lib/accountMeta.js'
 import { assertDeviceSlotAvailable, DeviceSlotError } from '../../lib/deviceSlots.js';
 import { postWsafAuditRecord } from '../../lib/wsafBridge.js';
 import { accountInBrandScope, profileBrandScope } from '../../lib/accountBrand.js';
+import { parseTicketMeta } from '../../lib/ticketMeta.js';
 
 const router = Router();
 router.use(authenticate);
 router.use((req, res, next) => {
-  const isStandbyPoolList =
-    req.method === 'GET'
-    && (req.path === '/' || req.path === '')
-    && req.query.status === 'AVAILABLE';
-  if (isStandbyPoolList) {
+  // Business is read-only except for self-reporting a disconnect (the one write action
+  // they need so R&M finds out without a WhatsApp group message first).
+  if (req.method === 'GET') {
+    return requireRole('admin', 'operator', 'business')(req, res, next);
+  }
+  if (req.method === 'POST' && /\/report-disconnect$/.test(req.path)) {
     return requireRole('admin', 'operator', 'business')(req, res, next);
   }
   return requireRole('admin', 'operator')(req, res, next);
 });
+
+/** Strip proxy login credentials before a business profile ever sees the payload. */
+function redactIpCredentials(row) {
+  if (!row?.ips) return row;
+  const ips = Array.isArray(row.ips) ? row.ips[0] : row.ips;
+  if (!ips) return row;
+  const { username, password, ...safeIp } = ips;
+  return { ...row, ips: safeIp };
+}
+
+function sanitizeAccountsForRole(rows, profile) {
+  if (profile?.role !== 'business') return rows;
+  return (rows || []).map(redactIpCredentials);
+}
+
+/**
+ * Business only sees accounts whose delivery ticket has reached "done" (business already
+ * confirmed receipt) — never the internal Registering/Nurturing/Standby pool, and not even
+ * "posted" (go-live, awaiting business confirm) yet, even if it happens to share their brand.
+ * Statuses reachable only pre-delivery are hidden outright; the rest still need real ticket proof
+ * (an account can cycle back to Nurturing/Standby for re-delivery and shouldn't stay visible).
+ */
+const BUSINESS_VISIBLE_STATUSES = new Set(['IN_USE', 'LOGGED_OUT', 'BANNED', 'RECOVERING']);
+
+async function deliveredAccountIds(accountIds) {
+  const ids = new Set();
+  if (!accountIds.length) return ids;
+  const { data: tix, error } = await supabaseAdmin
+    .from('tickets')
+    .select('account_id, status, description')
+    .in('account_id', accountIds);
+  if (error) throw error;
+  (tix || []).forEach((t) => {
+    if (!t.account_id) return;
+    const stage = parseTicketMeta(t).delivery_stage;
+    if (stage === 'done') ids.add(t.account_id);
+  });
+  return ids;
+}
+
+async function filterDeliveredForBusiness(rows, profile) {
+  if (profile?.role !== 'business') return rows;
+  const candidates = rows.filter((r) => BUSINESS_VISIBLE_STATUSES.has(r.status));
+  const delivered = await deliveredAccountIds(candidates.map((r) => r.id));
+  return candidates.filter((r) => delivered.has(r.id));
+}
 
 const createSchema = z.object({
   account_name: z.string().min(1),
@@ -59,6 +107,15 @@ const banSchema = z.object({
 
 const markStrictSchema = z.object({
   kind: z.enum(['restrict_scan', 'restrict_chat_new', 'active']),
+});
+
+const reportDisconnectSchema = z.object({
+  note: z.string().max(500).optional(),
+});
+
+const resolveDisconnectSchema = z.object({
+  outcome: z.enum(['restrict_scan', 'restrict_chat_new', 'logged_out', 'banned']),
+  reason: z.string().min(1),
 });
 
 const STRICT_KIND_LABEL = {
@@ -187,10 +244,15 @@ router.get('/', async (req, res, next) => {
         .limit(500);
       if (error) throw error;
       const enriched = await enrichAccountsIpEmbed(data);
-      const filtered = enriched.filter((row) => accountInBrandScope(row, brandScope));
-      const pageRows = filtered.slice(offset, offset + limit);
+      const brandFiltered = enriched.filter((row) => accountInBrandScope(row, brandScope));
+      // Standby pool browsing (for submitting a delivery ticket) must see AVAILABLE accounts
+      // before delivery — only the general "check my account status" list needs the ticket gate.
+      const scoped = req.query.status === 'AVAILABLE'
+        ? brandFiltered
+        : await filterDeliveredForBusiness(brandFiltered, req.profile);
+      const pageRows = sanitizeAccountsForRole(scoped.slice(offset, offset + limit), req.profile);
       res.set('Cache-Control', 'no-store');
-      return res.json(paginatedResponse(pageRows, filtered.length, page, limit));
+      return res.json(paginatedResponse(pageRows, scoped.length, page, limit));
     }
 
     let q = supabaseAdmin
@@ -209,7 +271,7 @@ router.get('/', async (req, res, next) => {
     if (error) throw error;
     const enriched = await enrichAccountsIpEmbed(data);
     res.set('Cache-Control', 'no-store');
-    res.json(paginatedResponse(enriched, count || 0, page, limit));
+    res.json(paginatedResponse(sanitizeAccountsForRole(enriched, req.profile), count || 0, page, limit));
   } catch (e) {
     next(e);
   }
@@ -225,13 +287,28 @@ router.get('/:id', async (req, res, next) => {
       .single();
     if (error) throw error;
 
+    // Business is brand-scoped — block lookup of accounts outside their assigned brands.
+    const brandScope = profileBrandScope(req.profile);
+    if (brandScope) {
+      // Business can only check accounts that already went through a delivery ticket —
+      // never the internal Registering/Nurturing/Standby pool.
+      if (!accountInBrandScope(data, brandScope) || !BUSINESS_VISIBLE_STATUSES.has(data.status)) {
+        return res.status(404).json({ error: 'Account not found' });
+      }
+      const delivered = await deliveredAccountIds([data.id]);
+      if (!delivered.has(data.id)) {
+        return res.status(404).json({ error: 'Account not found' });
+      }
+    }
+
     const { data: history } = await supabaseAdmin
       .from('account_status_history')
       .select('*, profiles(full_name)')
       .eq('account_id', req.params.id)
       .order('changed_at', { ascending: false });
 
-    res.json({ ...data, statusHistory: history || [] });
+    const [safeData] = sanitizeAccountsForRole([data], req.profile);
+    res.json({ ...safeData, statusHistory: history || [] });
   } catch (e) {
     next(e);
   }
@@ -629,6 +706,182 @@ router.post('/:id/mark-strict', async (req, res, next) => {
         feedingAudit: Boolean(feedingAudit),
       },
     });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// POST /accounts/:id/report-disconnect — business self-reports "I got logged out"
+// (business logs into their own WhatsApp Web; AMS/FeedFlow has no visibility into that
+// session, so this is the only way R&M finds out without a WhatsApp group message).
+router.post('/:id/report-disconnect', async (req, res, next) => {
+  try {
+    const { note } = reportDisconnectSchema.parse(req.body);
+    const { data: current, error: fetchErr } = await supabaseAdmin
+      .from('accounts')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+    if (fetchErr) throw fetchErr;
+
+    if (req.profile?.role === 'business') {
+      const brandScope = profileBrandScope(req.profile);
+      if (!accountInBrandScope(current, brandScope)) {
+        return res.status(404).json({ error: 'Account not found' });
+      }
+    }
+    if (current.status !== 'IN_USE') {
+      return res.status(400).json({ error: 'Only accounts currently In Use can be reported as disconnected' });
+    }
+
+    const meta = parseOperatorMeta(current);
+    if (meta.disconnect_report) {
+      const [already] = sanitizeAccountsForRole([current], req.profile);
+      return res.json({ ...already, _alreadyReported: true });
+    }
+
+    const reporterName = req.profile?.full_name || req.profile?.username || 'Business';
+    const report = {
+      reported_at: new Date().toISOString(),
+      reported_by: reporterName,
+      note: (note || '').trim(),
+    };
+    const notes = mergeOperatorNotes(current.notes, { disconnect_report: report });
+
+    const { data, error } = await supabaseAdmin
+      .from('accounts')
+      .update({ notes })
+      .eq('id', req.params.id)
+      .select(ACCOUNT_SELECT_WITH_SIM_LOCATION)
+      .single();
+    if (error) throw error;
+
+    await writeAudit({
+      entityType: 'account',
+      entityId: data.id,
+      action: 'UPDATE',
+      previousValue: { disconnect_report: null },
+      newValue: {
+        account_name: data.account_name,
+        field: 'Disconnect report',
+        reported_by: reporterName,
+        note: report.note,
+      },
+      metadata: {
+        account_name: data.account_name,
+        field: 'Disconnect report',
+        business_report: true,
+        reported_by: reporterName,
+      },
+      userId: req.profile.id,
+      req,
+    });
+
+    const [safeData] = sanitizeAccountsForRole([data], req.profile);
+    res.status(201).json(safeData);
+  } catch (e) {
+    next(e);
+  }
+});
+
+// POST /accounts/:id/resolve-disconnect — R&M/operator actions a business disconnect
+// report: pick the real outcome (Restricted / Logged out / Banned) with a reason, which
+// updates account status + history so the business immediately sees it themselves.
+router.post('/:id/resolve-disconnect', async (req, res, next) => {
+  try {
+    const { outcome, reason } = resolveDisconnectSchema.parse(req.body);
+    const { data: current, error: fetchErr } = await supabaseAdmin
+      .from('accounts')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+    if (fetchErr) throw fetchErr;
+
+    const meta = parseOperatorMeta(current);
+    if (!meta.disconnect_report) {
+      return res.status(400).json({ error: 'No pending disconnect report for this account' });
+    }
+    const reportedBy = meta.disconnect_report.reported_by || 'Business';
+
+    let data;
+    let toLabel;
+
+    if (outcome === 'logged_out' || outcome === 'banned') {
+      const toStatus = outcome === 'logged_out' ? 'LOGGED_OUT' : 'BANNED';
+      assertTransition(current.status, toStatus);
+      const notes = mergeOperatorNotes(current.notes, { disconnect_report: null });
+
+      const { data: updated, error } = await supabaseAdmin
+        .from('accounts')
+        .update({ status: toStatus, notes })
+        .eq('id', req.params.id)
+        .select(ACCOUNT_SELECT_WITH_SIM_LOCATION)
+        .single();
+      if (error) throw error;
+
+      await supabaseAdmin.from('account_status_history').insert({
+        account_id: updated.id,
+        from_status: current.status,
+        to_status: toStatus,
+        reason: `${reason} · reported by ${reportedBy}`,
+        changed_by: req.profile.id,
+      });
+
+      if (toStatus === 'BANNED') {
+        await bumpIpRisk(current.ip_id);
+        const recNotes = serializeRecoveryNotes(updated.notes, recoveryOnBanDefaults('manual', reason));
+        await supabaseAdmin.from('accounts').update({ notes: recNotes }).eq('id', updated.id);
+        updated.notes = recNotes;
+      }
+
+      data = updated;
+      toLabel = toStatus === 'BANNED' ? 'Banned' : 'Logged out';
+    } else {
+      // restrict_scan | restrict_chat_new — WA-level overlay, account.status stays IN_USE.
+      const label = STRICT_KIND_LABEL[outcome];
+      const metaPatch = outcome === 'restrict_scan'
+        ? {
+            restrict_kind: outcome,
+            nurturing_phase: 'manual',
+            nurturing_started_at: new Date(Date.now() - 2 * 86_400_000).toISOString(),
+            disconnect_report: null,
+          }
+        : { restrict_kind: outcome, disconnect_report: null };
+      const humanNote = outcome === 'restrict_scan'
+        ? 'Restricted Scan — cannot scan / re-link during restriction period'
+        : 'Restricted Chat New Contact — can scan; chat limited to existing contacts only';
+      const notes = mergeOperatorNotes(current.notes, metaPatch, humanNote);
+
+      const { data: updated, error } = await supabaseAdmin
+        .from('accounts')
+        .update({ notes })
+        .eq('id', req.params.id)
+        .select(ACCOUNT_SELECT_WITH_SIM_LOCATION)
+        .single();
+      if (error) throw error;
+      data = updated;
+      toLabel = label;
+    }
+
+    await writeAudit({
+      entityType: 'account',
+      entityId: data.id,
+      action: 'STATE_CHANGE',
+      previousValue: { status: current.status, disconnect_report: meta.disconnect_report },
+      newValue: { status: data.status, outcome, reason, resolved_report: true },
+      metadata: {
+        account_name: data.account_name,
+        field: 'Disconnect report',
+        outcome,
+        reason,
+        to: toLabel,
+        reported_by: reportedBy,
+      },
+      userId: req.profile.id,
+      req,
+    });
+
+    res.json(data);
   } catch (e) {
     next(e);
   }

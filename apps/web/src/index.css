@@ -781,7 +781,15 @@
     @apply min-w-0;
   }
   .rl-acct-row .rl-col-status {
-    @apply flex flex-wrap items-center pr-2;
+    @apply flex flex-nowrap items-center gap-1.5 pr-2;
+  }
+  .rl-status-note {
+    @apply font-mono font-medium opacity-80;
+  }
+  .rl-flag-chip {
+    @apply inline-flex shrink-0 items-center rounded px-1.5 py-px text-[10px] font-semibold leading-none tracking-wide;
+    background: color-mix(in srgb, var(--ams-warn) 16%, white);
+    color: #9a7209;
   }
   .rl-col-staff-head,
   .rl-col-staff {
@@ -1471,6 +1479,32 @@
   }
   .header-user-name {
     @apply hidden truncate text-sm text-ams-muted sm:block;
+  }
+
+  .header-bell-btn {
+    @apply relative flex h-9 w-9 items-center justify-center rounded-full text-ams-muted transition-colors;
+  }
+  .header-bell-btn:hover {
+    background-color: var(--ams-hover);
+    color: var(--ams-ink);
+  }
+  .header-bell-dot {
+    @apply absolute right-1.5 top-1.5 h-2 w-2 rounded-full;
+    background: var(--ams-warn);
+    box-shadow: 0 0 0 2px var(--ams-canvas);
+  }
+  .header-bell-panel {
+    @apply absolute right-0 z-50 mt-2 w-[20rem] overflow-hidden rounded-lg border border-ams-line bg-white shadow-lg;
+  }
+  .header-bell-item {
+    @apply block w-full px-3 py-2.5 text-left transition-colors;
+  }
+  .header-bell-item:hover {
+    background-color: var(--ams-hover);
+  }
+
+  .rl-status-sub {
+    @apply mt-0.5 block max-w-full truncate text-[11px] font-medium leading-tight;
   }
 
   /* Notion-style overlay scrollbar: hidden until scroll; smooth fade in/out */

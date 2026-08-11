@@ -1,6 +1,6 @@
 /** Role-based page access for AMS web shell. */
 
-export const BUSINESS_NAV_PATHS = ['/tickets', '/governance'];
+export const BUSINESS_NAV_PATHS = ['/tickets', '/governance', '/accounts'];
 
 export function homePathForRole(role) {
   return role === 'business' ? '/tickets' : '/';

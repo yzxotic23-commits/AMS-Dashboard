@@ -111,6 +111,22 @@ export function useAccountMutations() {
     },
   });
 
+  const reportDisconnect = useMutation({
+    mutationFn: async ({ id, note }) => {
+      const res = await api.post(`/accounts/${id}/report-disconnect`, { note });
+      return accountToOperatorRow(res.data);
+    },
+    onSuccess: invalidate,
+  });
+
+  const resolveDisconnect = useMutation({
+    mutationFn: async ({ id, outcome, reason }) => {
+      const res = await api.post(`/accounts/${id}/resolve-disconnect`, { outcome, reason });
+      return accountToOperatorRow(res.data);
+    },
+    onSuccess: invalidate,
+  });
+
   const logRegistration = useMutation({
     mutationFn: async (body) => {
       const res = await api.post('/registrations', body);
@@ -125,6 +141,8 @@ export function useAccountMutations() {
     createAccount,
     banAccount,
     markStrict,
+    reportDisconnect,
+    resolveDisconnect,
     logRegistration,
     invalidate,
   };

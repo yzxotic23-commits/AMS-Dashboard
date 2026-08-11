@@ -428,7 +428,12 @@ export default function TicketsPage() {
   const { data: available = [], isLoading: loadingStandby } = useStandbyForTickets(site);
   const { create, goLive, reject, resubmit, confirm, reviewIp } = useTicketMutations();
 
-  const standby = available;
+  // Only show accounts an operator has already assigned a Staff to — unassigned standby
+  // accounts aren't ready for Business to pick for delivery yet.
+  const standby = useMemo(
+    () => available.filter((a) => String(a.staff || '').trim()),
+    [available],
+  );
 
   const filteredTickets = useMemo(() => {
     let rows = tickets;

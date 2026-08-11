@@ -2,7 +2,7 @@ import { memo, useEffect, useRef } from 'react';
 import { LogOut } from 'lucide-react';
 import {
   LayoutGrid, Plus, RotateCcw, Globe, CreditCard, Table2,
-  Ticket, LineChart, ScrollText, Zap, MessageSquare, Users, Smartphone,
+  Ticket, LineChart, ScrollText, Zap, MessageSquare, Users, Smartphone, Search,
 } from 'lucide-react';
 import { readSidebarScrollTop, writeSidebarScrollTop } from '../lib/sidebar-prefs';
 import SidebarNavGroup, { pathInGroup } from './SidebarNavGroup';
@@ -23,7 +23,7 @@ const NAV = [
     { to: '/sims', icon: CreditCard, label: 'SIM Card Ledger' },
   ]},
   { section: 'LOOKUP', collapsible: false, items: [
-    { to: '/accounts', icon: Table2, label: 'Resource Ledger' },
+    { to: '/accounts', icon: Table2, label: 'Resource Ledger', badge: 'disconnect' },
   ]},
   { section: 'DELIVERY / DATA', collapsible: true, items: [
     { to: '/tickets', icon: Ticket, label: 'Business Self-Service Delivery' },
@@ -33,6 +33,13 @@ const NAV = [
 ];
 
 const BUSINESS_NAV = [
+  {
+    section: 'LOOKUP',
+    collapsible: false,
+    items: [
+      { to: '/accounts', icon: Search, label: 'Check Account Status' },
+    ],
+  },
   {
     section: 'DELIVERY / DATA',
     collapsible: true,

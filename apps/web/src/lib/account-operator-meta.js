@@ -90,6 +90,7 @@ export function accountToOperatorRow(account) {
     nurturing_started_at: meta.nurturing_started_at || account.registration_date || account.created_at || account.updated_at,
     human_note: meta.human_note || '',
     restrict_kind: meta.restrict_kind || null,
+    disconnect_report: meta.disconnect_report || null,
     reference_ip_id: meta.reference_ip_id || account.ip_id || null,
     reference_ip_address: meta.reference_ip_address || ipJoin?.ip_address || '',
     last_health_check_at: meta.last_health_check_at || null,

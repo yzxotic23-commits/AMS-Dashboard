@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom';
 import { ChevronDown } from 'lucide-react';
 import HubTaskBadge from './HubTaskBadge';
 import RegisterNavBadge from './RegisterNavBadge';
+import DisconnectNavBadge from './DisconnectNavBadge';
 
 function pathInGroup(items, pathname) {
   return items.some(({ to, end }) => {
@@ -24,6 +25,7 @@ function NavItem({ to, icon: Icon, label, end, badge, tag, nested }) {
       {tag && <span className="sidebar-link-tag">{tag}</span>}
       {badge === 'hub' && <HubTaskBadge />}
       {badge === 'reg' && <RegisterNavBadge />}
+      {badge === 'disconnect' && <DisconnectNavBadge />}
       {typeof badge === 'function' && badge() > 0 && (
         <span className="ml-auto shrink-0 rounded-full bg-ams-accent px-1.5 py-px text-[10px] font-semibold text-white">
           {badge()}

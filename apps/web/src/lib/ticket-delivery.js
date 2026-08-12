@@ -100,6 +100,6 @@ export const REJECT_REASON_OTHER = 'Other';
 export const REJECT_REASONS = [
   'IP mismatch — proxy screenshot does not match bound IP',
   'Unclear screenshot',
-  'Wrong 6-digit link code',
+  'Wrong link code',
   REJECT_REASON_OTHER,
 ];

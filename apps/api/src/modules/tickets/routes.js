@@ -45,13 +45,13 @@ const screenshotSchema = z.string().min(32).refine(
 
 const createSchema = z.object({
   account_id: z.string().uuid(),
-  link_code: z.string().regex(/^\d{6}$/),
+  link_code: z.string().regex(/^\d{8}$/),
   shot_proxy: shotSchema,
   screenshot_base64: screenshotSchema,
 });
 
 const resubmitSchema = z.object({
-  link_code: z.string().regex(/^\d{6}$/),
+  link_code: z.string().regex(/^\d{8}$/),
   shot_proxy: shotSchema,
   screenshot_base64: screenshotSchema,
 });

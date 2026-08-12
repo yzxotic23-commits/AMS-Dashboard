@@ -301,22 +301,30 @@ export default function NurturingPanels() {
     setBusy(true);
     try {
       const ipRow = freeIps.find((ip) => ip.id === scanIpId);
-      const nextIp = ipRow?.ip_address || scanRow.ip;
+      // Engine proxy is optional — if operator leaves it empty, keep the IP bound at register.
+      // Writing ip_id: null here was wiping registration IPs (audit: ASSIGNMENT_CHANGE → '—').
+      const nextIpId = ipRow?.id || scanRow.ip_id || null;
+      const nextIp = ipRow?.ip_address || scanRow.ip || '';
       await patchAccount.mutateAsync({
         id: scanRow.id,
         row: scanRow,
         patch: {
           ip: nextIp,
-          ip_id: ipRow?.id || null,
+          ip_id: nextIpId,
           nurturing_phase: 'auto',
           linked_override: true,
           wsaf_slot: scanSlot,
         },
-        extra: { wsaf_slot: scanSlot },
+        extra: {
+          wsaf_slot: scanSlot,
+          ...(ipRow?.id ? { ip_id: ipRow.id } : {}),
+        },
       });
 
       let proxySyncFailed = false;
-      const proxyUrl = proxyUrlFromIp(ipRow);
+      const proxyUrl = proxyUrlFromIp(ipRow) || proxyUrlFromIp(
+        nextIpId ? { id: nextIpId, ip_address: nextIp, ...(scanRow.bind_proxy || {}) } : null,
+      );
       if (proxyUrl && scanSlot != null) {
         try {
           await syncSlotProxyToEngine(scanSlot, proxyUrl);

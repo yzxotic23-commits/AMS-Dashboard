@@ -28,6 +28,19 @@ const GROUPS = [
   { key: 'history', tabLabel: 'History' },
 ];
 
+/** Permanent delivery link code (always submitted as digits; shown as 8888-8888). */
+const PERMANENT_LINK_CODE = '88888888';
+
+function parseLinkCodeInput(raw) {
+  return String(raw || '').replace(/\D/g, '').slice(0, 8);
+}
+
+function formatLinkCodeDisplay(digits) {
+  const d = parseLinkCodeInput(digits);
+  if (d.length <= 4) return d;
+  return `${d.slice(0, 4)}-${d.slice(4)}`;
+}
+
 /** Verdict IP review — styling sama dengan banner status (hijau = delivery complete). */
 function IpReviewVerdict({ reviewMatch }) {
   const tone = reviewMatch === true ? 'ok' : reviewMatch === false ? 'bad' : 'wait';
@@ -143,8 +156,6 @@ function DeliveryTicketFormFields({
   screenshotBase64,
   onScreenshotChange,
   onScreenshotError,
-  linkCode,
-  onLinkCodeChange,
   rejectReason,
   showAccountPicker = true,
   selectedStaff = '',
@@ -156,8 +167,8 @@ function DeliveryTicketFormFields({
       )}
 
       <p className="drawer-hint drawer-hint--info">
-        Select an account — phone and proxy fill in below. Set proxy on PC, upload screenshot,
-        enter 6-digit code. Accounts are grouped by Staff (Business assignee).
+        Select an account — phone and proxy fill in below. Set proxy on PC, upload screenshot.
+        Link code is fixed (8888-8888). Accounts are grouped by Staff (Business assignee).
       </p>
 
       <div className="drawer-fields">
@@ -212,21 +223,14 @@ function DeliveryTicketFormFields({
           />
         </label>
 
-        <label className="drawer-field">
-          <span className="drawer-label">
-            6-digit code from PC login
-            <span className="drawer-label-note">· valid ~8 min after login</span>
+        <div className="drawer-locked">
+          <span className="drawer-locked-label">
+            Link code from PC login
           </span>
-          <input
-            className="input drawer-code-input"
-            maxLength={6}
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            value={linkCode}
-            onChange={(e) => onLinkCodeChange(e.target.value.replace(/\D/g, ''))}
-            placeholder="000000"
-          />
-        </label>
+          <span className="drawer-locked-value drawer-locked-value--mono">
+            {formatLinkCodeDisplay(PERMANENT_LINK_CODE)}
+          </span>
+        </div>
       </div>
     </>
   );
@@ -371,7 +375,9 @@ function TicketCard({
                 View business screenshot
               </button>
               {ticket.link_code && (
-                <span className="tk-code-pill" title="6-digit link code">{ticket.link_code}</span>
+                <span className="tk-code-pill" title="Link code">
+                  {formatLinkCodeDisplay(ticket.link_code)}
+                </span>
               )}
             </div>
           )}
@@ -418,7 +424,6 @@ export default function TicketsPage() {
   const [rejectReasonOther, setRejectReasonOther] = useState('');
   const [newOpen, setNewOpen] = useState(false);
   const [selectedAcct, setSelectedAcct] = useState('');
-  const [linkCode, setLinkCode] = useState('');
   const [screenshotBase64, setScreenshotBase64] = useState('');
   const [resubmitTicket, setResubmitTicket] = useState(null);
   const [toast, setToast] = useState('');
@@ -504,17 +509,17 @@ export default function TicketsPage() {
     const first = standby[0];
     setSelectedAcct(first?.id || '');
     if (first) pickAccount(first.id);
-    setLinkCode('');
     setScreenshotBase64('');
     setNewOpen(true);
   }
 
   async function submitNew(e) {
     e.preventDefault();
-    if (!selectedAcct || !/^\d{6}$/.test(linkCode)) {
-      showToast('Select an account and enter a 6-digit link code');
+    if (!selectedAcct) {
+      showToast('Select an account');
       return;
     }
+    const code = PERMANENT_LINK_CODE;
     if (!screenshotBase64) {
       showToast('Upload your IP setup screenshot');
       return;
@@ -528,12 +533,11 @@ export default function TicketsPage() {
     try {
       const created = await create.mutateAsync({
         account_id: selectedAcct,
-        link_code: linkCode,
+        link_code: code,
         shot_proxy: bind,
         screenshot_base64: screenshotBase64,
       });
       setNewOpen(false);
-      setLinkCode('');
       setScreenshotBase64('');
       if (role === 'business') {
         setGroupTab('prog');
@@ -567,7 +571,7 @@ export default function TicketsPage() {
     setBusy(true);
     try {
       await goLive.mutateAsync(ticket.id);
-      showToast(`Go-live approved for #${ticket.ticket_number || ticket.id}. Enter 6-digit code on phone.`);
+      showToast(`Go-live approved for #${ticket.ticket_number || ticket.id}. Enter link code on phone.`);
     } catch (err) {
       showToast(err.message || 'Go-live failed');
     } finally {
@@ -626,7 +630,7 @@ export default function TicketsPage() {
 
   async function handleResubmitSubmit(e) {
     e.preventDefault();
-    if (!resubmitTicket || !/^\d{6}$/.test(linkCode)) return;
+    if (!resubmitTicket) return;
     if (!screenshotBase64) {
       showToast('Upload your updated IP setup screenshot');
       return;
@@ -640,7 +644,7 @@ export default function TicketsPage() {
     try {
       await resubmit.mutateAsync({
         id: resubmitTicket.id,
-        link_code: linkCode,
+        link_code: PERMANENT_LINK_CODE,
         shot_proxy: bind,
         screenshot_base64: screenshotBase64,
       });
@@ -806,7 +810,6 @@ export default function TicketsPage() {
                     onConfirm={handleConfirm}
                     onResubmit={(tk) => {
                       setResubmitTicket(tk);
-                      setLinkCode(tk.link_code || '');
                       setScreenshotBase64('');
                     }}
                     onReviewIp={handleReviewIp}
@@ -973,8 +976,6 @@ export default function TicketsPage() {
               screenshotBase64={screenshotBase64}
               onScreenshotChange={setScreenshotBase64}
               onScreenshotError={showToast}
-              linkCode={linkCode}
-              onLinkCodeChange={setLinkCode}
               selectedStaff={(selectedRow?.staff || '').trim()}
             />
           </form>
@@ -1009,8 +1010,6 @@ export default function TicketsPage() {
             screenshotBase64={screenshotBase64}
             onScreenshotChange={setScreenshotBase64}
             onScreenshotError={showToast}
-            linkCode={linkCode}
-            onLinkCodeChange={setLinkCode}
             rejectReason={resubmitTicket?.reject_reason}
             showAccountPicker={false}
             selectedStaff={(resubmitTicket?.staff || '').trim()}

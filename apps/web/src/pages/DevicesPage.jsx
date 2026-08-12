@@ -79,6 +79,14 @@ function currencyFromStored(value, deviceName = '') {
   return '';
 }
 
+/** serial_number is UNIQUE — never store bare "MYR"/"SGD" or a second save will fail silently. */
+function serialFromCurrency(currency, deviceName) {
+  const c = String(currency || '').toUpperCase();
+  if (!CURRENCY_OPTIONS.includes(c)) return null;
+  const slug = String(deviceName || 'device').replace(/\s+/g, '-').toUpperCase() || 'DEVICE';
+  return `SN-${c}-${slug}`;
+}
+
 function boundAccountLabel(bound) {
   const channelRank = (ch) => {
     const c = String(ch || '').toLowerCase();
@@ -224,8 +232,12 @@ export default function DevicesPage() {
     },
     onSuccess: (data, vars) => {
       qc.invalidateQueries({ queryKey: ['devices'] });
-      if (detailDevice?.id === data.id) setDetailDevice(data);
-      if (!vars?.silent) showToast(`Device saved as ${data.device_name}`);
+      if (!vars?.silent) {
+        setDetailDevice(null);
+        showToast(`Device saved as ${data.device_name}`);
+      } else if (detailDevice?.id === data.id) {
+        setDetailDevice(data);
+      }
     },
     onError: (e) => {
       showToast(e?.response?.data?.error || e.message || 'Save failed', 'error');
@@ -285,7 +297,7 @@ export default function DevicesPage() {
       return;
     }
     if (!detailRow?.id) return;
-    const currency = (editCurrency || currencyFromStored('', name) || '').toUpperCase() || null;
+    const currency = (editCurrency || currencyFromStored('', name) || '').toUpperCase();
     const site_key = resolveDeviceSiteKey(name, {
       profile,
       headerSite: site,
@@ -300,7 +312,7 @@ export default function DevicesPage() {
       body: {
         device_name: name,
         status: editStatus,
-        serial_number: currency,
+        serial_number: serialFromCurrency(currency, name),
         site_key: site_key || null,
       },
     });
@@ -316,7 +328,7 @@ export default function DevicesPage() {
       addForm.serial_number.trim()
       || currencyFromStored('', name)
       || ''
-    ).toUpperCase() || null;
+    ).toUpperCase();
     const site_key = resolveDeviceSiteKey(name, {
       profile,
       headerSite: site,
@@ -328,7 +340,7 @@ export default function DevicesPage() {
     }
     createMut.mutate({
       device_name: name,
-      serial_number: currency,
+      serial_number: serialFromCurrency(currency, name),
       status: addForm.status || 'ACTIVE',
       model: addForm.model.trim() || null,
       brand: 'Samsung',
@@ -826,7 +838,7 @@ export default function DevicesPage() {
         onCancel={() => !deleteMut.isPending && setDeleteConfirm(null)}
       />
 
-      {toast && <Toast message={toast} tone={toastTone} onClose={() => setToast('')} />}
+      <Toast open={!!toast} message={toast} tone={toastTone} onClose={() => setToast('')} />
     </div>
   );
 }

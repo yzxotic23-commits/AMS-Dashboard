@@ -97,9 +97,9 @@ export function accountToOperatorRow(account) {
     engine_status: meta.engine_status || null,
     owner: normalizeHubOwner(meta.owner),
     staff: String(meta.staff || '').trim(),
-    brand: meta.brand
+    brand: inferBrandFromDevice(deviceJoin?.device_name)
+      || meta.brand
       || inferBrand(account.account_name)
-      || inferBrandFromDevice(deviceJoin?.device_name)
       || '',
     _notes: account.notes || '',
   };

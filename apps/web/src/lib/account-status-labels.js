@@ -29,10 +29,15 @@ export function inferBrandFromDevice(deviceName) {
 
 export function resolveAccountBrand(account) {
   if (!account) return '';
-  if (account.brand) return account.brand;
-  return inferBrand(account.account_name)
-    || inferBrandFromDevice(account.device)
+  const deviceName = account.device
+    || account.device_name
+    || account.devices?.device_name
     || '';
+  // Device code is source of truth when bound — stored meta.brand goes stale after device moves.
+  const fromDevice = inferBrandFromDevice(deviceName);
+  if (fromDevice) return fromDevice;
+  if (account.brand) return String(account.brand).trim().toUpperCase();
+  return inferBrand(account.account_name) || '';
 }
 
 export const BRAND_OPTIONS = ['SBMY', 'JMMY', 'STMY', 'PP', 'FWSG', 'WBSG', 'M24SG'];

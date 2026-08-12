@@ -12,18 +12,18 @@ function inferBrandFromName(accountName) {
   return m ? m[1].toUpperCase() : '';
 }
 
-/** Cost-attribution brand from account meta → name → device. */
+/** Cost-attribution brand: device code first (stays in sync with Device Ledger), then meta/name. */
 export function resolveAccountBrand(account) {
   if (!account) return '';
-  const meta = parseOperatorMeta(account);
-  if (meta.brand) return String(meta.brand).trim().toUpperCase();
   const deviceName = account.device_name
     || account.devices?.device_name
     || account.device?.device_name
     || '';
-  return inferBrandFromName(account.account_name)
-    || tradingBrandFromDeviceCode(deviceName)
-    || '';
+  const fromDevice = tradingBrandFromDeviceCode(deviceName);
+  if (fromDevice) return fromDevice;
+  const meta = parseOperatorMeta(account);
+  if (meta.brand) return String(meta.brand).trim().toUpperCase();
+  return inferBrandFromName(account.account_name) || '';
 }
 
 export function normalizeBrands(input) {

@@ -152,20 +152,13 @@ export default function TicketBell() {
                 ))}
               </ul>
             )}
-            <div className="flex items-center justify-between gap-2 border-t border-ams-line px-3 py-2">
+            <div className="border-t border-ams-line px-3 py-2">
               <button
                 type="button"
                 className="text-[12px] font-medium text-ams-accent hover:underline"
                 onClick={openTicket}
               >
                 Open Delivery tickets
-              </button>
-              <button
-                type="button"
-                className="text-[12px] font-medium text-ams-muted hover:text-ams-ink hover:underline"
-                onClick={() => playTicketAlertSound()}
-              >
-                Play sound
               </button>
             </div>
           </div>

@@ -333,6 +333,11 @@ function TicketCard({
           {role === 'operator' && hubOwner && accountLabel && accountLabel !== '—' && (
             <p className="tk-staff-line">{accountLabel}</p>
           )}
+          {(ticket.submitted_at || ticket.created_at) && (
+            <p className="tk-staff-line text-ams-faint">
+              Submitted · {new Date(ticket.submitted_at || ticket.created_at).toLocaleString()}
+            </p>
+          )}
         </div>
         <div className="tk-head-badges">
           <span className={`tk-status-pill ${sl.pill}`}>{sl.label}</span>

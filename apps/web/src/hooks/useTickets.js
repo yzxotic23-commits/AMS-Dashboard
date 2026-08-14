@@ -46,7 +46,8 @@ async function fetchStandbyAccounts(site = 'all') {
   }
 }
 
-export function useTickets(site = 'all') {
+export function useTickets(site = 'all', options = {}) {
+  const { enabled = true } = options;
   return useQuery({
     queryKey: ['tickets', site],
     queryFn: async () => {
@@ -55,7 +56,10 @@ export function useTickets(site = 'all') {
       });
       return data?.data || [];
     },
-    staleTime: 15_000,
+    enabled,
+    staleTime: 10_000,
+    refetchInterval: enabled ? 15_000 : false,
+    refetchOnWindowFocus: true,
   });
 }
 

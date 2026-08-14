@@ -26,7 +26,7 @@ const NAV = [
     { to: '/accounts', icon: Table2, label: 'Resource Ledger', badge: 'disconnect' },
   ]},
   { section: 'DELIVERY / DATA', collapsible: true, items: [
-    { to: '/tickets', icon: Ticket, label: 'Business Self-Service Delivery' },
+    { to: '/tickets', icon: Ticket, label: 'Business Self-Service Delivery', badge: 'tickets' },
     { to: '/governance', icon: LineChart, label: 'Dashboard (Governance)' },
     { to: '/audit', icon: ScrollText, label: 'Audit Log' },
   ]},

@@ -196,6 +196,7 @@ function enrichRow(ticket, account, screenshotUrl = null, requesterName = '') {
     phone_number: account?.phone_number || account?.sims?.phone_number || '—',
     ip_gate_review_id: meta.ip_gate_review_id || null,
     screenshot_url: screenshotUrl,
+    submitted_at: meta.submitted_at || ticket.created_at || null,
   };
 }
 

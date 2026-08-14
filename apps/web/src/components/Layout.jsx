@@ -14,6 +14,7 @@ import GovernanceDateControls from './GovernanceDateControls';
 import AppSidebar from './AppSidebar';
 import EngineBackgroundSync from './EngineBackgroundSync';
 import DisconnectBell from './DisconnectBell';
+import TicketBell from './TicketBell';
 
 /** AMS bridge sync only on pages that explicitly use FeedFlow engine — not global. */
 const AMS_BRIDGE_SYNC_PATHS = [
@@ -128,6 +129,7 @@ export default function Layout({ authBooting = false }) {
                 {isGovernance && <GovernanceDateControls />}
               </div>
               <div className="flex items-center justify-end gap-3">
+                <TicketBell />
                 <DisconnectBell />
                 <div className="header-user">
                   <div className="header-user-avatar">{initials}</div>

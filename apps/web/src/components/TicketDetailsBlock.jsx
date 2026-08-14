@@ -40,6 +40,12 @@ export default function TicketDetailsBlock({ ticket, bind }) {
         <MetaItem label="Phone" value={ticket.phone_number} mono />
         <MetaItem label="Device" value={deviceSlot} mono />
         <MetaItem label="Channel" value={ticket.channel} />
+        <MetaItem
+          label="Submitted"
+          value={ticket.submitted_at || ticket.created_at
+            ? new Date(ticket.submitted_at || ticket.created_at).toLocaleString()
+            : ''}
+        />
         {proxy?.ip_address && (
           <MetaItem label="Proxy used" value={proxyOneLiner(proxy)} mono />
         )}

@@ -272,6 +272,7 @@ function enrichDemoTicket(ticket) {
     phone_number: meta.phone_display || account?.phone_number || '—',
     ip_gate_review_id: meta.ip_gate_review_id || null,
     screenshot_url,
+    submitted_at: meta.submitted_at || ticket.created_at || null,
   };
 }
 

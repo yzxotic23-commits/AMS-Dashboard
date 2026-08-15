@@ -1,3 +1,5 @@
+import { ticketTimingInfo } from '../lib/ticket-timing';
+
 function MetaItem({ label, value, mono = false }) {
   return (
     <div className="tk-meta-item">
@@ -30,6 +32,7 @@ export default function TicketDetailsBlock({ ticket, bind }) {
   const deviceSlot = ticket.device_name && ticket.device_name !== '—'
     ? ticket.device_name
     : '';
+  const timing = ticketTimingInfo(ticket);
 
   return (
     <>
@@ -46,6 +49,9 @@ export default function TicketDetailsBlock({ ticket, bind }) {
             ? new Date(ticket.submitted_at || ticket.created_at).toLocaleString()
             : ''}
         />
+        {timing && (
+          <MetaItem label={timing.label} value={timing.text} />
+        )}
         {proxy?.ip_address && (
           <MetaItem label="Proxy used" value={proxyOneLiner(proxy)} mono />
         )}

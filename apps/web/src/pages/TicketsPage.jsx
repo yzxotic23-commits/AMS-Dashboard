@@ -20,6 +20,7 @@ import {
   DELIVERY_STEPS, REJECT_REASONS, REJECT_REASON_OTHER, ticketStatusMeta, ticketStepCursor, ticketBucket,
   ticketMatchesSearch, TICKETS_PAGE_SIZE,
 } from '../lib/ticket-delivery';
+import { ticketTimingInfo } from '../lib/ticket-timing';
 
 const GROUPS = [
   { key: 'act', tabLabel: 'Needs action' },
@@ -338,6 +339,17 @@ function TicketCard({
               Submitted · {new Date(ticket.submitted_at || ticket.created_at).toLocaleString()}
             </p>
           )}
+          {(() => {
+            const timing = ticketTimingInfo(ticket);
+            if (!timing) return null;
+            return (
+              <p className={`tk-staff-line ${timing.label === 'Waiting' ? 'text-ams-warn' : 'text-ams-faint'}`}>
+                {timing.label}
+                {' · '}
+                {timing.text}
+              </p>
+            );
+          })()}
         </div>
         <div className="tk-head-badges">
           <span className={`tk-status-pill ${sl.pill}`}>{sl.label}</span>

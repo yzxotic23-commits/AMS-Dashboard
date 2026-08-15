@@ -197,6 +197,8 @@ function enrichRow(ticket, account, screenshotUrl = null, requesterName = '') {
     ip_gate_review_id: meta.ip_gate_review_id || null,
     screenshot_url: screenshotUrl,
     submitted_at: meta.submitted_at || ticket.created_at || null,
+    in_progress_at: meta.in_progress_at || null,
+    closed_at: meta.closed_at || ticket.closed_at || null,
   };
 }
 
@@ -523,6 +525,7 @@ router.post('/:id/go-live', async (req, res, next) => {
     }
     meta.delivery_stage = 'posted';
     meta.reject_reason = '';
+    meta.in_progress_at = new Date().toISOString();
 
     if (meta.ip_gate_review_id) {
       await supabaseAdmin.from('ip_gate_reviews').update({
@@ -608,6 +611,7 @@ router.post('/:id/reject', async (req, res, next) => {
     const meta = parseTicketMeta(ticket);
     meta.reject_reason = reason;
     meta.delivery_stage = 'rejected';
+    meta.closed_at = new Date().toISOString();
 
     if (meta.ip_gate_review_id) {
       await supabaseAdmin.from('ip_gate_reviews').update({
@@ -677,6 +681,8 @@ router.post('/:id/resubmit', async (req, res, next) => {
     const meta = parseTicketMeta(ticket);
     meta.delivery_stage = 'submitted';
     meta.submitted_at = new Date().toISOString();
+    meta.in_progress_at = undefined;
+    meta.closed_at = undefined;
     meta.link_code = body.link_code;
     meta.shot_proxy = body.shot_proxy;
     meta.reject_reason = '';
@@ -687,6 +693,7 @@ router.post('/:id/resubmit', async (req, res, next) => {
       .from('tickets')
       .update({
         status: 'OPEN',
+        closed_at: null,
         description: serializeTicketDescription('', meta),
       })
       .eq('id', ticket.id)
@@ -719,12 +726,13 @@ router.post('/:id/confirm', async (req, res, next) => {
 
     const meta = parseTicketMeta(ticket);
     meta.delivery_stage = 'done';
+    meta.closed_at = new Date().toISOString();
 
     const { data: updated, error: upErr } = await supabaseAdmin
       .from('tickets')
       .update({
         status: 'RESOLVED',
-        closed_at: new Date().toISOString(),
+        closed_at: meta.closed_at,
         description: serializeTicketDescription('', meta),
       })
       .eq('id', ticket.id)

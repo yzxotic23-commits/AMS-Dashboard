@@ -193,9 +193,35 @@ function ticketStatusFromStage(stage) {
 
 function buildSeedTickets() {
   const all = [...TICKETS_SEED.my, ...TICKETS_SEED.pp];
+  const now = Date.now();
+  // Varied ages so Waiting / Process labels are easy to demo.
+  const timingById = {
+    'T-3391': { submittedAgoMs: 25 * 60_000 }, // Waiting ~25m — fresh pending (alert)
+    'T-3389': { submittedAgoMs: 2 * 3600_000 }, // Waiting ~2h
+    'T-3388': { submittedAgoMs: 6 * 3600_000 }, // Waiting ~6h — overdue pending
+    'T-3390': { submittedAgoMs: 45 * 60_000 },
+    'T-3387': { submittedAgoMs: 3 * 3600_000 },
+    'T-3386': { submittedAgoMs: 3 * 3600_000, progressAfterMs: 40 * 60_000 }, // Process ~40m
+    'T-3385': { submittedAgoMs: 5 * 3600_000, progressAfterMs: 90 * 60_000 },
+    'T-3384': { submittedAgoMs: 4 * 3600_000, progressAfterMs: 55 * 60_000 },
+    'T-3380': { submittedAgoMs: 26 * 3600_000, progressAfterMs: 20 * 60_000, closedAfterMs: 2 * 3600_000 },
+    'T-3378': { submittedAgoMs: 30 * 3600_000, progressAfterMs: 15 * 60_000, closedAfterMs: 90 * 60_000 },
+    'T-3382': { submittedAgoMs: 20 * 3600_000, progressAfterMs: 35 * 60_000, closedAfterMs: 3 * 3600_000 },
+    'T-3381': { submittedAgoMs: 18 * 3600_000, progressAfterMs: 50 * 60_000, closedAfterMs: 2.5 * 3600_000 },
+  };
+
   return all.map((w, i) => {
     const bind = wireProxy(w.bind);
     const shot = wireProxy(w.shot);
+    const t = timingById[w.id] || { submittedAgoMs: (all.length - i) * 3600_000 };
+    const submittedAt = new Date(now - t.submittedAgoMs).toISOString();
+    const inProgressAt = t.progressAfterMs != null
+      ? new Date(now - t.submittedAgoMs + t.progressAfterMs).toISOString()
+      : undefined;
+    const closedAt = t.closedAfterMs != null
+      ? new Date(now - t.submittedAgoMs + t.closedAfterMs).toISOString()
+      : (w.state === 'done' ? new Date().toISOString() : null);
+
     const meta = {
       site_key: w.site,
       delivery_stage: w.state,
@@ -208,6 +234,9 @@ function buildSeedTickets() {
       phone_display: w.phone,
       ip_gate_review_id: w.state === 'submitted' ? `igr-${w.id}` : null,
       reject_reason: '',
+      submitted_at: submittedAt,
+      ...(inProgressAt ? { in_progress_at: inProgressAt } : {}),
+      ...(closedAt && w.state !== 'submitted' ? { closed_at: closedAt } : {}),
     };
     return {
       id: `tk-${w.id.toLowerCase()}`,
@@ -217,8 +246,8 @@ function buildSeedTickets() {
       status: ticketStatusFromStage(w.state),
       account_id: null,
       requester_id: DEMO_PROFILE.id,
-      created_at: new Date(Date.now() - (all.length - i) * 3600000).toISOString(),
-      closed_at: w.state === 'done' ? new Date().toISOString() : null,
+      created_at: submittedAt,
+      closed_at: w.state === 'done' || w.state === 'rejected' ? (closedAt || new Date().toISOString()) : null,
     };
   });
 }
@@ -273,6 +302,8 @@ function enrichDemoTicket(ticket) {
     ip_gate_review_id: meta.ip_gate_review_id || null,
     screenshot_url,
     submitted_at: meta.submitted_at || ticket.created_at || null,
+    in_progress_at: meta.in_progress_at || null,
+    closed_at: meta.closed_at || ticket.closed_at || null,
   };
 }
 
@@ -926,6 +957,7 @@ export function getMockResponse(config) {
     const meta = parseTicketMeta(ticket);
     meta.delivery_stage = 'posted';
     meta.reject_reason = '';
+    meta.in_progress_at = new Date().toISOString();
     if (meta.ip_gate_review_id) {
       demoIpGateReviews = demoIpGateReviews.map((r) => (
         r.id === meta.ip_gate_review_id
@@ -951,6 +983,7 @@ export function getMockResponse(config) {
     const meta = parseTicketMeta(ticket);
     meta.reject_reason = body.reason || 'IP mismatch — resubmit with correct proxy screenshot';
     meta.delivery_stage = 'rejected';
+    meta.closed_at = new Date().toISOString();
     if (meta.ip_gate_review_id) {
       demoIpGateReviews = demoIpGateReviews.map((r) => (
         r.id === meta.ip_gate_review_id
@@ -982,11 +1015,15 @@ export function getMockResponse(config) {
     });
     const meta = parseTicketMeta(ticket);
     meta.delivery_stage = 'submitted';
+    meta.submitted_at = new Date().toISOString();
+    meta.in_progress_at = undefined;
+    meta.closed_at = undefined;
     meta.link_code = body.link_code;
     meta.shot_proxy = body.shot_proxy;
     meta.reject_reason = '';
     meta.ip_gate_review_id = reviewId;
     ticket.status = 'OPEN';
+    ticket.closed_at = null;
     ticket.description = serializeTicketDescription('', meta);
     return enrichDemoTicket(ticket);
   }
@@ -999,8 +1036,9 @@ export function getMockResponse(config) {
     if (row.delivery_stage !== 'posted') throw new Error('Ticket is not awaiting business confirmation');
     const meta = parseTicketMeta(ticket);
     meta.delivery_stage = 'done';
+    meta.closed_at = new Date().toISOString();
     ticket.status = 'RESOLVED';
-    ticket.closed_at = new Date().toISOString();
+    ticket.closed_at = meta.closed_at;
     ticket.description = serializeTicketDescription('', meta);
     return enrichDemoTicket(ticket);
   }

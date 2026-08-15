@@ -5,13 +5,25 @@ import { useAuth } from '../context/AuthContext';
 import { useSite } from '../context/SiteContext';
 import { useTickets } from '../hooks/useTickets';
 import { pendingOperatorTickets } from '../lib/ticket-pending';
+import { ticketTimingInfo } from '../lib/ticket-timing';
 import Toast from './Toast';
+
+const MUTE_KEY = 'ams.ticketAlertMuted';
+const CHIME_INTERVAL_MS = 10_000;
 
 function formatSubmittedAt(value) {
   if (!value) return '';
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return '';
   return d.toLocaleString();
+}
+
+function readMuted() {
+  try {
+    return localStorage.getItem(MUTE_KEY) === '1';
+  } catch {
+    return false;
+  }
 }
 
 function playTone(ctx, { freq, at, dur, type = 'sine', peak = 0.22 }) {
@@ -54,6 +66,8 @@ export default function TicketBell() {
   const { data: tickets = [] } = useTickets(site, { enabled: canSee });
   const [open, setOpen] = useState(false);
   const [toast, setToast] = useState('');
+  const [muted, setMuted] = useState(readMuted);
+  const [tick, setTick] = useState(0);
   const rootRef = useRef(null);
   const knownIdsRef = useRef(null);
 
@@ -62,7 +76,7 @@ export default function TicketBell() {
     [tickets, canSee, site],
   );
 
-  // Alert when a new ticket appears while Bryan is on another page.
+  // Toast only when a new pending ticket appears.
   useEffect(() => {
     if (!canSee) return;
     const ids = new Set(pending.map((t) => t.id));
@@ -74,13 +88,43 @@ export default function TicketBell() {
     knownIdsRef.current = ids;
     if (fresh.length === 1) {
       const t = fresh[0];
-      playTicketAlertSound();
       setToast(`New delivery ticket #${t.ticket_number || t.id} · ${t.account_name || 'account'}`);
     } else if (fresh.length > 1) {
-      playTicketAlertSound();
       setToast(`${fresh.length} new delivery tickets awaiting review`);
     }
   }, [pending, canSee]);
+
+  // Repeat soft chime while any ticket is still pending (HWBO-style), until In Progress / cleared.
+  useEffect(() => {
+    if (!canSee || muted || pending.length === 0) return undefined;
+
+    const chimeIfVisible = () => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      playTicketAlertSound();
+    };
+
+    chimeIfVisible();
+    const id = setInterval(chimeIfVisible, CHIME_INTERVAL_MS);
+
+    function onVis() {
+      if (!document.hidden && pending.length > 0 && !muted) {
+        playTicketAlertSound();
+      }
+    }
+    document.addEventListener('visibilitychange', onVis);
+
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, [pending.length, canSee, muted]);
+
+  // Refresh waiting ages while panel is open / pending exists.
+  useEffect(() => {
+    if (!canSee || pending.length === 0) return undefined;
+    const id = setInterval(() => setTick((n) => n + 1), 30_000);
+    return () => clearInterval(id);
+  }, [canSee, pending.length]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -101,10 +145,23 @@ export default function TicketBell() {
   if (!canSee) return null;
 
   const count = pending.length;
+  void tick;
 
   function openTicket() {
     setOpen(false);
     navigate('/tickets');
+  }
+
+  function toggleMute() {
+    setMuted((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(MUTE_KEY, next ? '1' : '0');
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
   }
 
   return (
@@ -127,38 +184,57 @@ export default function TicketBell() {
               <p className="text-[13px] font-semibold text-ams-ink">Delivery tickets</p>
               <p className="text-[11px] text-ams-faint">
                 {count ? `${count} awaiting IP review` : 'Nothing pending'}
+                {count > 0 && !muted ? ' · alert sound on' : ''}
+                {count > 0 && muted ? ' · alerts muted' : ''}
               </p>
             </div>
             {count === 0 ? (
               <p className="px-3 py-4 text-[13px] text-ams-muted">No new business tickets right now.</p>
             ) : (
               <ul className="max-h-72 overflow-y-auto py-1">
-                {pending.map((t) => (
-                  <li key={t.id}>
-                    <button type="button" className="header-bell-item" onClick={openTicket}>
-                      <span className="font-semibold text-ams-ink">
-                        #{t.ticket_number || t.id}
-                        {' · '}
-                        {t.account_name || '—'}
-                      </span>
-                      <span className="mt-0.5 block text-[11px] text-ams-muted">
-                        {(t.staff || t.requester_name || 'Business')}
-                        {t.submitted_at || t.created_at
-                          ? ` · ${formatSubmittedAt(t.submitted_at || t.created_at)}`
-                          : ''}
-                      </span>
-                    </button>
-                  </li>
-                ))}
+                {pending.map((t) => {
+                  const timing = ticketTimingInfo(t);
+                  return (
+                    <li key={t.id}>
+                      <button type="button" className="header-bell-item" onClick={openTicket}>
+                        <span className="font-semibold text-ams-ink">
+                          #{t.ticket_number || t.id}
+                          {' · '}
+                          {t.account_name || '—'}
+                        </span>
+                        <span className="mt-0.5 block text-[11px] text-ams-muted">
+                          {(t.staff || t.requester_name || 'Business')}
+                          {t.submitted_at || t.created_at
+                            ? ` · ${formatSubmittedAt(t.submitted_at || t.created_at)}`
+                            : ''}
+                        </span>
+                        {timing && (
+                          <span className="mt-0.5 block text-[11px] font-medium text-ams-warn">
+                            {timing.label}
+                            {' · '}
+                            {timing.text}
+                          </span>
+                        )}
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             )}
-            <div className="border-t border-ams-line px-3 py-2">
+            <div className="flex items-center justify-between gap-2 border-t border-ams-line px-3 py-2">
               <button
                 type="button"
                 className="text-[12px] font-medium text-ams-accent hover:underline"
                 onClick={openTicket}
               >
                 Open Delivery tickets
+              </button>
+              <button
+                type="button"
+                className="text-[12px] font-medium text-ams-muted hover:text-ams-ink hover:underline"
+                onClick={toggleMute}
+              >
+                {muted ? 'Unmute alerts' : 'Mute alerts'}
               </button>
             </div>
           </div>

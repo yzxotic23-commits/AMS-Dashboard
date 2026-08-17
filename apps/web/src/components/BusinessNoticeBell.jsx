@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { BellRing } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useAllAccounts, useAccountMutations } from '../hooks/useOperatorAccounts';
+import { useReturnedStandbyNotices, useAccountMutations } from '../hooks/useOperatorAccounts';
 import Toast from './Toast';
 
 const MUTE_KEY = 'ams.businessNoticeMuted';
@@ -57,24 +57,13 @@ export default function BusinessNoticeBell() {
   const { profile } = useAuth();
   const navigate = useNavigate();
   const canSee = profile?.role === 'business';
-  const { data: accounts = [] } = useAllAccounts({ enabled: canSee, refetchInterval: 15_000 });
+  const pending = useReturnedStandbyNotices(canSee);
   const { ackNotice } = useAccountMutations();
   const [open, setOpen] = useState(false);
   const [toast, setToast] = useState('');
   const [muted, setMuted] = useState(readMuted);
   const rootRef = useRef(null);
   const knownKeysRef = useRef(null);
-
-  const pending = useMemo(() => {
-    if (!canSee) return [];
-    return accounts
-      .filter((a) => a.business_notice?.type === 'returned_standby')
-      .sort((a, b) => {
-        const ta = new Date(a.business_notice?.at || 0).getTime();
-        const tb = new Date(b.business_notice?.at || 0).getTime();
-        return tb - ta;
-      });
-  }, [accounts, canSee]);
 
   useEffect(() => {
     if (!canSee) return;
@@ -210,9 +199,6 @@ export default function BusinessNoticeBell() {
                           {noticeStamp(a.business_notice)}
                         </span>
                       ) : null}
-                      <span className="mt-1.5 block text-[11px] font-medium text-ams-accent">
-                        Request scan
-                      </span>
                     </button>
                     <div className="px-3 pb-2">
                       <button
@@ -227,14 +213,7 @@ export default function BusinessNoticeBell() {
                 ))}
               </ul>
             )}
-            <div className="flex items-center justify-between gap-2 border-t border-ams-line px-3 py-2">
-              <button
-                type="button"
-                className="text-[12px] font-medium text-ams-accent hover:underline"
-                onClick={openTicket}
-              >
-                Open Delivery tickets
-              </button>
+            <div className="flex items-center justify-end gap-2 border-t border-ams-line px-3 py-2">
               <button
                 type="button"
                 className="text-[12px] font-medium text-ams-muted hover:text-ams-ink hover:underline"

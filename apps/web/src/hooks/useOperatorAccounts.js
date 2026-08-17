@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
 import {
@@ -31,6 +32,25 @@ export function useAllAccounts(options = {}) {
     refetchInterval,
     placeholderData: (prev) => prev,
   });
+}
+
+export function useReturnedStandbyNotices(enabled = true) {
+  const { profile } = useAuth();
+  const canSee = profile?.role === 'business';
+  const { data: accounts = [] } = useAllAccounts({
+    enabled: enabled && canSee,
+    refetchInterval: enabled && canSee ? 15_000 : false,
+  });
+  return useMemo(() => {
+    if (!canSee) return [];
+    return accounts
+      .filter((a) => a.business_notice?.type === 'returned_standby')
+      .sort((a, b) => {
+        const ta = new Date(a.business_notice?.at || 0).getTime();
+        const tb = new Date(b.business_notice?.at || 0).getTime();
+        return tb - ta;
+      });
+  }, [accounts, canSee]);
 }
 
 export function useAccountDetail(id) {

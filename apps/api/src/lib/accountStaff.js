@@ -15,8 +15,9 @@ export function profileStaffScope(profile) {
 
 export function accountStaffName(account) {
   if (!account) return '';
-  if (account.staff) return String(account.staff).trim();
-  return String(parseOperatorMeta(account).staff || '').trim();
+  const fromMeta = String(parseOperatorMeta(account).staff || '').trim();
+  if (fromMeta) return fromMeta;
+  return String(account.staff || '').trim();
 }
 
 export function accountInStaffScope(account, staffScope) {

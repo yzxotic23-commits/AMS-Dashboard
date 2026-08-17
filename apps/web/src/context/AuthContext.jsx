@@ -1,10 +1,12 @@
 import { createContext, useContext, useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { getSupabase } from '../lib/supabase';
 import api from '../lib/api';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
+  const queryClient = useQueryClient();
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -30,7 +32,10 @@ export function AuthProvider({ children }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
       setSession(s);
       if (s) loadProfile();
-      else setProfile(null);
+      else {
+        setProfile(null);
+        queryClient.clear();
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -51,6 +56,7 @@ export function AuthProvider({ children }) {
   async function signOut() {
     await getSupabase().auth.signOut();
     setProfile(null);
+    queryClient.clear();
   }
 
   return (

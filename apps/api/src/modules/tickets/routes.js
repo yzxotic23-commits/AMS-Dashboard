@@ -4,11 +4,12 @@ import { authenticate, requireRole } from '../../middleware/auth.js';
 import { supabaseAdmin } from '../../lib/supabase.js';
 import { writeAudit } from '../../lib/audit.js';
 import { assertTransition } from '../../lib/stateMachine.js';
-import { parseOperatorMeta } from '../../lib/accountMeta.js';
+import { parseOperatorMeta, mergeOperatorNotes } from '../../lib/accountMeta.js';
 import { resolveHubOwner } from '../../lib/hubOperators.js';
 import {
   parseTicketMeta, serializeTicketDescription, proxyFromIp, proxyMatch,
-  statusFromStage, stageFromStatus, ticketBucket,
+  statusFromStage, stageFromStatus, ticketBucket, resolveRejectReason,
+  isPlaceholderRejectReason,
 } from '../../lib/ticketMeta.js';
 import { ACCOUNT_SELECT_TICKET } from '../../lib/accountSelect.js';
 import {
@@ -198,7 +199,7 @@ function enrichRow(ticket, account, screenshotUrl = null, requesterName = '') {
     bind_proxy: bind,
     review_match: meta.review_match ?? null,
     ip_match: meta.review_match ?? null,
-    reject_reason: meta.reject_reason || '',
+    reject_reason: resolveRejectReason(meta),
     channel: meta.channel || opMeta.channel || '—',
     device_name: account?.devices?.device_name || meta.device_name || '—',
     account_name: accountName,
@@ -237,12 +238,20 @@ async function loadRequesterNameMap(requesterIds) {
 
 async function attachScreenshotUrls(rows) {
   const reviewIds = rows.map((r) => r.ip_gate_review_id).filter(Boolean);
-  const urlMap = await screenshotUrlsByReviewIds(reviewIds);
-  return rows.map((row) => (
-    row.ip_gate_review_id && urlMap.has(row.ip_gate_review_id)
-      ? { ...row, screenshot_url: urlMap.get(row.ip_gate_review_id) }
-      : row
-  ));
+  const extras = await screenshotUrlsByReviewIds(reviewIds);
+  return rows.map((row) => {
+    const extra = row.ip_gate_review_id ? extras.get(row.ip_gate_review_id) : null;
+    const screenshot_url = extra?.screenshot_url || row.screenshot_url || null;
+    const reject_reason = resolveRejectReason({
+      ...row,
+      review_note: extra?.review_note || row.review_note,
+    });
+    return {
+      ...row,
+      screenshot_url,
+      reject_reason: reject_reason || row.reject_reason || '',
+    };
+  });
 }
 
 async function saveReviewScreenshot({ accountId, reviewId, dataUrl }) {
@@ -276,7 +285,7 @@ router.get('/', async (req, res, next) => {
       const row = enrichRow(t, account, null, requesterMap.get(t.requester_id) || '');
       if (siteKey && siteKey !== 'all' && row.site_key !== siteKey) continue;
       if (!accountInBrandScope(account, brandScope)) continue;
-      if (!accountInStaffScope(account || row, staffScope)) continue;
+      if (!accountInStaffScope({ notes: account?.notes, staff: row.staff }, staffScope)) continue;
       rows.push(row);
     }
     res.json({ data: await attachScreenshotUrls(rows) });
@@ -302,7 +311,7 @@ router.get('/stats', async (req, res, next) => {
       const row = enrichRow(t, account, null, requesterMap.get(t.requester_id) || '');
       if (siteKey && siteKey !== 'all' && row.site_key !== siteKey) continue;
       if (!accountInBrandScope(account, brandScope)) continue;
-      if (!accountInStaffScope(account || row, staffScope)) continue;
+      if (!accountInStaffScope({ notes: account?.notes, staff: row.staff }, staffScope)) continue;
       rows.push(row);
     }
 
@@ -403,7 +412,15 @@ function standbyAccountRow(account) {
     owner: resolveHubOwner(account, meta) || '',
     staff: String(meta.staff || '').trim(),
     bind_proxy: proxyFromIp(ip),
+    status: account.status,
   };
+}
+
+function canRequestDelivery(account) {
+  if (!account) return false;
+  const meta = parseOperatorMeta(account);
+  if (meta.restrict_kind) return false;
+  return account.status === 'AVAILABLE' || account.status === 'LOGGED_OUT';
 }
 
 // GET /tickets/standby-accounts — standby pool for new delivery tickets (must be before /:id routes)
@@ -414,14 +431,15 @@ router.get('/standby-accounts', async (req, res, next) => {
     const { data, error } = await supabaseAdmin
       .from('accounts')
       .select(ACCOUNT_SELECT_TICKET)
-      .eq('status', 'AVAILABLE')
+      .in('status', ['AVAILABLE', 'LOGGED_OUT'])
       .order('updated_at', { ascending: false })
-      .limit(200);
+      .limit(400);
     if (error) throw error;
 
     const enriched = await enrichAccountsIpEmbed(data);
     const staffScope = profileStaffScope(req.profile);
     const rows = enriched
+      .filter((row) => canRequestDelivery(row))
       .map(standbyAccountRow)
       .filter((row) => !siteKey || siteKey === 'all' || row.siteKey === siteKey)
       .filter((row) => {
@@ -443,8 +461,10 @@ router.post('/', async (req, res, next) => {
   try {
     const body = createSchema.parse(req.body);
     const account = await loadAccount(body.account_id);
-    if (account.status !== 'AVAILABLE') {
-      return res.status(400).json({ error: 'Account must be in Standby (AVAILABLE) pool' });
+    if (!canRequestDelivery(account)) {
+      return res.status(400).json({
+        error: 'Account must be Standby or Logged out (not Restricted) to request a scan',
+      });
     }
     const brandScope = profileBrandScope(req.profile);
     if (!accountInBrandScope(account, brandScope)) {
@@ -525,11 +545,14 @@ router.post('/', async (req, res, next) => {
       if (Number.isNaN(startMs) || now < startMs) return 1;
       return Math.max(1, Math.floor((now - startMs) / 86_400_000) + 1);
     })();
+    const rescan = account.status === 'LOGGED_OUT';
     await supabaseAdmin.from('account_status_history').insert({
       account_id: account.id,
-      from_status: 'AVAILABLE',
-      to_status: 'AVAILABLE',
-      reason: `Delivery ticket #${ticket.ticket_number} submitted — awaiting IP review (business scan)${standbyDays ? ` · Standby so far ${standbyDays === 1 ? '1 day' : `${standbyDays} days`}` : ''}`,
+      from_status: account.status,
+      to_status: account.status,
+      reason: rescan
+        ? `Delivery ticket #${ticket.ticket_number} submitted — re-scan after logout (awaiting IP review)`
+        : `Delivery ticket #${ticket.ticket_number} submitted — awaiting IP review (business scan)${standbyDays ? ` · Standby so far ${standbyDays === 1 ? '1 day' : `${standbyDays} days`}` : ''}`,
       changed_by: req.profile?.id || req.user.id,
     });
 
@@ -571,7 +594,12 @@ router.post('/:id/go-live', async (req, res, next) => {
     }
 
     assertTransition(account.status, 'IN_USE');
-    await supabaseAdmin.from('accounts').update({ status: 'IN_USE' }).eq('id', account.id);
+    const goLivePatch = { status: 'IN_USE' };
+    if (account.status === 'LOGGED_OUT') {
+      goLivePatch.notes = mergeOperatorNotes(account.notes, { disconnect_report: null });
+      goLivePatch.wsaf_slot = null;
+    }
+    await supabaseAdmin.from('accounts').update(goLivePatch).eq('id', account.id);
 
     const { data: standbyRows } = await supabaseAdmin
       .from('account_status_history')
@@ -586,12 +614,16 @@ router.post('/:id/go-live', async (req, res, next) => {
     const standbyDays = Number.isNaN(standbyMs)
       ? 1
       : Math.max(1, Math.floor((Date.now() - standbyMs) / 86_400_000) + 1);
+    const fromStatus = account.status;
+    const rescan = fromStatus === 'LOGGED_OUT';
     const dayLabel = standbyDays === 1 ? '1 day' : `${standbyDays} days`;
     await supabaseAdmin.from('account_status_history').insert({
       account_id: account.id,
-      from_status: 'AVAILABLE',
+      from_status: fromStatus,
       to_status: 'IN_USE',
-      reason: `Go-live ticket #${ticket.ticket_number} — Standby ${dayLabel} → In Use (business scan)`,
+      reason: rescan
+        ? `Go-live ticket #${ticket.ticket_number} — Logged out → In Use (re-scan)`
+        : `Go-live ticket #${ticket.ticket_number} — Standby ${dayLabel} → In Use (business scan)`,
       changed_by: req.profile?.id || req.user.id,
     });
 
@@ -659,12 +691,14 @@ router.post('/:id/reject', async (req, res, next) => {
     }
 
     const { reason: rejectReason } = rejectSchema.parse(req.body);
-    const reason = rejectReason || 'IP mismatch — resubmit with correct proxy screenshot';
 
     const ticket = await loadTicketById(req.params.id);
     if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
     const account = await tryLoadAccount(ticket.account_id);
     const meta = parseTicketMeta(ticket);
+    const reason = isPlaceholderRejectReason(rejectReason)
+      ? resolveRejectReason({ ...meta, delivery_stage: 'rejected', reject_reason: rejectReason })
+      : String(rejectReason).trim();
     meta.reject_reason = reason;
     meta.delivery_stage = 'rejected';
     meta.closed_at = new Date().toISOString();

@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
 import { accountToOperatorRow } from '../lib/account-operator-meta';
 import { apiDateParams } from '../lib/governanceDateRange';
+import { useAuth } from '../context/AuthContext';
 
 function dateQueryParams(dateRange) {
   if (!dateRange?.from || !dateRange?.to) return {};
@@ -22,6 +23,8 @@ function mapStandbyRows(accounts, site = 'all') {
       owner: a.owner || '',
       staff: a.staff || '',
       bind_proxy: a.bind_proxy,
+      status: a.status,
+      restrict_kind: a.restrict_kind || null,
     }));
 }
 
@@ -38,18 +41,21 @@ async function fetchStandbyAccounts(site = 'all') {
   }
   try {
     const { data } = await api.get('/accounts', {
-      params: { status: 'AVAILABLE', limit: 200, ...siteParams, ...bust },
+      params: { limit: 500, ...siteParams, ...bust },
     });
-    return mapStandbyRows(data?.data, site);
+    return mapStandbyRows(data?.data, site).filter((a) => (
+      (a.status === 'AVAILABLE' || a.status === 'LOGGED_OUT') && !a.restrict_kind
+    ));
   } catch {
     return [];
   }
 }
 
 export function useTickets(site = 'all', options = {}) {
+  const { profile } = useAuth();
   const { enabled = true } = options;
   return useQuery({
-    queryKey: ['tickets', site],
+    queryKey: ['tickets', site, profile?.id || 'anon'],
     queryFn: async () => {
       const { data } = await api.get('/tickets', {
         params: site !== 'all' ? { site } : {},
@@ -81,8 +87,9 @@ export function useTicketStats(site = 'all', dateRange = null) {
 }
 
 export function useStandbyForTickets(site = 'all') {
+  const { profile } = useAuth();
   return useQuery({
-    queryKey: ['tickets', 'standby-accounts', site],
+    queryKey: ['tickets', 'standby-accounts', site, profile?.id || 'anon'],
     queryFn: () => fetchStandbyAccounts(site),
     staleTime: 0,
     refetchOnMount: 'always',

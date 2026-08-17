@@ -2756,6 +2756,8 @@
   }
   .tk-banner {
     @apply flex items-center gap-2 rounded-card px-3 py-2 text-xs font-semibold;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
   .tk-banner--ok {
     background: color-mix(in srgb, var(--ams-success) 10%, white);

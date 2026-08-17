@@ -4,6 +4,7 @@ import {
   accountToOperatorRow,
   buildMetaPatch,
 } from '../lib/account-operator-meta';
+import { useAuth } from '../context/AuthContext';
 
 export function useAccountsByStatus(status, options = {}) {
   return useQuery({
@@ -17,9 +18,10 @@ export function useAccountsByStatus(status, options = {}) {
 }
 
 export function useAllAccounts(options = {}) {
+  const { profile } = useAuth();
   const { enabled = true, refetchInterval } = options;
   return useQuery({
-    queryKey: ['accounts', 'all'],
+    queryKey: ['accounts', 'all', profile?.id || 'anon'],
     queryFn: async () => {
       const res = await api.get('/accounts', { params: { limit: 500 } });
       return (res.data?.data || []).map(accountToOperatorRow);

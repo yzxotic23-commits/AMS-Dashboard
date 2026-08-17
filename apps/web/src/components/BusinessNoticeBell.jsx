@@ -52,7 +52,7 @@ function noticeStamp(notice) {
   return d.toLocaleString();
 }
 
-/** Header bell for business: R&M reviewed a disconnect, or an account is back on Standby. */
+/** Header bell for business: Restricted account is back on Standby and ready to scan. */
 export default function BusinessNoticeBell() {
   const { profile } = useAuth();
   const navigate = useNavigate();
@@ -68,7 +68,7 @@ export default function BusinessNoticeBell() {
   const pending = useMemo(() => {
     if (!canSee) return [];
     return accounts
-      .filter((a) => a.business_notice)
+      .filter((a) => a.business_notice?.type === 'returned_standby')
       .sort((a, b) => {
         const ta = new Date(a.business_notice?.at || 0).getTime();
         const tb = new Date(b.business_notice?.at || 0).getTime();
@@ -86,9 +86,9 @@ export default function BusinessNoticeBell() {
     const fresh = pending.filter((a) => !knownKeysRef.current.has(`${a.id}:${a.business_notice?.at || ''}`));
     knownKeysRef.current = keys;
     if (fresh.length === 1) {
-      setToast(fresh[0].business_notice.title || `${fresh[0].account_name} · status updated`);
+      setToast(fresh[0].business_notice.title || `${fresh[0].account_name} is ready to scan again`);
     } else if (fresh.length > 1) {
-      setToast(`${fresh.length} account status updates from R&M`);
+      setToast(`${fresh.length} accounts are ready to scan again`);
     }
   }, [pending, canSee]);
 
@@ -136,9 +136,9 @@ export default function BusinessNoticeBell() {
 
   const count = pending.length;
 
-  function openAccount(id) {
+  function openTicket() {
     setOpen(false);
-    navigate(`/accounts?open=${encodeURIComponent(id)}`);
+    navigate('/tickets');
   }
 
   async function dismiss(id, e) {
@@ -168,7 +168,7 @@ export default function BusinessNoticeBell() {
         <button
           type="button"
           className="header-bell-btn"
-          aria-label={count ? `${count} account status updates` : 'No account status updates'}
+          aria-label={count ? `${count} accounts ready to scan` : 'No accounts ready to scan'}
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
         >
@@ -179,15 +179,15 @@ export default function BusinessNoticeBell() {
         {open && (
           <div className="header-bell-panel" role="menu">
             <div className="border-b border-ams-line px-3 py-2.5">
-              <p className="text-[13px] font-semibold text-ams-ink">Account updates</p>
+              <p className="text-[13px] font-semibold text-ams-ink">Ready to scan</p>
               <p className="text-[11px] text-ams-faint">
-                {count ? `${count} from R&M` : 'Nothing new'}
+                {count ? `${count} back on Standby after restriction` : 'Nothing waiting'}
                 {count > 0 && !muted ? ' · alert sound on' : ''}
                 {count > 0 && muted ? ' · alerts muted' : ''}
               </p>
             </div>
             {count === 0 ? (
-              <p className="px-3 py-4 text-[13px] text-ams-muted">No status updates right now.</p>
+              <p className="px-3 py-4 text-[13px] text-ams-muted">No accounts waiting to be requested.</p>
             ) : (
               <ul className="max-h-72 overflow-y-auto py-1">
                 {pending.map((a) => (
@@ -195,7 +195,7 @@ export default function BusinessNoticeBell() {
                     <button
                       type="button"
                       className="header-bell-item"
-                      onClick={() => openAccount(a.id)}
+                      onClick={openTicket}
                     >
                       <span className="font-semibold text-ams-ink">
                         {a.business_notice.title || a.account_name}
@@ -211,7 +211,7 @@ export default function BusinessNoticeBell() {
                         </span>
                       ) : null}
                       <span className="mt-1.5 block text-[11px] font-medium text-ams-accent">
-                        Open account
+                        Request scan
                       </span>
                     </button>
                     <div className="px-3 pb-2">
@@ -231,12 +231,9 @@ export default function BusinessNoticeBell() {
               <button
                 type="button"
                 className="text-[12px] font-medium text-ams-accent hover:underline"
-                onClick={() => {
-                  setOpen(false);
-                  navigate('/accounts');
-                }}
+                onClick={openTicket}
               >
-                Open Check Account Status
+                Open Delivery tickets
               </button>
               <button
                 type="button"

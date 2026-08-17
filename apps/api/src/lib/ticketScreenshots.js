@@ -75,14 +75,16 @@ export async function screenshotUrlsByReviewIds(reviewIds) {
 
   const { data: reviews, error } = await supabaseAdmin
     .from('ip_gate_reviews')
-    .select('id, phone_ip_screenshot_url')
+    .select('id, phone_ip_screenshot_url, review_note')
     .in('id', ids);
   if (error) throw error;
 
   const map = new Map();
   await Promise.all((reviews || []).map(async (review) => {
     const url = await resolveScreenshotUrl(review.phone_ip_screenshot_url);
-    if (url) map.set(review.id, url);
+    const note = String(review.review_note || '').trim();
+    if (!url && !note) return;
+    map.set(review.id, { screenshot_url: url || null, review_note: note });
   }));
   return map;
 }

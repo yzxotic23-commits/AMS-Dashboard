@@ -370,7 +370,7 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
         </p>
       )}
 
-      {isBusinessUser && account.business_notice && (
+      {isBusinessUser && account.business_notice?.type === 'returned_standby' && (
         <div className="mb-4 rounded-lg border border-ams-accent/40 bg-ams-accent/10 px-4 py-3">
           <p className="text-[13px] font-semibold text-ams-ink">
             {account.business_notice.title || 'Account status updated'}

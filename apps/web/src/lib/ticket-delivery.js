@@ -103,3 +103,22 @@ export const REJECT_REASONS = [
   'Wrong link code',
   REJECT_REASON_OTHER,
 ];
+
+const PLACEHOLDER_REJECT = /^(fail|failed|rejected|error|mismatch|false|true)$/i;
+
+export function ticketRejectReasonText(ticket) {
+  const candidates = [
+    ticket?.reject_reason,
+    ticket?.reason,
+    ticket?.review_note,
+  ];
+  for (const candidate of candidates) {
+    const text = String(candidate || '').trim();
+    if (text && !PLACEHOLDER_REJECT.test(text)) return text;
+  }
+  const stage = ticket?.delivery_stage;
+  const rejected = stage === 'rejected' || Boolean(String(ticket?.reject_reason || '').trim());
+  if (!rejected) return '';
+  if (ticket?.review_match === false) return REJECT_REASONS[0];
+  return 'Rejected during IP review — resubmit with a corrected screenshot';
+}

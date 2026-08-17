@@ -18,7 +18,7 @@ import { SITES, getSiteChipClass } from '../lib/sites';
 import { useTickets, useTicketMutations, useStandbyForTickets } from '../hooks/useTickets';
 import {
   DELIVERY_STEPS, REJECT_REASONS, REJECT_REASON_OTHER, ticketStatusMeta, ticketStepCursor, ticketBucket,
-  ticketMatchesSearch, TICKETS_PAGE_SIZE,
+  ticketMatchesSearch, TICKETS_PAGE_SIZE, ticketRejectReasonText,
 } from '../lib/ticket-delivery';
 import { ticketTimingInfo } from '../lib/ticket-timing';
 import { profileStaffScope, accountInStaffScope } from '../lib/account-staff';
@@ -190,7 +190,7 @@ function DeliveryTicketFormFields({
             <span className="mt-1 block text-[11px] text-ams-faint">
               {showStaffFilters
                 ? 'Grouped by Staff — search or filter to find the right account.'
-                : 'Your assigned Standby accounts only.'}
+                : 'Your assigned Standby and Logged out accounts. Restricted accounts stay hidden until R&M returns them to Standby.'}
             </span>
           </div>
         )}
@@ -251,6 +251,7 @@ function TicketCard({
   const stage = ticket.delivery_stage;
   const isRejected = stage === 'rejected' || (stage === 'submitted' && ticket.reject_reason);
   const displayStage = isRejected ? 'rejected' : stage;
+  const rejectText = isRejected ? ticketRejectReasonText(ticket) : '';
   const sl = ticketStatusMeta(ticket);
   const attn = ticketBucket(ticket, role) === 'act';
   const bind = ticket.bind_proxy;
@@ -369,7 +370,7 @@ function TicketCard({
 
         {isRejected && (
           <div className="tk-banner tk-banner--bad">
-            Rejected — {ticket.reject_reason || 'IP mismatch'}
+            Rejected — {rejectText || 'No reason recorded'}
           </div>
         )}
         {stage === 'posted' && (
@@ -469,6 +470,9 @@ export default function TicketsPage() {
 
   const filteredTickets = useMemo(() => {
     let rows = tickets;
+    if (staffScope) {
+      rows = rows.filter((t) => accountInStaffScope(t, staffScope));
+    }
     if (ownerFilter) {
       rows = rows.filter((t) => {
         const owner = (t.owner || t.customer_name || '').trim();
@@ -478,7 +482,7 @@ export default function TicketsPage() {
     const q = search.trim();
     if (!q) return rows;
     return rows.filter((t) => ticketMatchesSearch(t, q));
-  }, [tickets, search, ownerFilter]);
+  }, [tickets, search, ownerFilter, staffScope]);
 
   const grouped = useMemo(() => {
     const map = { act: [], prog: [], completed: [], history: [] };
@@ -987,9 +991,9 @@ export default function TicketsPage() {
         ) : !standby.length ? (
           <div className="drawer-empty-state">
             <p className="drawer-hint drawer-hint--center">
-              No standby accounts available for this site.
+              No Standby or Logged out accounts for this site.
               {profile?.role === 'business'
-                ? ' Only accounts assigned to your staff name are shown.'
+                ? ' Logged out accounts can be requested again immediately. Restricted accounts wait until R&M returns them to Standby.'
                 : (site !== 'all' ? ' Try switching site to All in the top bar.' : '')}
             </p>
           </div>

@@ -9,6 +9,7 @@ import { serializeRecoveryNotes, recoveryOnBanDefaults, parseRecoveryMeta } from
 import {
   parseTicketMeta, serializeTicketDescription, proxyFromIp, proxyMatch, stageFromStatus,
 } from './ticket-meta';
+import { ticketRejectReasonText } from './ticket-delivery';
 
 export const isDemoMode = () => import.meta.env.VITE_DEMO_MODE === 'true';
 
@@ -32,7 +33,7 @@ const ALLOWED_TRANSITIONS = {
   NURTURING: ['AVAILABLE', 'BANNED', 'RECYCLED'],
   AVAILABLE: ['IN_USE', 'NURTURING', 'RECYCLED'],
   IN_USE: ['LOGGED_OUT', 'BANNED', 'AVAILABLE'],
-  LOGGED_OUT: ['NURTURING', 'RECOVERING', 'RECYCLED', 'BANNED'],
+  LOGGED_OUT: ['NURTURING', 'RECOVERING', 'RECYCLED', 'BANNED', 'IN_USE', 'AVAILABLE'],
   BANNED: ['RECOVERING', 'RECYCLED'],
   RECOVERING: ['NURTURING', 'AVAILABLE', 'RECYCLED'],
   RECYCLED: [],
@@ -347,8 +348,12 @@ function enrichDemoTicket(ticket) {
     link_code: meta.link_code || '',
     shot_proxy: shot,
     bind_proxy: bind,
-    ip_match: proxyMatch(bind, shot),
-    reject_reason: meta.reject_reason || '',
+    review_match: meta.review_match ?? null,
+    ip_match: meta.review_match ?? proxyMatch(bind, shot),
+    reject_reason: ticketRejectReasonText({
+      ...meta,
+      review_note: review?.review_note,
+    }),
     channel: meta.channel || '—',
     device_name: meta.device_name || account?.devices?.device_name || '—',
     account_name: meta.account_display || account?.account_name || '—',
@@ -835,17 +840,9 @@ export function getMockResponse(config) {
       const nextMeta = {
         ...meta,
         disconnect_report: undefined,
-        business_notice: {
-          type: 'disconnect_resolved',
-          at: new Date().toISOString(),
-          outcome,
-          title: `${current.account_name || 'Account'} · ${toStatus === 'BANNED' ? 'Banned' : 'Logged out'}`,
-          body: toStatus === 'BANNED'
-            ? 'R&M reviewed your disconnect report. This account is Banned.'
-            : 'R&M reviewed your disconnect report. This account is Logged out.',
-        },
       };
       delete nextMeta.disconnect_report;
+      delete nextMeta.business_notice;
       let notes = serializeAccountNotes(nextMeta);
       if (toStatus === 'BANNED') {
         notes = serializeRecoveryNotes(notes, recoveryOnBanDefaults('manual', body.reason || 'Banned'));
@@ -868,13 +865,6 @@ export function getMockResponse(config) {
       ...meta,
       disconnect_report: undefined,
       restrict_kind: outcome,
-      business_notice: {
-        type: 'disconnect_resolved',
-        at: new Date().toISOString(),
-        outcome,
-        title: `${current.account_name || 'Account'} · Restricted`,
-        body: `${restrictLabel} — R&M reviewed your disconnect report. Status is Restricted until the period ends.`,
-      },
       ...(outcome === 'restrict_scan'
         ? {
             nurturing_phase: 'manual',
@@ -883,6 +873,7 @@ export function getMockResponse(config) {
         : {}),
     };
     delete nextMeta.disconnect_report;
+    delete nextMeta.business_notice;
     const notes = serializeAccountNotes(nextMeta);
     demoAccounts = demoAccounts.map((a) => (
       a.id === id ? { ...a, notes, updated_at: new Date().toISOString() } : a
@@ -916,8 +907,8 @@ export function getMockResponse(config) {
       business_notice: {
         type: 'returned_standby',
         at: new Date().toISOString(),
-        title: `${current.account_name || 'Account'} is back on Standby`,
-        body: `${current.account_name} restriction ended. You can request this account again from Delivery tickets.`,
+        title: `${current.account_name || 'Account'} is ready to scan again`,
+        body: `Restriction ended. ${current.account_name} is back on Standby — open Delivery tickets to request a new scan.`,
       },
     };
     delete nextMeta.restrict_kind;
@@ -1139,6 +1130,43 @@ export function getMockResponse(config) {
     };
   }
 
+  if (method === 'GET' && url === 'tickets/standby-accounts') {
+    const siteKey = params.site || params.site_key;
+    const rows = demoAccounts
+      .filter((a) => {
+        if (a.status !== 'AVAILABLE' && a.status !== 'LOGGED_OUT') return false;
+        const meta = parseOperatorMeta(a);
+        if (meta.restrict_kind) return false;
+        if (siteKey && siteKey !== 'all' && meta.site_key !== siteKey) return false;
+        return true;
+      })
+      .map((a) => {
+        const meta = parseOperatorMeta(a);
+        const enriched = enrichAccount(a);
+        const ip = enriched.ips;
+        return {
+          id: a.id,
+          account_name: a.account_name,
+          phone_number: a.phone_number || '',
+          sim: enriched.sims
+            ? `${enriched.sims.carrier || 'SIM'} · ${enriched.sims.phone_number}`
+            : '',
+          brand: meta.brand || '',
+          siteKey: meta.site_key || 'my',
+          owner: meta.owner || '',
+          staff: String(meta.staff || '').trim(),
+          bind_proxy: ip ? {
+            ip_address: ip.ip_address || '',
+            port: String(ip.port || '8080'),
+            username: ip.username || '',
+            password: ip.password || '',
+          } : null,
+          status: a.status,
+        };
+      });
+    return { data: rows };
+  }
+
   if (method === 'GET' && url === 'tickets') {
     let rows = demoTickets.map(enrichDemoTicket);
     if (params.site && params.site !== 'all') {
@@ -1159,7 +1187,13 @@ export function getMockResponse(config) {
     const body = typeof config.data === 'string' ? JSON.parse(config.data) : config.data;
     const account = demoAccounts.find((a) => a.id === body.account_id);
     if (!account) throw new Error('Account not found');
-    if (account.status !== 'AVAILABLE') throw new Error('Account must be in Standby (AVAILABLE) pool');
+    if (account.status !== 'AVAILABLE' && account.status !== 'LOGGED_OUT') {
+      throw new Error('Account must be Standby or Logged out to request a scan');
+    }
+    const opMetaCheck = parseOperatorMeta({ notes: account.notes });
+    if (opMetaCheck.restrict_kind) {
+      throw new Error('Restricted accounts must return to Standby before a new scan request');
+    }
     if (!body.screenshot_base64 || !/^data:image\//i.test(body.screenshot_base64)) {
       throw new Error('Screenshot image required (JPEG, PNG, or WebP)');
     }
@@ -1207,9 +1241,11 @@ export function getMockResponse(config) {
     if (review) review.ticket_id = ticket.id;
     pushStatusHistory(
       account.id,
-      'AVAILABLE',
-      'AVAILABLE',
-      `Delivery ticket #${ticket.ticket_number} submitted — awaiting IP review (business scan)`,
+      account.status,
+      account.status,
+      account.status === 'LOGGED_OUT'
+        ? `Delivery ticket #${ticket.ticket_number} submitted — re-scan after logout (awaiting IP review)`
+        : `Delivery ticket #${ticket.ticket_number} submitted — awaiting IP review (business scan)`,
     );
     return enrichDemoTicket(ticket);
   }
@@ -1234,14 +1270,28 @@ export function getMockResponse(config) {
       ));
     }
     if (ticket.account_id) {
-      demoAccounts = demoAccounts.map((a) => (
-        a.id === ticket.account_id ? { ...a, status: 'IN_USE' } : a
-      ));
+      const prev = demoAccounts.find((a) => a.id === ticket.account_id);
+      const fromStatus = prev?.status || 'AVAILABLE';
+      demoAccounts = demoAccounts.map((a) => {
+        if (a.id !== ticket.account_id) return a;
+        const meta = parseOperatorMeta(a);
+        const nextMeta = { ...meta };
+        delete nextMeta.disconnect_report;
+        return {
+          ...a,
+          status: 'IN_USE',
+          notes: serializeAccountNotes(nextMeta),
+          wsaf_slot: fromStatus === 'LOGGED_OUT' ? null : a.wsaf_slot,
+          updated_at: new Date().toISOString(),
+        };
+      });
       pushStatusHistory(
         ticket.account_id,
-        'AVAILABLE',
+        fromStatus,
         'IN_USE',
-        `Go-live ticket #${ticket.ticket_number} — Standby → In Use (business scan)`,
+        fromStatus === 'LOGGED_OUT'
+          ? `Go-live ticket #${ticket.ticket_number} — Logged out → In Use (re-scan)`
+          : `Go-live ticket #${ticket.ticket_number} — Standby → In Use (business scan)`,
       );
     }
     ticket.status = 'IN_PROGRESS';
@@ -1255,7 +1305,11 @@ export function getMockResponse(config) {
     const ticket = demoTickets.find((t) => t.id === id);
     if (!ticket) throw new Error('Ticket not found');
     const meta = parseTicketMeta(ticket);
-    meta.reject_reason = body.reason || 'IP mismatch — resubmit with correct proxy screenshot';
+    meta.reject_reason = ticketRejectReasonText({
+      ...meta,
+      delivery_stage: 'rejected',
+      reject_reason: body.reason || '',
+    });
     meta.delivery_stage = 'rejected';
     meta.closed_at = new Date().toISOString();
     if (meta.ip_gate_review_id) {

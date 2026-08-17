@@ -201,6 +201,12 @@ export function historyRowCaption(h) {
       : 'Restricted Scan';
     return { fromStatus: 'IN_USE', toLabel };
   }
+  if (h.from_status === 'LOGGED_OUT' && h.to_status === 'IN_USE') {
+    return { fromStatus: 'LOGGED_OUT', toStatus: 'IN_USE' };
+  }
+  if (h.from_status === 'LOGGED_OUT' && h.to_status === 'LOGGED_OUT' && /delivery ticket/i.test(reason)) {
+    return { fromStatus: 'LOGGED_OUT', toLabel: 'Re-scan ticket' };
+  }
   if (h.from_status === 'AVAILABLE' && h.to_status === 'AVAILABLE' && /delivery ticket/i.test(reason)) {
     return { fromStatus: 'AVAILABLE', toLabel: 'Delivery ticket' };
   }

@@ -181,10 +181,10 @@ export default function StandbyAccountPicker({
             {groups.length === 0 ? (
               <div className="standby-acct-picker-empty">
                 {accounts.length === 0
-                  ? 'No standby accounts'
+                  ? 'No Standby or Logged out accounts'
                   : (query.trim() || staffFilter !== 'all'
                     ? 'No accounts match this filter'
-                    : 'No standby accounts')}
+                    : 'No Standby or Logged out accounts')}
               </div>
             ) : groups.map(([staff, rows]) => (
               <div key={staff} className="standby-acct-picker-group">
@@ -205,9 +205,14 @@ export default function StandbyAccountPicker({
                       <span className="standby-acct-picker-name">{a.account_name || '—'}</span>
                       <span className="standby-acct-picker-phone font-mono">{phoneDigits(a)}</span>
                     </span>
-                    {a.brand ? (
-                      <span className="badge badge-default">{a.brand}</span>
-                    ) : null}
+                    <span className="flex items-center gap-1">
+                      {a.status === 'LOGGED_OUT' ? (
+                        <span className="badge badge-default">Logged out</span>
+                      ) : null}
+                      {a.brand ? (
+                        <span className="badge badge-default">{a.brand}</span>
+                      ) : null}
+                    </span>
                   </button>
                 ))}
               </div>

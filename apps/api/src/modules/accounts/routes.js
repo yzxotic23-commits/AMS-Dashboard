@@ -296,7 +296,7 @@ router.get('/', async (req, res, next) => {
         : await filterDeliveredForBusiness(staffFiltered, req.profile);
       const withNotice = req.query.status === 'AVAILABLE'
         ? []
-        : staffFiltered.filter((row) => parseOperatorMeta(row).business_notice);
+        : staffFiltered.filter((row) => parseOperatorMeta(row).business_notice?.type === 'returned_standby');
       const byId = new Map();
       [...delivered, ...withNotice].forEach((row) => byId.set(row.id, row));
       const scoped = [...byId.values()];
@@ -349,13 +349,14 @@ router.get('/:id', async (req, res, next) => {
         return res.status(404).json({ error: 'Account not found' });
       }
       const notice = parseOperatorMeta(data).business_notice;
+      const readyNotice = notice?.type === 'returned_standby';
       const visibleStatus = BUSINESS_VISIBLE_STATUSES.has(data.status);
-      if (!visibleStatus && !notice) {
+      if (!visibleStatus && !readyNotice) {
         return res.status(404).json({ error: 'Account not found' });
       }
       if (visibleStatus) {
         const delivered = await deliveredAccountIds([data.id]);
-        if (!delivered.has(data.id) && !notice) {
+        if (!delivered.has(data.id) && !readyNotice) {
           return res.status(404).json({ error: 'Account not found' });
         }
       }
@@ -1016,15 +1017,7 @@ router.post('/:id/resolve-disconnect', async (req, res, next) => {
       if (current.status !== toStatus) {
         assertTransition(current.status, toStatus);
       }
-      const notes = mergeOperatorNotes(current.notes, { disconnect_report: null, business_notice: {
-        type: 'disconnect_resolved',
-        at: new Date().toISOString(),
-        outcome,
-        title: `${current.account_name || 'Account'} · ${toStatus === 'BANNED' ? 'Banned' : 'Logged out'}`,
-        body: toStatus === 'BANNED'
-          ? `R&M reviewed your disconnect report. This account is Banned.`
-          : `R&M reviewed your disconnect report. This account is Logged out.`,
-      } });
+      const notes = mergeOperatorNotes(current.notes, { disconnect_report: null, business_notice: null });
 
       const { data: updated, error } = await supabaseAdmin
         .from('accounts')
@@ -1062,24 +1055,12 @@ router.post('/:id/resolve-disconnect', async (req, res, next) => {
             nurturing_phase: 'manual',
             nurturing_started_at: new Date(Date.now() - 2 * 86_400_000).toISOString(),
             disconnect_report: null,
-            business_notice: {
-              type: 'disconnect_resolved',
-              at: new Date().toISOString(),
-              outcome,
-              title: `${current.account_name || 'Account'} · Restricted`,
-              body: `${label} — R&M reviewed your disconnect report. Status is Restricted until the period ends.`,
-            },
+            business_notice: null,
           }
         : {
             restrict_kind: outcome,
             disconnect_report: null,
-            business_notice: {
-              type: 'disconnect_resolved',
-              at: new Date().toISOString(),
-              outcome,
-              title: `${current.account_name || 'Account'} · Restricted`,
-              body: `${label} — R&M reviewed your disconnect report. Status is Restricted until the period ends.`,
-            },
+            business_notice: null,
           };
       const humanNote = outcome === 'restrict_scan'
         ? 'Restricted Scan — cannot scan / re-link during restriction period'
@@ -1161,8 +1142,8 @@ router.post('/:id/return-standby', async (req, res, next) => {
       business_notice: {
         type: 'returned_standby',
         at: new Date().toISOString(),
-        title: `${current.account_name || 'Account'} is back on Standby`,
-        body: `${current.account_name} restriction ended. You can request this account again from Delivery tickets.`,
+        title: `${current.account_name || 'Account'} is ready to scan again`,
+        body: `Restriction ended. ${current.account_name} is back on Standby — open Delivery tickets to request a new scan.`,
       },
     }, note);
 

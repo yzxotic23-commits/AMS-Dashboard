@@ -36,13 +36,14 @@ export function findEngineSlotForAccount(account, slots = []) {
 
 /**
  * Live connection from engine slot — not a Feeding audit status.
+ * Online = live/connected socket only. authSaved alone is NOT online (stale session
+ * after Restricted/logout was incorrectly keeping AMS on Online).
  * @returns {'online'|'offline'|null}
  */
 export function liveSlotConnection(account, slots = []) {
   const slot = findEngineSlotForAccount(account, slots);
   if (!slot) return null;
-  // Treat saved session as online — matches FeedFlow UI when preview reconnect is off.
-  return (slot.connected || slot.authSaved) ? 'online' : 'offline';
+  return slot.connected ? 'online' : 'offline';
 }
 
 /** Match AMS account to an offline engine slot row (for health sync). */

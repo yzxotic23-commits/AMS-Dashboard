@@ -27,6 +27,7 @@ const LIVE_BADGE = {
   Feeding: 'badge-warn',
   Online: 'badge-success',
   Linking: 'badge-warn',
+  'Session saved': 'badge-default',
   Offline: 'badge-default',
 };
 
@@ -41,7 +42,8 @@ function slotLiveLabel(slot) {
   if (!slot) return 'Offline';
   if (slot.feedingActive) return 'Feeding';
   if (slot.linking) return 'Linking';
-  if (slot.connected || slot.authSaved) return 'Online';
+  if (slot.connected) return 'Online';
+  if (slot.authSaved) return 'Session saved';
   return 'Offline';
 }
 

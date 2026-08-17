@@ -21,6 +21,35 @@ import { postWsafAuditRecord } from '../../lib/wsafBridge.js';
 import { accountInBrandScope, profileBrandScope } from '../../lib/accountBrand.js';
 import { parseTicketMeta } from '../../lib/ticketMeta.js';
 
+const MS_DAY = 86_400_000;
+
+function elapsedNurtureDays(startAt, endAt = new Date()) {
+  if (!startAt) return 1;
+  const start = new Date(startAt).getTime();
+  const end = new Date(endAt).getTime();
+  if (Number.isNaN(start) || Number.isNaN(end) || end < start) return 1;
+  return Math.max(1, Math.floor((end - start) / MS_DAY) + 1);
+}
+
+function dayCountLabel(n) {
+  const d = Math.max(1, Number(n) || 1);
+  return d === 1 ? '1 day' : `${d} days`;
+}
+
+function nurtureCompleteReason(account, fallback) {
+  const meta = parseOperatorMeta(account);
+  const start = meta.nurturing_started_at || account.created_at;
+  const total = elapsedNurtureDays(start);
+  const manualDays = Math.min(3, total);
+  const autoDays = meta.nurturing_phase === 'auto' ? Math.max(0, total - manualDays) : 0;
+  const parts = [`Manual nurturing ${dayCountLabel(manualDays)}`];
+  if (autoDays > 0) parts.push(`System nurturing ${dayCountLabel(autoDays)}`);
+  const detail = `${parts.join(', ')} → Standby`;
+  if (!fallback) return `Nurturing complete — ${detail}`;
+  if (/manual nurturing|system nurturing/i.test(fallback)) return fallback;
+  return `${fallback} · ${detail}`;
+}
+
 const router = Router();
 router.use(authenticate);
 router.use((req, res, next) => {
@@ -31,6 +60,10 @@ router.use((req, res, next) => {
   }
   if (req.method === 'POST' && /\/report-disconnect$/.test(req.path)) {
     return requireRole('admin', 'operator', 'business')(req, res, next);
+  }
+  // Engine auto-detect logout — operator/admin only (background sync from AMS UI).
+  if (req.method === 'POST' && /\/engine-disconnect$/.test(req.path)) {
+    return requireRole('admin', 'operator')(req, res, next);
   }
   return requireRole('admin', 'operator')(req, res, next);
 });
@@ -111,6 +144,11 @@ const markStrictSchema = z.object({
 
 const reportDisconnectSchema = z.object({
   note: z.string().max(500).optional(),
+});
+
+const engineDisconnectSchema = z.object({
+  note: z.string().max(500).optional(),
+  slot: z.number().int().optional().nullable(),
 });
 
 const resolveDisconnectSchema = z.object({
@@ -308,7 +346,29 @@ router.get('/:id', async (req, res, next) => {
       .order('changed_at', { ascending: false });
 
     const [safeData] = sanitizeAccountsForRole([data], req.profile);
-    res.json({ ...safeData, statusHistory: history || [] });
+
+    const { data: ticketRows } = await supabaseAdmin
+      .from('tickets')
+      .select('id, ticket_number, status, created_at, closed_at, description')
+      .eq('account_id', req.params.id)
+      .order('created_at', { ascending: false })
+      .limit(8);
+
+    const deliveryTickets = (ticketRows || []).map((t) => {
+      const meta = parseTicketMeta(t);
+      return {
+        id: t.id,
+        ticket_number: t.ticket_number,
+        status: t.status,
+        created_at: t.created_at,
+        closed_at: t.closed_at,
+        submitted_at: meta.submitted_at || t.created_at,
+        in_progress_at: meta.in_progress_at || null,
+        delivery_stage: meta.delivery_stage || null,
+      };
+    });
+
+    res.json({ ...safeData, statusHistory: history || [], deliveryTickets });
   } catch (e) {
     next(e);
   }
@@ -461,6 +521,12 @@ router.patch('/:id', async (req, res, next) => {
       });
     }
 
+    const prevMeta = parseOperatorMeta(current);
+    const nextMeta = parseOperatorMeta(data);
+    const phaseChanged = prevMeta.nurturing_phase
+      && nextMeta.nurturing_phase
+      && prevMeta.nurturing_phase !== nextMeta.nurturing_phase;
+
     if (body.status && body.status !== current.status) {
       await supabaseAdmin.from('account_status_history').insert({
         account_id: data.id,
@@ -477,6 +543,24 @@ router.patch('/:id', async (req, res, next) => {
         newValue: { status: body.status, reason: body.reason },
         userId: req.profile.id,
         req,
+      });
+    } else if (phaseChanged && (current.status === 'NURTURING' || data.status === 'NURTURING')) {
+      const start = prevMeta.nurturing_started_at || current.created_at;
+      const days = elapsedNurtureDays(start);
+      let phaseReason;
+      if (prevMeta.nurturing_phase === 'manual' && nextMeta.nurturing_phase === 'auto') {
+        phaseReason = `Scan-in — Manual nurturing ${dayCountLabel(Math.min(3, days))} → System nurturing`;
+      } else if (prevMeta.nurturing_phase === 'auto' && nextMeta.nurturing_phase === 'manual') {
+        phaseReason = 'Returned to Manual nurturing (from System nurturing)';
+      } else {
+        phaseReason = `Nurturing phase ${prevMeta.nurturing_phase} → ${nextMeta.nurturing_phase}`;
+      }
+      await supabaseAdmin.from('account_status_history').insert({
+        account_id: data.id,
+        from_status: 'NURTURING',
+        to_status: 'NURTURING',
+        reason: phaseReason,
+        changed_by: req.profile.id,
       });
     } else if (!assignmentDiffs.length) {
       await writeAudit({
@@ -509,6 +593,15 @@ router.post('/:id/transition', async (req, res, next) => {
 
     assertTransition(current.status, to_status);
 
+    let historyReason = reason || 'State transition';
+    if (current.status === 'REGISTERING' && to_status === 'NURTURING') {
+      historyReason = reason && !/^activated/i.test(reason)
+        ? reason
+        : 'Started Manual nurturing';
+    } else if (current.status === 'NURTURING' && to_status === 'AVAILABLE') {
+      historyReason = nurtureCompleteReason(current, reason);
+    }
+
     const { data, error } = await supabaseAdmin
       .from('accounts')
       .update({ status: to_status })
@@ -521,7 +614,7 @@ router.post('/:id/transition', async (req, res, next) => {
       account_id: data.id,
       from_status: current.status,
       to_status,
-      reason: reason || 'State transition',
+      reason: historyReason,
       changed_by: req.profile.id,
     });
 
@@ -646,6 +739,16 @@ router.post('/:id/mark-strict', async (req, res, next) => {
       .single();
     if (error) throw error;
 
+    if (kind === 'restrict_scan' && current.status === 'NURTURING' && meta.nurturing_phase === 'auto') {
+      await supabaseAdmin.from('account_status_history').insert({
+        account_id: data.id,
+        from_status: 'NURTURING',
+        to_status: 'NURTURING',
+        reason: 'Returned to Manual nurturing (Restricted Scan)',
+        changed_by: req.profile.id,
+      });
+    }
+
     await writeAudit({
       entityType: 'account',
       entityId: data.id,
@@ -706,6 +809,80 @@ router.post('/:id/mark-strict', async (req, res, next) => {
         feedingAudit: Boolean(feedingAudit),
       },
     });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// POST /accounts/:id/engine-disconnect — FeedFlow slot lost live connection for an
+// IN_USE account. Mark LOGGED_OUT + open disconnect_report so R&M gets the header bell
+// (even when Business did not self-report).
+router.post('/:id/engine-disconnect', async (req, res, next) => {
+  try {
+    const { note, slot } = engineDisconnectSchema.parse(req.body || {});
+    const { data: current, error: fetchErr } = await supabaseAdmin
+      .from('accounts')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+    if (fetchErr) throw fetchErr;
+
+    if (current.status !== 'IN_USE') {
+      const [already] = sanitizeAccountsForRole([current], req.profile);
+      return res.json({ ...already, _skipped: true, reason: 'not_in_use' });
+    }
+
+    const meta = parseOperatorMeta(current);
+    const reportNote = (note || '').trim()
+      || 'Auto-detected by AMS: FeedFlow slot offline / logged out';
+    const report = meta.disconnect_report || {
+      reported_at: new Date().toISOString(),
+      reported_by: 'AMS Engine',
+      note: reportNote,
+      source: 'engine_health',
+      slot: slot == null ? null : Number(slot),
+    };
+
+    assertTransition(current.status, 'LOGGED_OUT');
+    const notes = mergeOperatorNotes(current.notes, { disconnect_report: report });
+
+    const { data, error } = await supabaseAdmin
+      .from('accounts')
+      .update({ status: 'LOGGED_OUT', notes })
+      .eq('id', req.params.id)
+      .select(ACCOUNT_SELECT_WITH_SIM_LOCATION)
+      .single();
+    if (error) throw error;
+
+    await supabaseAdmin.from('account_status_history').insert({
+      account_id: data.id,
+      from_status: current.status,
+      to_status: 'LOGGED_OUT',
+      reason: reportNote,
+      changed_by: req.profile.id,
+    });
+
+    await writeAudit({
+      entityType: 'account',
+      entityId: data.id,
+      action: 'STATE_CHANGE',
+      previousValue: { status: current.status, disconnect_report: meta.disconnect_report || null },
+      newValue: {
+        status: 'LOGGED_OUT',
+        disconnect_report: report,
+        reason: reportNote,
+      },
+      metadata: {
+        account_name: data.account_name,
+        field: 'Engine disconnect',
+        engine_health: true,
+        slot: report.slot,
+      },
+      userId: req.profile.id,
+      req,
+    });
+
+    res.status(201).json(data);
   } catch (e) {
     next(e);
   }
@@ -808,7 +985,11 @@ router.post('/:id/resolve-disconnect', async (req, res, next) => {
 
     if (outcome === 'logged_out' || outcome === 'banned') {
       const toStatus = outcome === 'logged_out' ? 'LOGGED_OUT' : 'BANNED';
-      assertTransition(current.status, toStatus);
+      // Engine auto-disconnect may already have set LOGGED_OUT; still allow clearing the
+      // report, or escalate LOGGED_OUT → BANNED when R&M confirms.
+      if (current.status !== toStatus) {
+        assertTransition(current.status, toStatus);
+      }
       const notes = mergeOperatorNotes(current.notes, { disconnect_report: null });
 
       const { data: updated, error } = await supabaseAdmin
@@ -819,13 +1000,15 @@ router.post('/:id/resolve-disconnect', async (req, res, next) => {
         .single();
       if (error) throw error;
 
-      await supabaseAdmin.from('account_status_history').insert({
-        account_id: updated.id,
-        from_status: current.status,
-        to_status: toStatus,
-        reason: `${reason} · reported by ${reportedBy}`,
-        changed_by: req.profile.id,
-      });
+      if (current.status !== toStatus) {
+        await supabaseAdmin.from('account_status_history').insert({
+          account_id: updated.id,
+          from_status: current.status,
+          to_status: toStatus,
+          reason: `${reason} · reported by ${reportedBy}`,
+          changed_by: req.profile.id,
+        });
+      }
 
       if (toStatus === 'BANNED') {
         await bumpIpRisk(current.ip_id);

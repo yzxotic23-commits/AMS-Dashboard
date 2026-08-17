@@ -17,7 +17,7 @@ export function useAccountsByStatus(status, options = {}) {
 }
 
 export function useAllAccounts(options = {}) {
-  const { enabled = true } = options;
+  const { enabled = true, refetchInterval } = options;
   return useQuery({
     queryKey: ['accounts', 'all'],
     queryFn: async () => {
@@ -26,6 +26,7 @@ export function useAllAccounts(options = {}) {
     },
     enabled,
     staleTime: 30_000,
+    refetchInterval,
   });
 }
 
@@ -37,6 +38,7 @@ export function useAccountDetail(id) {
       return {
         ...accountToOperatorRow(res.data),
         statusHistory: res.data.statusHistory || [],
+        deliveryTickets: res.data.deliveryTickets || [],
       };
     },
     enabled: Boolean(id),

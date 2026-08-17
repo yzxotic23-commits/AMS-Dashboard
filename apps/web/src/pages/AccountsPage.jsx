@@ -17,6 +17,7 @@ import {
 } from '../lib/device-location';
 import { filterDevicesBySite } from '../lib/resource-mappers';
 import { nurturingDay, nurturingProgress } from '../lib/nurturing-day';
+import { buildAccountPath, historyRowCaption } from '../lib/nurture-history';
 import { getBridgeSummary } from '../lib/bridge-client';
 import { liveSlotConnection } from '../lib/engine-slot';
 import api from '../lib/api';
@@ -36,6 +37,58 @@ function StatusPill({ status, note }) {
       {meta.label}
       {note ? <span className="rl-status-note"> · {note}</span> : null}
     </span>
+  );
+}
+
+function HistoryPills({ event }) {
+  const cap = historyRowCaption(event);
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {cap.fromLabel ? (
+        <span className="badge badge-warn">{cap.fromLabel}</span>
+      ) : cap.fromStatus ? (
+        <StatusPill status={cap.fromStatus} />
+      ) : null}
+      {(cap.fromLabel || cap.fromStatus) && <span className="text-ams-faint">→</span>}
+      {cap.toLabel ? (
+        <span className="badge badge-warn">{cap.toLabel}</span>
+      ) : (
+        <StatusPill status={cap.toStatus} />
+      )}
+    </div>
+  );
+}
+
+function NurtureTimeline({ account, history, tickets }) {
+  const steps = buildAccountPath(account, history, tickets);
+  if (!steps.length) return null;
+  return (
+    <div className="mb-4 rounded-lg border border-ams-line bg-ams-canvas/60 px-3 py-3">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-ams-faint">Account path</p>
+      <ol className="mt-2 space-y-2">
+        {steps.map((step, i) => (
+          <li key={step.key} className="flex gap-2 text-[13px]">
+            <span className="mt-0.5 w-4 shrink-0 text-[11px] font-semibold text-ams-faint">{i + 1}.</span>
+            <div className="min-w-0">
+              <p className="font-semibold text-ams-ink">
+                {step.title}
+                {step.duration ? (
+                  <span className="ml-1 font-medium text-ams-accent">· {step.duration}</span>
+                ) : null}
+                {step.ongoing ? (
+                  <span className="ml-1 text-[11px] font-medium text-ams-warn">now</span>
+                ) : null}
+              </p>
+              <p className="text-[11px] text-ams-faint">
+                {new Date(step.from).toLocaleString()}
+                {step.to && !step.ongoing ? ` → ${new Date(step.to).toLocaleString()}` : ''}
+                {step.note ? ` · ${step.note}` : ''}
+              </p>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </div>
   );
 }
 
@@ -328,12 +381,21 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
       {!isBusinessUser && account.disconnect_report && (
         <div className="mb-4 rounded-lg border border-ams-warn/50 bg-ams-warn/10 p-4">
           <p className="text-[13px] font-semibold text-ams-warn">
-            ⚠ Business reported a disconnect — {account.disconnect_report.reported_by}
+            ⚠ {account.disconnect_report.source === 'engine_health'
+              ? 'AMS auto-detected a disconnect'
+              : 'Business reported a disconnect'}
+            {' — '}
+            {account.disconnect_report.reported_by}
             {' · '}
             {new Date(account.disconnect_report.reported_at).toLocaleString()}
           </p>
           {account.disconnect_report.note && (
             <p className="mt-1 text-[13px] text-ams-muted">“{account.disconnect_report.note}”</p>
+          )}
+          {account.status === 'LOGGED_OUT' && (
+            <p className="mt-1 text-[12px] text-ams-muted">
+              Status already set to Logged out — confirm Restricted / Banned if that was the real outcome, or confirm Logged out to clear this alert.
+            </p>
           )}
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <select
@@ -423,17 +485,18 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
         <div className="card">
           <div className="border-b border-ams-line px-4 py-3 text-sm font-semibold">Status History</div>
           <div className="p-4">
+            <NurtureTimeline
+              account={account}
+              history={account.statusHistory || []}
+              tickets={account.deliveryTickets || []}
+            />
             {(account.statusHistory || []).length === 0 ? (
               <p className="text-[13px] text-ams-muted">No status changes recorded yet.</p>
             ) : (
               <ul className="space-y-3">
                 {account.statusHistory.map((h) => (
                   <li key={h.id} className="rounded-lg border border-ams-line px-3 py-2.5 text-[13px]">
-                    <div className="flex flex-wrap items-center gap-2">
-                      {h.from_status && <StatusPill status={h.from_status} />}
-                      {h.from_status && <span className="text-ams-faint">→</span>}
-                      <StatusPill status={h.to_status} />
-                    </div>
+                    <HistoryPills event={h} />
                     {h.reason && (
                       <p className="mt-1.5 text-ams-muted">{h.reason}</p>
                     )}

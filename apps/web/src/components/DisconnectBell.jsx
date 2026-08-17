@@ -5,14 +5,54 @@ import { useAuth } from '../context/AuthContext';
 import { useSite } from '../context/SiteContext';
 import { useAllAccounts } from '../hooks/useOperatorAccounts';
 
-/** Header bell for pending business disconnect reports (operator/admin only). */
+const MUTE_KEY = 'ams.disconnectAlertMuted';
+const CHIME_INTERVAL_MS = 10_000;
+
+function readMuted() {
+  try {
+    return localStorage.getItem(MUTE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function playTone(ctx, { freq, at, dur, type = 'sine', peak = 0.18 }) {
+  const start = ctx.currentTime + at;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, start);
+  gain.gain.setValueAtTime(0.0001, start);
+  gain.gain.exponentialRampToValueAtTime(peak, start + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(start);
+  osc.stop(start + dur + 0.02);
+}
+
+function playDisconnectAlertSound() {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    playTone(ctx, { freq: 520, at: 0, dur: 0.12, type: 'triangle', peak: 0.16 });
+    playTone(ctx, { freq: 390, at: 0.14, dur: 0.16, type: 'triangle', peak: 0.14 });
+    setTimeout(() => ctx.close().catch(() => {}), 600);
+  } catch {
+    /* ignore autoplay / audio errors */
+  }
+}
+
+/** Header bell for pending disconnect reports (business + engine auto-detect). */
 export default function DisconnectBell() {
   const { profile } = useAuth();
   const { site } = useSite();
   const navigate = useNavigate();
   const canSee = profile?.role === 'admin' || profile?.role === 'operator';
-  const { data: accounts = [] } = useAllAccounts({ enabled: canSee });
+  const { data: accounts = [] } = useAllAccounts({ enabled: canSee, refetchInterval: 15_000 });
   const [open, setOpen] = useState(false);
+  const [muted, setMuted] = useState(readMuted);
   const rootRef = useRef(null);
 
   const pending = useMemo(() => {
@@ -26,6 +66,30 @@ export default function DisconnectBell() {
         return tb - ta;
       });
   }, [accounts, canSee, site]);
+
+  useEffect(() => {
+    if (!canSee || muted || pending.length === 0) return undefined;
+
+    const chimeIfVisible = () => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      playDisconnectAlertSound();
+    };
+
+    chimeIfVisible();
+    const id = setInterval(chimeIfVisible, CHIME_INTERVAL_MS);
+
+    function onVis() {
+      if (!document.hidden && pending.length > 0 && !muted) {
+        playDisconnectAlertSound();
+      }
+    }
+    document.addEventListener('visibilitychange', onVis);
+
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, [pending.length, canSee, muted]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -52,6 +116,18 @@ export default function DisconnectBell() {
     navigate(`/accounts?open=${encodeURIComponent(id)}`);
   }
 
+  function toggleMute() {
+    setMuted((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(MUTE_KEY, next ? '1' : '0');
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }
+
   return (
     <div className="relative" ref={rootRef}>
       <button
@@ -71,10 +147,12 @@ export default function DisconnectBell() {
             <p className="text-[13px] font-semibold text-ams-ink">Disconnect reports</p>
             <p className="text-[11px] text-ams-faint">
               {count ? `${count} awaiting R&M review` : 'Nothing pending'}
+              {count > 0 && !muted ? ' · alert sound on' : ''}
+              {count > 0 && muted ? ' · alerts muted' : ''}
             </p>
           </div>
           {count === 0 ? (
-            <p className="px-3 py-4 text-[13px] text-ams-muted">No reports from business right now.</p>
+            <p className="px-3 py-4 text-[13px] text-ams-muted">No disconnect reports right now.</p>
           ) : (
             <ul className="max-h-72 overflow-y-auto py-1">
               {pending.map((a) => (
@@ -95,12 +173,17 @@ export default function DisconnectBell() {
                         {a.disconnect_report.note}
                       </span>
                     ) : null}
+                    {a.status === 'LOGGED_OUT' ? (
+                      <span className="mt-0.5 block text-[11px] font-medium text-ams-warn">
+                        Status · Logged out (confirm Restricted / Banned if needed)
+                      </span>
+                    ) : null}
                   </button>
                 </li>
               ))}
             </ul>
           )}
-          <div className="border-t border-ams-line px-3 py-2">
+          <div className="flex items-center justify-between gap-2 border-t border-ams-line px-3 py-2">
             <button
               type="button"
               className="text-[12px] font-medium text-ams-accent hover:underline"
@@ -110,6 +193,13 @@ export default function DisconnectBell() {
               }}
             >
               Open Resource Ledger
+            </button>
+            <button
+              type="button"
+              className="text-[12px] font-medium text-ams-muted hover:text-ams-ink hover:underline"
+              onClick={toggleMute}
+            >
+              {muted ? 'Unmute alerts' : 'Mute alerts'}
             </button>
           </div>
         </div>

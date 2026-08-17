@@ -6,14 +6,18 @@ import { accountToOperatorRow } from '../lib/account-operator-meta';
 import { matchAccountForEngineSlot } from '../lib/engine-slot';
 
 const BRIDGE_POLL_MS = 20_000;
+/** Require two consecutive offline polls before auto-logout (~40s) to avoid reconnect flaps. */
+const OFFLINE_STRIKES = 2;
 
 /**
  * Detect disconnect from live FeedFlow slot.connected — not Feeding audit.
- * IN_USE + offline slot → LOGGED_OUT (AMS governance status).
+ * IN_USE + offline slot (not connected) → LOGGED_OUT + disconnect_report for R&M bell.
+ * authSaved alone no longer blocks detection (stale session after phone logout/restrict).
  */
 export function useEngineHealthSync() {
   const qc = useQueryClient();
   const synced = useRef(new Set());
+  const offlineStrikes = useRef(new Map());
 
   const { data: bridge } = useQuery({
     queryKey: ['bridge', 'summary'],
@@ -36,26 +40,45 @@ export function useEngineHealthSync() {
     if (!slots?.length || !accounts.length) return;
     if (bridge?.reachable === false) return;
 
+    const seenKeys = new Set();
+
     slots.forEach(async (slot) => {
-      // Session still on disk / UI-online — do not treat as logout (preview may be off).
-      if (slot.connected || slot.authSaved || !slot.phone) return;
+      if (!slot.phone) return;
 
       const match = matchAccountForEngineSlot(accounts, slot);
       if (!match || match.status !== 'IN_USE') return;
+
+      const strikeKey = `offline-${match.id}-${slot.slot}`;
+      seenKeys.add(strikeKey);
+
+      // Still live on engine — clear strike counter.
+      if (slot.connected) {
+        offlineStrikes.current.delete(strikeKey);
+        return;
+      }
+
+      const strikes = (offlineStrikes.current.get(strikeKey) || 0) + 1;
+      offlineStrikes.current.set(strikeKey, strikes);
+      if (strikes < OFFLINE_STRIKES) return;
 
       const key = `logout-${match.id}-${slot.slot}`;
       if (synced.current.has(key)) return;
       synced.current.add(key);
 
       try {
-        await api.post(`/accounts/${match.id}/transition`, {
-          to_status: 'LOGGED_OUT',
-          reason: 'Engine reported slot offline / logged out',
+        await api.post(`/accounts/${match.id}/engine-disconnect`, {
+          slot: Number(slot.slot),
+          note: `Auto-detected by AMS: FeedFlow slot ${Number(slot.slot) + 1} offline / logged out`,
         });
         qc.invalidateQueries({ queryKey: ['accounts'] });
       } catch {
         synced.current.delete(key);
       }
     });
+
+    // Drop strike keys for slots no longer relevant.
+    for (const key of offlineStrikes.current.keys()) {
+      if (!seenKeys.has(key)) offlineStrikes.current.delete(key);
+    }
   }, [bridge, accounts, qc]);
 }

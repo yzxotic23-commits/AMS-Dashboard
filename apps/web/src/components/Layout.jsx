@@ -13,6 +13,7 @@ import SiteSwitcher from './SiteSwitcher';
 import GovernanceDateControls from './GovernanceDateControls';
 import AppSidebar from './AppSidebar';
 import EngineBackgroundSync from './EngineBackgroundSync';
+import EngineLogoutWatcher from './EngineLogoutWatcher';
 import DisconnectBell from './DisconnectBell';
 import TicketBell from './TicketBell';
 
@@ -109,6 +110,7 @@ export default function Layout({ authBooting = false }) {
 
   return (
     <div className="flex h-screen overflow-hidden bg-ams-sidebar">
+      <EngineLogoutWatcher />
       {amsBridgeSync ? <EngineBackgroundSync /> : null}
       <AppSidebar
         profile={profile}

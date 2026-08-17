@@ -32,7 +32,7 @@ const ALLOWED_TRANSITIONS = {
   NURTURING: ['AVAILABLE', 'BANNED', 'RECYCLED'],
   AVAILABLE: ['IN_USE', 'NURTURING', 'RECYCLED'],
   IN_USE: ['LOGGED_OUT', 'BANNED', 'AVAILABLE'],
-  LOGGED_OUT: ['NURTURING', 'RECOVERING', 'RECYCLED'],
+  LOGGED_OUT: ['NURTURING', 'RECOVERING', 'RECYCLED', 'BANNED'],
   BANNED: ['RECOVERING', 'RECYCLED'],
   RECOVERING: ['NURTURING', 'AVAILABLE', 'RECYCLED'],
   RECYCLED: [],
@@ -136,6 +136,60 @@ function seedStatusHistory() {
       changed_at: new Date(Date.now() - 86400000).toISOString(),
       profiles: { full_name: DEMO_PROFILE.full_name },
     });
+  });
+
+  demoAccounts.forEach((a) => {
+    const hist = demoStatusHistory[a.id];
+    if (!hist) return;
+    if (!['NURTURING', 'AVAILABLE', 'IN_USE'].includes(a.status)) return;
+    const meta = parseOperatorMeta(a);
+    const start = new Date(meta.nurturing_started_at || a.registration_date || a.created_at || Date.now()).getTime();
+    hist.unshift({
+      id: `sh-${a.id}-act`,
+      account_id: a.id,
+      from_status: 'REGISTERING',
+      to_status: 'NURTURING',
+      reason: 'Started Manual nurturing',
+      changed_at: new Date(start).toISOString(),
+      profiles: { full_name: DEMO_PROFILE.full_name },
+    });
+    const reachedSystem = meta.nurturing_phase === 'auto' || a.status !== 'NURTURING';
+    if (reachedSystem) {
+      hist.unshift({
+        id: `sh-${a.id}-scan`,
+        account_id: a.id,
+        from_status: 'NURTURING',
+        to_status: 'NURTURING',
+        reason: 'Scan-in — Manual nurturing 3 days → System nurturing',
+        changed_at: new Date(start + 2 * MS_DAY).toISOString(),
+        profiles: { full_name: DEMO_PROFILE.full_name },
+      });
+    }
+    if (a.status === 'AVAILABLE' || a.status === 'IN_USE') {
+      const total = Math.max(7, Math.floor((Date.now() - start) / MS_DAY) + 1);
+      const autoDays = Math.max(1, total - 3);
+      const standbyAt = start + (total - 1) * MS_DAY;
+      hist.unshift({
+        id: `sh-${a.id}-stdby`,
+        account_id: a.id,
+        from_status: 'NURTURING',
+        to_status: 'AVAILABLE',
+        reason: `Nurturing complete — Manual nurturing 3 days, System nurturing ${autoDays} days → Standby`,
+        changed_at: new Date(standbyAt).toISOString(),
+        profiles: { full_name: DEMO_PROFILE.full_name },
+      });
+      if (a.status === 'IN_USE') {
+        hist.unshift({
+          id: `sh-${a.id}-inuse`,
+          account_id: a.id,
+          from_status: 'AVAILABLE',
+          to_status: 'IN_USE',
+          reason: 'Go-live ticket — Standby 2 days → In Use (business scan)',
+          changed_at: new Date(standbyAt + 2 * MS_DAY).toISOString(),
+          profiles: { full_name: DEMO_PROFILE.full_name },
+        });
+      }
+    }
   });
 
   ['acc-005', 'rec2'].forEach((id) => {
@@ -618,6 +672,20 @@ export function getMockResponse(config) {
     return {
       ...enrichAccount(account),
       statusHistory: demoStatusHistory[id] || [],
+      deliveryTickets: demoTickets
+        .filter((t) => t.account_id === id)
+        .map((t) => {
+          const meta = parseTicketMeta(t);
+          return {
+            id: t.id,
+            ticket_number: t.ticket_number,
+            status: t.status,
+            created_at: t.created_at,
+            submitted_at: meta.submitted_at || t.created_at,
+            in_progress_at: meta.in_progress_at || null,
+            delivery_stage: meta.delivery_stage,
+          };
+        }),
     };
   }
 
@@ -662,6 +730,14 @@ export function getMockResponse(config) {
     if (body.device_id !== undefined) syncDeviceBinding(prev.device_id, body.device_id, id);
     if (body.status && body.status !== prev.status) {
       pushStatusHistory(id, prev.status, body.status, body.reason || 'Status updated');
+    } else {
+      const prevMeta = parseOperatorMeta(prev);
+      const nextMeta = parseOperatorMeta(row);
+      if (prevMeta.nurturing_phase === 'manual' && nextMeta.nurturing_phase === 'auto') {
+        pushStatusHistory(id, 'NURTURING', 'NURTURING', 'Scan-in — Manual nurturing 3 days → System nurturing');
+      } else if (prevMeta.nurturing_phase === 'auto' && nextMeta.nurturing_phase === 'manual') {
+        pushStatusHistory(id, 'NURTURING', 'NURTURING', 'Returned to Manual nurturing (from System nurturing)');
+      }
     }
     return enrichAccount(row);
   }
@@ -675,12 +751,118 @@ export function getMockResponse(config) {
     if (!allowed.includes(body.to_status)) {
       throw new Error(`Invalid state transition: ${current.status} → ${body.to_status}`);
     }
+    let histReason = body.reason || 'State transition';
+    if (current.status === 'REGISTERING' && body.to_status === 'NURTURING') {
+      histReason = 'Started Manual nurturing';
+    } else if (current.status === 'NURTURING' && body.to_status === 'AVAILABLE') {
+      histReason = `${body.reason || 'Nurturing complete'} · Manual nurturing 3 days, System nurturing → Standby`;
+    }
     demoAccounts = demoAccounts.map((a) => (
       a.id === id
         ? { ...a, status: body.to_status, updated_at: new Date().toISOString() }
         : a
     ));
-    pushStatusHistory(id, current.status, body.to_status, body.reason || 'State transition');
+    pushStatusHistory(id, current.status, body.to_status, histReason);
+    return enrichAccount(demoAccounts.find((a) => a.id === id));
+  }
+
+  if (method === 'POST' && /^accounts\/[^/]+\/engine-disconnect$/.test(url)) {
+    const id = url.split('/')[1];
+    const body = typeof config.data === 'string' ? JSON.parse(config.data) : (config.data || {});
+    const current = demoAccounts.find((a) => a.id === id);
+    if (!current) throw new Error('Account not found');
+    if (current.status !== 'IN_USE') {
+      return { ...enrichAccount(current), _skipped: true, reason: 'not_in_use' };
+    }
+    const meta = parseOperatorMeta(current);
+    const reportNote = (body.note || '').trim()
+      || 'Auto-detected by AMS: FeedFlow slot offline / logged out';
+    const report = meta.disconnect_report || {
+      reported_at: new Date().toISOString(),
+      reported_by: 'AMS Engine',
+      note: reportNote,
+      source: 'engine_health',
+      slot: body.slot == null ? null : Number(body.slot),
+    };
+    const notes = serializeAccountNotes({ ...meta, disconnect_report: report });
+    demoAccounts = demoAccounts.map((a) => (
+      a.id === id
+        ? { ...a, status: 'LOGGED_OUT', notes, updated_at: new Date().toISOString() }
+        : a
+    ));
+    pushStatusHistory(id, current.status, 'LOGGED_OUT', reportNote);
+    return enrichAccount(demoAccounts.find((a) => a.id === id));
+  }
+
+  if (method === 'POST' && /^accounts\/[^/]+\/report-disconnect$/.test(url)) {
+    const id = url.split('/')[1];
+    const body = typeof config.data === 'string' ? JSON.parse(config.data) : (config.data || {});
+    const current = demoAccounts.find((a) => a.id === id);
+    if (!current) throw new Error('Account not found');
+    if (current.status !== 'IN_USE') throw new Error('Only accounts currently In Use can be reported as disconnected');
+    const meta = parseOperatorMeta(current);
+    if (meta.disconnect_report) {
+      return { ...enrichAccount(current), _alreadyReported: true };
+    }
+    const report = {
+      reported_at: new Date().toISOString(),
+      reported_by: DEMO_PROFILE.full_name,
+      note: (body.note || '').trim(),
+    };
+    const notes = serializeAccountNotes({ ...meta, disconnect_report: report });
+    demoAccounts = demoAccounts.map((a) => (
+      a.id === id ? { ...a, notes, updated_at: new Date().toISOString() } : a
+    ));
+    return enrichAccount(demoAccounts.find((a) => a.id === id));
+  }
+
+  if (method === 'POST' && /^accounts\/[^/]+\/resolve-disconnect$/.test(url)) {
+    const id = url.split('/')[1];
+    const body = typeof config.data === 'string' ? JSON.parse(config.data) : (config.data || {});
+    const current = demoAccounts.find((a) => a.id === id);
+    if (!current) throw new Error('Account not found');
+    const meta = parseOperatorMeta(current);
+    if (!meta.disconnect_report) throw new Error('No pending disconnect report for this account');
+    const outcome = body.outcome;
+    if (outcome === 'logged_out' || outcome === 'banned') {
+      const toStatus = outcome === 'logged_out' ? 'LOGGED_OUT' : 'BANNED';
+      if (current.status !== toStatus) {
+        const allowed = ALLOWED_TRANSITIONS[current.status] || [];
+        if (!allowed.includes(toStatus)) {
+          throw new Error(`Invalid state transition: ${current.status} → ${toStatus}`);
+        }
+      }
+      const nextMeta = { ...meta, disconnect_report: null };
+      let notes = serializeAccountNotes(nextMeta);
+      if (toStatus === 'BANNED') {
+        notes = serializeRecoveryNotes(notes, recoveryOnBanDefaults('manual', body.reason || 'Banned'));
+        bumpDemoIpRisk(current.ip_id);
+      }
+      demoAccounts = demoAccounts.map((a) => (
+        a.id === id
+          ? { ...a, status: toStatus, notes, updated_at: new Date().toISOString() }
+          : a
+      ));
+      if (current.status !== toStatus) {
+        pushStatusHistory(id, current.status, toStatus, body.reason || outcome);
+      }
+      return enrichAccount(demoAccounts.find((a) => a.id === id));
+    }
+    const nextMeta = {
+      ...meta,
+      disconnect_report: null,
+      restrict_kind: outcome,
+      ...(outcome === 'restrict_scan'
+        ? {
+            nurturing_phase: 'manual',
+            nurturing_started_at: new Date(Date.now() - 2 * MS_DAY).toISOString(),
+          }
+        : {}),
+    };
+    const notes = serializeAccountNotes(nextMeta);
+    demoAccounts = demoAccounts.map((a) => (
+      a.id === id ? { ...a, notes, updated_at: new Date().toISOString() } : a
+    ));
     return enrichAccount(demoAccounts.find((a) => a.id === id));
   }
 
@@ -943,6 +1125,12 @@ export function getMockResponse(config) {
     demoTickets.unshift(ticket);
     const review = demoIpGateReviews.find((r) => r.id === reviewId);
     if (review) review.ticket_id = ticket.id;
+    pushStatusHistory(
+      account.id,
+      'AVAILABLE',
+      'AVAILABLE',
+      `Delivery ticket #${ticket.ticket_number} submitted — awaiting IP review (business scan)`,
+    );
     return enrichDemoTicket(ticket);
   }
 
@@ -969,6 +1157,12 @@ export function getMockResponse(config) {
       demoAccounts = demoAccounts.map((a) => (
         a.id === ticket.account_id ? { ...a, status: 'IN_USE' } : a
       ));
+      pushStatusHistory(
+        ticket.account_id,
+        'AVAILABLE',
+        'IN_USE',
+        `Go-live ticket #${ticket.ticket_number} — Standby → In Use (business scan)`,
+      );
     }
     ticket.status = 'IN_PROGRESS';
     ticket.description = serializeTicketDescription('', meta);

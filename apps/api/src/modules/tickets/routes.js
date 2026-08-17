@@ -499,6 +499,22 @@ router.post('/', async (req, res, next) => {
     const [enriched] = await attachScreenshotUrls([
       enrichRow(ticket, account, null, requesterLabel(req, account)),
     ]);
+
+    const standbyDays = (() => {
+      const start = account.updated_at || account.created_at;
+      const startMs = new Date(start).getTime();
+      const now = Date.now();
+      if (Number.isNaN(startMs) || now < startMs) return 1;
+      return Math.max(1, Math.floor((now - startMs) / 86_400_000) + 1);
+    })();
+    await supabaseAdmin.from('account_status_history').insert({
+      account_id: account.id,
+      from_status: 'AVAILABLE',
+      to_status: 'AVAILABLE',
+      reason: `Delivery ticket #${ticket.ticket_number} submitted — awaiting IP review (business scan)${standbyDays ? ` · Standby so far ${standbyDays === 1 ? '1 day' : `${standbyDays} days`}` : ''}`,
+      changed_by: req.profile?.id || req.user.id,
+    });
+
     res.status(201).json(enriched);
   } catch (e) {
     next(e);
@@ -538,6 +554,28 @@ router.post('/:id/go-live', async (req, res, next) => {
 
     assertTransition(account.status, 'IN_USE');
     await supabaseAdmin.from('accounts').update({ status: 'IN_USE' }).eq('id', account.id);
+
+    const { data: standbyRows } = await supabaseAdmin
+      .from('account_status_history')
+      .select('changed_at')
+      .eq('account_id', account.id)
+      .eq('to_status', 'AVAILABLE')
+      .order('changed_at', { ascending: false })
+      .limit(1);
+    const standbyRow = Array.isArray(standbyRows) ? standbyRows[0] : standbyRows;
+    const standbyStart = standbyRow?.changed_at || account.updated_at || account.created_at;
+    const standbyMs = new Date(standbyStart).getTime();
+    const standbyDays = Number.isNaN(standbyMs)
+      ? 1
+      : Math.max(1, Math.floor((Date.now() - standbyMs) / 86_400_000) + 1);
+    const dayLabel = standbyDays === 1 ? '1 day' : `${standbyDays} days`;
+    await supabaseAdmin.from('account_status_history').insert({
+      account_id: account.id,
+      from_status: 'AVAILABLE',
+      to_status: 'IN_USE',
+      reason: `Go-live ticket #${ticket.ticket_number} — Standby ${dayLabel} → In Use (business scan)`,
+      changed_by: req.profile?.id || req.user.id,
+    });
 
     const { data: updated, error: upErr } = await supabaseAdmin
       .from('tickets')

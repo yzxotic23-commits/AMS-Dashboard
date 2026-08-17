@@ -2,7 +2,6 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
-import { accountToOperatorRow } from '../lib/account-operator-meta';
 import { filterRosterForProfile } from '../lib/operator-scope';
 import { countRegNeededFromQueue } from '../lib/register-queue';
 import { canonicalHubOwner, ownerMatchesOperator } from '../lib/hub-operators';
@@ -10,6 +9,7 @@ import { usePreparedQueue } from './usePreparedQueue';
 import { useOperatorRoster, operatorDisplayName } from './useOperatorRoster';
 import { isManualScanDue } from '../lib/nurturing-day';
 import { SITES } from '../lib/sites';
+import { useAllAccounts } from './useOperatorAccounts';
 
 function filterSite(rows, site) {
   if (site === 'all') return rows;
@@ -159,14 +159,7 @@ export function buildOperatorHubRows(
 }
 
 export function useHubCountsBySite() {
-  const { data: accounts = [] } = useQuery({
-    queryKey: ['accounts', 'hub'],
-    queryFn: async () => {
-      const res = await api.get('/accounts', { params: { limit: 300 } });
-      return (res.data?.data || []).map(accountToOperatorRow);
-    },
-    refetchInterval: 30_000,
-  });
+  const { data: accounts = [] } = useAllAccounts();
 
   const { data: tickets = [] } = useQuery({
     queryKey: ['tickets', 'hub', 'all'],
@@ -193,14 +186,7 @@ export function useHubCounts(site = 'all') {
 
 export function useHubOperators(site = 'all') {
   const { profile } = useAuth();
-  const { data: accounts = [] } = useQuery({
-    queryKey: ['accounts', 'hub'],
-    queryFn: async () => {
-      const res = await api.get('/accounts', { params: { limit: 300 } });
-      return (res.data?.data || []).map(accountToOperatorRow);
-    },
-    refetchInterval: 30_000,
-  });
+  const { data: accounts = [] } = useAllAccounts();
 
   const { data: tickets = [] } = useQuery({
     queryKey: ['tickets', 'hub', 'all'],

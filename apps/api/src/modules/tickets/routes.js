@@ -92,6 +92,18 @@ async function tryLoadAccount(accountId) {
   }
 }
 
+async function loadAccountsByIds(ids) {
+  const unique = [...new Set((ids || []).filter(Boolean))];
+  if (!unique.length) return new Map();
+  const { data, error } = await supabaseAdmin
+    .from('accounts')
+    .select(ACCOUNT_SELECT_TICKET)
+    .in('id', unique);
+  if (error) throw error;
+  const enriched = await enrichAccountsIpEmbed(data);
+  return new Map((enriched || []).map((row) => [row.id, row]));
+}
+
 async function loadTicketById(id) {
   const { data, error } = await supabaseAdmin
     .from('tickets')
@@ -255,14 +267,12 @@ router.get('/', async (req, res, next) => {
     if (error) throw error;
 
     const requesterMap = await loadRequesterNameMap((tickets || []).map((t) => t.requester_id));
+    const accountMap = await loadAccountsByIds((tickets || []).map((t) => t.account_id));
     const brandScope = profileBrandScope(req.profile);
     const staffScope = profileStaffScope(req.profile);
     const rows = [];
     for (const t of tickets || []) {
-      let account = null;
-      if (t.account_id) {
-        try { account = await loadAccount(t.account_id); } catch { /* account removed */ }
-      }
+      const account = t.account_id ? (accountMap.get(t.account_id) || null) : null;
       const row = enrichRow(t, account, null, requesterMap.get(t.requester_id) || '');
       if (siteKey && siteKey !== 'all' && row.site_key !== siteKey) continue;
       if (!accountInBrandScope(account, brandScope)) continue;
@@ -283,14 +293,12 @@ router.get('/stats', async (req, res, next) => {
     const evalAt = rangeEvalAt(range);
     const { data: tickets } = await supabaseAdmin.from('tickets').select('*').limit(500);
     const requesterMap = await loadRequesterNameMap((tickets || []).map((t) => t.requester_id));
+    const accountMap = await loadAccountsByIds((tickets || []).map((t) => t.account_id));
     const brandScope = profileBrandScope(req.profile);
     const staffScope = profileStaffScope(req.profile);
     const rows = [];
     for (const t of tickets || []) {
-      let account = null;
-      if (t.account_id) {
-        try { account = await loadAccount(t.account_id); } catch { /* skip */ }
-      }
+      const account = t.account_id ? (accountMap.get(t.account_id) || null) : null;
       const row = enrichRow(t, account, null, requesterMap.get(t.requester_id) || '');
       if (siteKey && siteKey !== 'all' && row.site_key !== siteKey) continue;
       if (!accountInBrandScope(account, brandScope)) continue;

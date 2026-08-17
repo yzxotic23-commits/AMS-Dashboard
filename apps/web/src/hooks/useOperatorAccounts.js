@@ -27,6 +27,7 @@ export function useAllAccounts(options = {}) {
     enabled,
     staleTime: 30_000,
     refetchInterval,
+    placeholderData: (prev) => prev,
   });
 }
 

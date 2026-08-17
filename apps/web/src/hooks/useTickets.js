@@ -60,6 +60,7 @@ export function useTickets(site = 'all', options = {}) {
     staleTime: 10_000,
     refetchInterval: enabled ? 15_000 : false,
     refetchOnWindowFocus: true,
+    placeholderData: (prev) => prev,
   });
 }
 

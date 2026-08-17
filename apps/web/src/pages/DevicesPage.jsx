@@ -142,7 +142,7 @@ export default function DevicesPage() {
   const { data: devices = [], isLoading } = useQuery({
     queryKey: ['devices'],
     queryFn: async () => {
-      const res = await api.get('/devices', { params: { limit: 200 } });
+      const res = await api.get('/devices', { params: { limit: 500 } });
       return res.data?.data || [];
     },
   });

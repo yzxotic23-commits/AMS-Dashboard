@@ -21,6 +21,7 @@ import { buildAccountPath, historyRowCaption } from '../lib/nurture-history';
 import { getBridgeSummary } from '../lib/bridge-client';
 import { liveSlotConnection } from '../lib/engine-slot';
 import { profileStaffScope, accountInStaffScope } from '../lib/account-staff';
+import api from '../lib/api';
 
 const LEDGER_PAGE_SIZE = 5;
 const BUSINESS_PAGE_SIZE = 10;
@@ -619,7 +620,7 @@ export default function AccountsPage() {
   const [detailId, setDetailId] = useState(null);
   const [page, setPage] = useState(1);
 
-  const { data: accounts = [], isLoading } = useAllAccounts();
+  const { data: accounts = [], isLoading: accountsLoading, isError: accountsError } = useAllAccounts();
   const staffScope = useMemo(() => profileStaffScope(profile), [profile]);
   const visibleAccounts = useMemo(
     () => accounts.filter((a) => accountInStaffScope(a, staffScope)),
@@ -658,14 +659,31 @@ export default function AccountsPage() {
 
   // Business can't read /devices (ops-only asset ledger) — skip the device-card grouping
   // and show a flat, brand-scoped account list instead.
-  const { data: devices = [] } = useQuery({
+  const { data: devices = [], isLoading: devicesLoading, isError: devicesError } = useQuery({
     queryKey: ['devices'],
     queryFn: async () => {
-      const res = await api.get('/devices', { params: { limit: 200 } });
+      const res = await api.get('/devices', { params: { limit: 500 } });
       return res.data?.data || [];
     },
     enabled: !isBusiness,
+    staleTime: 30_000,
+    placeholderData: (prev) => prev,
   });
+
+  const ledgerDevices = useMemo(() => {
+    const byId = new Map();
+    devices.forEach((d) => {
+      if (d?.id) byId.set(d.id, d);
+    });
+    accounts.forEach((a) => {
+      if (!a.device_id || byId.has(a.device_id)) return;
+      byId.set(a.device_id, {
+        id: a.device_id,
+        device_name: a.device || a.device_id,
+      });
+    });
+    return [...byId.values()];
+  }, [devices, accounts]);
 
   const businessRows = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -689,7 +707,9 @@ export default function AccountsPage() {
     let acctCount = 0;
     const cards = [];
 
-    const sortedDevices = filterDevicesBySite([...devices].sort(compareDeviceNames), site);
+    const sortedDevices = filterDevicesBySite([...ledgerDevices].sort(compareDeviceNames), site);
+
+    const hasActiveFilter = Boolean(q || fBrand || fStaff || fSt);
 
     sortedDevices.forEach((device) => {
       const name = String(device.device_name || '').toUpperCase();
@@ -721,7 +741,7 @@ export default function AccountsPage() {
       const devHit = q && device.device_name.toLowerCase().includes(q);
       const matched = devHit ? deviceAccounts : deviceAccounts.filter(acctMatch);
 
-      if (!devHit && matched.length === 0) return;
+      if (hasActiveFilter && !devHit && matched.length === 0) return;
 
       devCount += 1;
       acctCount += matched.length;
@@ -756,7 +776,7 @@ export default function AccountsPage() {
       : null;
 
     return { deviceCards: cards, orphanCard, devCount, acctCount };
-  }, [accounts, devices, search, site, fBrand, fStaff, fSt]);
+  }, [accounts, ledgerDevices, search, site, fBrand, fStaff, fSt]);
 
   const pageSize = isBusiness ? BUSINESS_PAGE_SIZE : LEDGER_PAGE_SIZE;
   const totalItems = isBusiness ? businessRows.length : filtered.deviceCards.length;
@@ -881,6 +901,12 @@ export default function AccountsPage() {
     ? businessRows.length > 0
     : filtered.deviceCards.length > 0 || filtered.orphanCard;
 
+  const isLoading = isBusiness
+    ? accountsLoading
+    : (accountsLoading || devicesLoading);
+
+  const loadFailed = !isLoading && (accountsError || (!isBusiness && devicesError && ledgerDevices.length === 0));
+
   return (
     <div>
       <PageHead
@@ -971,6 +997,10 @@ export default function AccountsPage() {
 
       {isLoading ? (
         <p className="py-10 text-center text-sm text-ams-faint">Loading ledger…</p>
+      ) : loadFailed ? (
+        <p className="py-10 text-center text-sm text-ams-warn">
+          Couldn’t load the ledger. Refresh the page.
+        </p>
       ) : !hasResults ? (
         <p className="py-10 text-center text-sm text-ams-faint">
           {isBusiness ? 'No accounts match the filters.' : 'No devices or accounts match the filters.'}

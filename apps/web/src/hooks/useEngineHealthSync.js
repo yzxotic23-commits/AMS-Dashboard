@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getBridgeSummary } from '../lib/bridge-client';
 import api from '../lib/api';
-import { accountToOperatorRow } from '../lib/account-operator-meta';
+import { useAllAccounts } from './useOperatorAccounts';
 import { matchAccountForEngineSlot } from '../lib/engine-slot';
 
 const BRIDGE_POLL_MS = 20_000;
@@ -26,14 +26,7 @@ export function useEngineHealthSync() {
     retry: 1,
   });
 
-  const { data: accounts = [] } = useQuery({
-    queryKey: ['accounts', 'engine-sync'],
-    queryFn: async () => {
-      const res = await api.get('/accounts', { params: { limit: 400 } });
-      return (res.data?.data || []).map(accountToOperatorRow);
-    },
-    refetchInterval: BRIDGE_POLL_MS,
-  });
+  const { data: accounts = [] } = useAllAccounts();
 
   useEffect(() => {
     const slots = bridge?.slots;

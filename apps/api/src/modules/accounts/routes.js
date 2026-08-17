@@ -19,6 +19,7 @@ import { parseOperatorMeta, mergeOperatorNotes } from '../../lib/accountMeta.js'
 import { assertDeviceSlotAvailable, DeviceSlotError } from '../../lib/deviceSlots.js';
 import { postWsafAuditRecord } from '../../lib/wsafBridge.js';
 import { accountInBrandScope, profileBrandScope } from '../../lib/accountBrand.js';
+import { accountInStaffScope, profileStaffScope } from '../../lib/accountStaff.js';
 import { parseTicketMeta } from '../../lib/ticketMeta.js';
 
 const MS_DAY = 86_400_000;
@@ -64,6 +65,9 @@ router.use((req, res, next) => {
   // Engine auto-detect logout — operator/admin only (background sync from AMS UI).
   if (req.method === 'POST' && /\/engine-disconnect$/.test(req.path)) {
     return requireRole('admin', 'operator')(req, res, next);
+  }
+  if (req.method === 'POST' && /\/ack-notice$/.test(req.path)) {
+    return requireRole('admin', 'operator', 'business')(req, res, next);
   }
   return requireRole('admin', 'operator')(req, res, next);
 });
@@ -283,11 +287,19 @@ router.get('/', async (req, res, next) => {
       if (error) throw error;
       const enriched = await enrichAccountsIpEmbed(data);
       const brandFiltered = enriched.filter((row) => accountInBrandScope(row, brandScope));
+      const staffScope = profileStaffScope(req.profile);
+      const staffFiltered = brandFiltered.filter((row) => accountInStaffScope(row, staffScope));
       // Standby pool browsing (for submitting a delivery ticket) must see AVAILABLE accounts
       // before delivery — only the general "check my account status" list needs the ticket gate.
-      const scoped = req.query.status === 'AVAILABLE'
-        ? brandFiltered
-        : await filterDeliveredForBusiness(brandFiltered, req.profile);
+      const delivered = req.query.status === 'AVAILABLE'
+        ? staffFiltered
+        : await filterDeliveredForBusiness(staffFiltered, req.profile);
+      const withNotice = req.query.status === 'AVAILABLE'
+        ? []
+        : staffFiltered.filter((row) => parseOperatorMeta(row).business_notice);
+      const byId = new Map();
+      [...delivered, ...withNotice].forEach((row) => byId.set(row.id, row));
+      const scoped = [...byId.values()];
       const pageRows = sanitizeAccountsForRole(scoped.slice(offset, offset + limit), req.profile);
       res.set('Cache-Control', 'no-store');
       return res.json(paginatedResponse(pageRows, scoped.length, page, limit));
@@ -326,16 +338,26 @@ router.get('/:id', async (req, res, next) => {
     if (error) throw error;
 
     // Business is brand-scoped — block lookup of accounts outside their assigned brands.
+    // Notices (review result / returned to Standby) stay readable even if status left IN_USE.
     const brandScope = profileBrandScope(req.profile);
     if (brandScope) {
-      // Business can only check accounts that already went through a delivery ticket —
-      // never the internal Registering/Nurturing/Standby pool.
-      if (!accountInBrandScope(data, brandScope) || !BUSINESS_VISIBLE_STATUSES.has(data.status)) {
+      if (!accountInBrandScope(data, brandScope)) {
         return res.status(404).json({ error: 'Account not found' });
       }
-      const delivered = await deliveredAccountIds([data.id]);
-      if (!delivered.has(data.id)) {
+      const staffScope = profileStaffScope(req.profile);
+      if (!accountInStaffScope(data, staffScope)) {
         return res.status(404).json({ error: 'Account not found' });
+      }
+      const notice = parseOperatorMeta(data).business_notice;
+      const visibleStatus = BUSINESS_VISIBLE_STATUSES.has(data.status);
+      if (!visibleStatus && !notice) {
+        return res.status(404).json({ error: 'Account not found' });
+      }
+      if (visibleStatus) {
+        const delivered = await deliveredAccountIds([data.id]);
+        if (!delivered.has(data.id) && !notice) {
+          return res.status(404).json({ error: 'Account not found' });
+        }
       }
     }
 
@@ -906,6 +928,10 @@ router.post('/:id/report-disconnect', async (req, res, next) => {
       if (!accountInBrandScope(current, brandScope)) {
         return res.status(404).json({ error: 'Account not found' });
       }
+      const staffScope = profileStaffScope(req.profile);
+      if (!accountInStaffScope(current, staffScope)) {
+        return res.status(404).json({ error: 'Account not found' });
+      }
     }
     if (current.status !== 'IN_USE') {
       return res.status(400).json({ error: 'Only accounts currently In Use can be reported as disconnected' });
@@ -990,7 +1016,15 @@ router.post('/:id/resolve-disconnect', async (req, res, next) => {
       if (current.status !== toStatus) {
         assertTransition(current.status, toStatus);
       }
-      const notes = mergeOperatorNotes(current.notes, { disconnect_report: null });
+      const notes = mergeOperatorNotes(current.notes, { disconnect_report: null, business_notice: {
+        type: 'disconnect_resolved',
+        at: new Date().toISOString(),
+        outcome,
+        title: `${current.account_name || 'Account'} · ${toStatus === 'BANNED' ? 'Banned' : 'Logged out'}`,
+        body: toStatus === 'BANNED'
+          ? `R&M reviewed your disconnect report. This account is Banned.`
+          : `R&M reviewed your disconnect report. This account is Logged out.`,
+      } });
 
       const { data: updated, error } = await supabaseAdmin
         .from('accounts')
@@ -1028,8 +1062,25 @@ router.post('/:id/resolve-disconnect', async (req, res, next) => {
             nurturing_phase: 'manual',
             nurturing_started_at: new Date(Date.now() - 2 * 86_400_000).toISOString(),
             disconnect_report: null,
+            business_notice: {
+              type: 'disconnect_resolved',
+              at: new Date().toISOString(),
+              outcome,
+              title: `${current.account_name || 'Account'} · Restricted`,
+              body: `${label} — R&M reviewed your disconnect report. Status is Restricted until the period ends.`,
+            },
           }
-        : { restrict_kind: outcome, disconnect_report: null };
+        : {
+            restrict_kind: outcome,
+            disconnect_report: null,
+            business_notice: {
+              type: 'disconnect_resolved',
+              at: new Date().toISOString(),
+              outcome,
+              title: `${current.account_name || 'Account'} · Restricted`,
+              body: `${label} — R&M reviewed your disconnect report. Status is Restricted until the period ends.`,
+            },
+          };
       const humanNote = outcome === 'restrict_scan'
         ? 'Restricted Scan — cannot scan / re-link during restriction period'
         : 'Restricted Chat New Contact — can scan; chat limited to existing contacts only';
@@ -1044,6 +1095,13 @@ router.post('/:id/resolve-disconnect', async (req, res, next) => {
       if (error) throw error;
       data = updated;
       toLabel = label;
+      await supabaseAdmin.from('account_status_history').insert({
+        account_id: data.id,
+        from_status: current.status,
+        to_status: current.status,
+        reason: `${label} · ${reason} · reported by ${reportedBy}`,
+        changed_by: req.profile.id,
+      });
     }
 
     await writeAudit({
@@ -1065,6 +1123,116 @@ router.post('/:id/resolve-disconnect', async (req, res, next) => {
     });
 
     res.json(data);
+  } catch (e) {
+    next(e);
+  }
+});
+
+const returnStandbySchema = z.object({
+  reason: z.string().max(500).optional(),
+});
+
+// POST /accounts/:id/return-standby — restriction period over; put back in Standby
+// so the same business staff can request the account again via a delivery ticket.
+router.post('/:id/return-standby', async (req, res, next) => {
+  try {
+    const { reason } = returnStandbySchema.parse(req.body || {});
+    const { data: current, error: fetchErr } = await supabaseAdmin
+      .from('accounts')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+    if (fetchErr) throw fetchErr;
+
+    const meta = parseOperatorMeta(current);
+    if (current.status !== 'IN_USE' || !meta.restrict_kind) {
+      return res.status(400).json({
+        error: 'Only In Use accounts that are Restricted can return to Standby',
+      });
+    }
+
+    assertTransition(current.status, 'AVAILABLE');
+    const label = STRICT_KIND_LABEL[meta.restrict_kind] || 'Restricted';
+    const note = (reason || '').trim()
+      || `${label} period ended — returned to Standby for re-delivery`;
+    const notices = mergeOperatorNotes(current.notes, {
+      restrict_kind: null,
+      disconnect_report: null,
+      business_notice: {
+        type: 'returned_standby',
+        at: new Date().toISOString(),
+        title: `${current.account_name || 'Account'} is back on Standby`,
+        body: `${current.account_name} restriction ended. You can request this account again from Delivery tickets.`,
+      },
+    }, note);
+
+    const { data, error } = await supabaseAdmin
+      .from('accounts')
+      .update({ status: 'AVAILABLE', notes: notices, wsaf_slot: null })
+      .eq('id', req.params.id)
+      .select(ACCOUNT_SELECT_WITH_SIM_LOCATION)
+      .single();
+    if (error) throw error;
+
+    await supabaseAdmin.from('account_status_history').insert({
+      account_id: data.id,
+      from_status: current.status,
+      to_status: 'AVAILABLE',
+      reason: note,
+      changed_by: req.profile.id,
+    });
+
+    await writeAudit({
+      entityType: 'account',
+      entityId: data.id,
+      action: 'STATE_CHANGE',
+      previousValue: { status: current.status, restrict_kind: meta.restrict_kind },
+      newValue: { status: 'AVAILABLE', reason: note },
+      metadata: {
+        account_name: data.account_name,
+        field: 'Return to Standby',
+        from: label,
+        to: 'Standby',
+      },
+      userId: req.profile.id,
+      req,
+    });
+
+    res.json(data);
+  } catch (e) {
+    next(e);
+  }
+});
+
+// POST /accounts/:id/ack-notice — business dismisses a status notice
+router.post('/:id/ack-notice', async (req, res, next) => {
+  try {
+    const { data: current, error: fetchErr } = await supabaseAdmin
+      .from('accounts')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+    if (fetchErr) throw fetchErr;
+
+    if (req.profile?.role === 'business') {
+      const brandScope = profileBrandScope(req.profile);
+      if (!accountInBrandScope(current, brandScope)
+        || !accountInStaffScope(current, profileStaffScope(req.profile))) {
+        return res.status(404).json({ error: 'Account not found' });
+      }
+    }
+
+    const notes = mergeOperatorNotes(current.notes, { business_notice: null });
+    const { data, error } = await supabaseAdmin
+      .from('accounts')
+      .update({ notes })
+      .eq('id', req.params.id)
+      .select(ACCOUNT_SELECT_WITH_SIM_LOCATION)
+      .single();
+    if (error) throw error;
+
+    const [safeData] = sanitizeAccountsForRole([data], req.profile);
+    res.json(safeData);
   } catch (e) {
     next(e);
   }

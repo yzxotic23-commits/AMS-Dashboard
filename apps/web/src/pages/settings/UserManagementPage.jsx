@@ -371,7 +371,7 @@ export default function UserManagementPage() {
             </legend>
             <p className="drawer-hint" style={{ marginTop: 0 }}>
               {brandsEditable
-                ? 'Delivery ticket Standby list is limited to these brands.'
+                ? 'Standby list is limited to these brands, and only accounts whose Staff name matches this user’s Full name.'
                 : 'Switch Role to Business to assign brands. Other roles see all brands.'}
             </p>
             <div className="flex flex-wrap gap-2" style={{ marginTop: 8, opacity: brandsEditable ? 1 : 0.45 }}>

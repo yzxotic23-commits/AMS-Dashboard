@@ -21,6 +21,7 @@ import {
   ticketMatchesSearch, TICKETS_PAGE_SIZE,
 } from '../lib/ticket-delivery';
 import { ticketTimingInfo } from '../lib/ticket-timing';
+import { profileStaffScope, accountInStaffScope } from '../lib/account-staff';
 
 const GROUPS = [
   { key: 'act', tabLabel: 'Needs action' },
@@ -160,6 +161,7 @@ function DeliveryTicketFormFields({
   rejectReason,
   showAccountPicker = true,
   selectedStaff = '',
+  showStaffFilters = true,
 }) {
   return (
     <>
@@ -169,7 +171,10 @@ function DeliveryTicketFormFields({
 
       <p className="drawer-hint drawer-hint--info">
         Select an account — phone and proxy fill in below. Set proxy on PC, upload screenshot.
-        Link code is fixed (8888-8888). Accounts are grouped by Staff (Business assignee).
+        Link code is fixed (8888-8888).
+        {showStaffFilters
+          ? ' Accounts are grouped by Staff (Business assignee).'
+          : ' Only accounts assigned to you are listed.'}
       </p>
 
       <div className="drawer-fields">
@@ -180,9 +185,12 @@ function DeliveryTicketFormFields({
               accounts={standby}
               value={selectedAcct}
               onChange={onSelectAccount}
+              showStaffFilters={showStaffFilters}
             />
             <span className="mt-1 block text-[11px] text-ams-faint">
-              Grouped by Staff — search or filter to find the right account.
+              {showStaffFilters
+                ? 'Grouped by Staff — search or filter to find the right account.'
+                : 'Your assigned Standby accounts only.'}
             </span>
           </div>
         )}
@@ -450,11 +458,13 @@ export default function TicketsPage() {
   const { data: available = [], isLoading: loadingStandby } = useStandbyForTickets(site);
   const { create, goLive, reject, resubmit, confirm, reviewIp } = useTicketMutations();
 
-  // Only show accounts an operator has already assigned a Staff to — unassigned standby
-  // accounts aren't ready for Business to pick for delivery yet.
+  // Business staff only see their own assigned accounts. Operators/admin see the full site pool.
+  const staffScope = useMemo(() => profileStaffScope(profile), [profile]);
   const standby = useMemo(
-    () => available.filter((a) => String(a.staff || '').trim()),
-    [available],
+    () => available
+      .filter((a) => String(a.staff || '').trim())
+      .filter((a) => accountInStaffScope(a, staffScope)),
+    [available, staffScope],
   );
 
   const filteredTickets = useMemo(() => {
@@ -978,7 +988,9 @@ export default function TicketsPage() {
           <div className="drawer-empty-state">
             <p className="drawer-hint drawer-hint--center">
               No standby accounts available for this site.
-              {site !== 'all' ? ' Try switching site to All in the top bar.' : ''}
+              {profile?.role === 'business'
+                ? ' Only accounts assigned to your staff name are shown.'
+                : (site !== 'all' ? ' Try switching site to All in the top bar.' : '')}
             </p>
           </div>
         ) : (
@@ -994,6 +1006,7 @@ export default function TicketsPage() {
               onScreenshotChange={setScreenshotBase64}
               onScreenshotError={showToast}
               selectedStaff={(selectedRow?.staff || '').trim()}
+              showStaffFilters={profile?.role !== 'business'}
             />
           </form>
         )}

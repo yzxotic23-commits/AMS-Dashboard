@@ -91,6 +91,7 @@ export function accountToOperatorRow(account) {
     human_note: meta.human_note || '',
     restrict_kind: meta.restrict_kind || null,
     disconnect_report: meta.disconnect_report || null,
+    business_notice: meta.business_notice || null,
     reference_ip_id: meta.reference_ip_id || account.ip_id || null,
     reference_ip_address: meta.reference_ip_address || ipJoin?.ip_address || '',
     last_health_check_at: meta.last_health_check_at || null,
@@ -144,6 +145,9 @@ export function buildMetaPatch(row, patch) {
     owner: row.owner,
     staff: row.staff,
     brand: row.brand,
+    restrict_kind: row.restrict_kind,
+    disconnect_report: row.disconnect_report,
+    business_notice: row.business_notice,
     ...patch,
   };
   return serializeAccountNotes(
@@ -156,6 +160,8 @@ export function buildMetaPatch(row, patch) {
       nurturing_started_at: next.nurturing_started_at,
       human_note: next.human_note,
       restrict_kind: next.restrict_kind || undefined,
+      disconnect_report: next.disconnect_report || undefined,
+      business_notice: next.business_notice || undefined,
       reference_ip_id: next.reference_ip_id,
       reference_ip_address: next.reference_ip_address,
       last_health_check_at: next.last_health_check_at,

@@ -129,6 +129,25 @@ export function useAccountMutations() {
     onSuccess: invalidate,
   });
 
+  const returnStandby = useMutation({
+    mutationFn: async ({ id, reason }) => {
+      const res = await api.post(`/accounts/${id}/return-standby`, { reason });
+      return accountToOperatorRow(res.data);
+    },
+    onSuccess: () => {
+      invalidate();
+      qc.invalidateQueries({ queryKey: ['tickets'] });
+    },
+  });
+
+  const ackNotice = useMutation({
+    mutationFn: async ({ id }) => {
+      const res = await api.post(`/accounts/${id}/ack-notice`);
+      return accountToOperatorRow(res.data);
+    },
+    onSuccess: invalidate,
+  });
+
   const logRegistration = useMutation({
     mutationFn: async (body) => {
       const res = await api.post('/registrations', body);
@@ -145,6 +164,8 @@ export function useAccountMutations() {
     markStrict,
     reportDisconnect,
     resolveDisconnect,
+    returnStandby,
+    ackNotice,
     logRegistration,
     invalidate,
   };

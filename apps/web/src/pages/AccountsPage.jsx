@@ -20,7 +20,7 @@ import { nurturingDay, nurturingProgress } from '../lib/nurturing-day';
 import { buildAccountPath, historyRowCaption } from '../lib/nurture-history';
 import { getBridgeSummary } from '../lib/bridge-client';
 import { liveSlotConnection } from '../lib/engine-slot';
-import api from '../lib/api';
+import { profileStaffScope, accountInStaffScope } from '../lib/account-staff';
 
 const LEDGER_PAGE_SIZE = 5;
 const BUSINESS_PAGE_SIZE = 10;
@@ -30,7 +30,15 @@ function siteChipLabel(siteKey) {
   return SITES[siteKey]?.name || siteKey;
 }
 
-function StatusPill({ status, note }) {
+function StatusPill({ status, note, restrictKind }) {
+  if (restrictKind) {
+    const restriction = restrictionMeta(restrictKind);
+    return (
+      <span className={`badge ${restriction.pill}`} title={restriction.label}>
+        {restriction.label}
+      </span>
+    );
+  }
   const meta = statusMeta(status);
   return (
     <span className={`badge ${meta.pill}`}>
@@ -38,6 +46,13 @@ function StatusPill({ status, note }) {
       {note ? <span className="rl-status-note"> · {note}</span> : null}
     </span>
   );
+}
+
+function matchesLedgerStatusFilter(account, fSt) {
+  if (!fSt) return true;
+  if (fSt === 'restricted') return Boolean(account.restrict_kind);
+  if (fSt === 'inuse' && account.restrict_kind) return false;
+  return statusMeta(account.status).filter === fSt;
 }
 
 function HistoryPills({ event }) {
@@ -133,12 +148,7 @@ function AcctRow({ account, onOpen, showSiteBubble = false, slotLabel, extra = f
 
   const flag = account.disconnect_report
     ? { text: 'Reported', title: 'Business reported a disconnect — awaiting review' }
-    : account.restrict_kind
-      ? {
-          text: restrictionMeta(account.restrict_kind).short,
-          title: restrictionMeta(account.restrict_kind).label,
-        }
-      : null;
+    : null;
 
   return (
     <div className={`rl-acct-row${siteTag ? ` rl-acct-row--site-${siteTag}` : ''}${extra ? ' rl-acct-row--extra' : ''}`}>
@@ -167,7 +177,7 @@ function AcctRow({ account, onOpen, showSiteBubble = false, slotLabel, extra = f
         )}
       </div>
       <div className="rl-col-status">
-        <StatusPill status={account.status} note={dayNote} />
+        <StatusPill status={account.status} note={dayNote} restrictKind={account.restrict_kind} />
         {flag && (
           <span className="rl-flag-chip" title={flag.title}>{flag.text}</span>
         )}
@@ -192,7 +202,7 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
   const isBusinessUser = profile?.role === 'business';
   const { data: account, isLoading } = useAccountDetail(accountId);
   const {
-    patchAccount, reportDisconnect, resolveDisconnect,
+    patchAccount, reportDisconnect, resolveDisconnect, returnStandby, ackNotice,
   } = useAccountMutations();
   const canSetStaff = profile?.role === 'admin' || profile?.role === 'operator';
   const [staffDraft, setStaffDraft] = useState('');
@@ -203,6 +213,8 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
   const [resolveOutcome, setResolveOutcome] = useState('logged_out');
   const [resolveReason, setResolveReason] = useState('');
   const [resolveToast, setResolveToast] = useState('');
+  const [standbyReason, setStandbyReason] = useState('');
+  const [standbyToast, setStandbyToast] = useState('');
 
   useEffect(() => {
     setStaffDraft(account?.staff || '');
@@ -277,7 +289,7 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
         reason: resolveReason.trim(),
       });
       setResolveReason('');
-      setResolveToast('Status updated — business can now see it themselves.');
+      setResolveToast('Status updated — business is notified.');
       setTimeout(() => setResolveToast(''), 4200);
     } catch (e) {
       setResolveToast(e?.response?.data?.error || e.message || 'Failed to update status');
@@ -285,14 +297,45 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
     }
   }
 
+  async function submitReturnStandby() {
+    try {
+      await returnStandby.mutateAsync({
+        id: account.id,
+        reason: standbyReason.trim() || undefined,
+      });
+      setStandbyReason('');
+      setStandbyToast('Returned to Standby — business can request this account again.');
+      setTimeout(() => setStandbyToast(''), 4200);
+    } catch (e) {
+      setStandbyToast(e?.response?.data?.error || e.message || 'Failed to return to Standby');
+      setTimeout(() => setStandbyToast(''), 4200);
+    }
+  }
+
+  async function dismissNotice() {
+    try {
+      await ackNotice.mutateAsync({ id: account.id });
+    } catch (e) {
+      setReportToast(e?.response?.data?.error || e.message || 'Failed to dismiss');
+      setTimeout(() => setReportToast(''), 4200);
+    }
+  }
+
   const restriction = restrictionMeta(account.restrict_kind);
+  const statusLabel = account.restrict_kind
+    ? restriction.label
+    : statusMeta(account.status).label;
 
   const infoRows = [
     ['Account', account.account_name],
     ['Phone', account.phone_number || '—'],
     ['Channel', displayDeviceChannel(account.channel) || '—'],
-    ['Status', statusMeta(account.status).label],
-    ['Restriction (WA)', <span className={`badge ${restriction.pill}`}>{restriction.label}</span>],
+    ['Status', statusLabel],
+  ];
+  if (!isBusinessUser) {
+    infoRows.push(['Restriction (WA)', <span className={`badge ${restriction.pill}`}>{restriction.label}</span>]);
+  }
+  infoRows.push(
     ['Brand', resolveAccountBrand(account) || '—'],
     ['Owner (registered by)', account.owner || '—'],
     ['Staff', account.staff || '—'],
@@ -301,7 +344,7 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
     ['Reference IP', account.reference_ip_address || account.ip || '—'],
     ['Current IP', account.ip || '—'],
     ['SIM', account.sim || '—'],
-  ];
+  );
   if (nurture) infoRows.push(['Nurturing', `Day ${nurture.day}/${nurture.max} · ${nurture.remaining} left`]);
   if (engineStatus) infoRows.push(['Engine status', engineStatus]);
 
@@ -310,12 +353,7 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
       <div className="mb-6 flex items-center gap-3">
         <button type="button" className="btn btn-secondary btn-sm" onClick={onBack}>‹ Back</button>
         <h1 className="text-[22px] font-bold">{account.account_name}</h1>
-        <StatusPill status={account.status} />
-        {account.restrict_kind && (
-          <span className={`badge ${restrictionMeta(account.restrict_kind).pill}`}>
-            {restrictionMeta(account.restrict_kind).label}
-          </span>
-        )}
+        <StatusPill status={account.status} restrictKind={account.restrict_kind} />
       </div>
 
       {ipMismatch && (
@@ -329,6 +367,30 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
         <p className="mb-4 text-xs text-ams-faint">
           Engine last checked: {lastChecked} · may lag a few minutes
         </p>
+      )}
+
+      {isBusinessUser && account.business_notice && (
+        <div className="mb-4 rounded-lg border border-ams-accent/40 bg-ams-accent/10 px-4 py-3">
+          <p className="text-[13px] font-semibold text-ams-ink">
+            {account.business_notice.title || 'Account status updated'}
+          </p>
+          {account.business_notice.body ? (
+            <p className="mt-1 text-[13px] text-ams-muted">{account.business_notice.body}</p>
+          ) : null}
+          {account.business_notice.at ? (
+            <p className="mt-1 text-[11px] text-ams-faint">
+              {new Date(account.business_notice.at).toLocaleString()}
+            </p>
+          ) : null}
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm mt-3"
+            disabled={ackNotice.isPending}
+            onClick={dismissNotice}
+          >
+            {ackNotice.isPending ? 'Dismissing…' : 'Got it'}
+          </button>
+        </div>
       )}
 
       {isBusinessUser && account.status === 'IN_USE' && (
@@ -397,9 +459,9 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
               Status already set to Logged out — confirm Restricted / Banned if that was the real outcome, or confirm Logged out to clear this alert.
             </p>
           )}
-          <div className="mt-3 flex flex-wrap items-center gap-2">
+          <div className="mt-3 flex min-w-0 flex-col gap-2">
             <select
-              className="input h-9 w-auto text-[13px]"
+              className="input h-9 w-full min-w-0 max-w-full text-[13px]"
               value={resolveOutcome}
               onChange={(e) => setResolveOutcome(e.target.value)}
               aria-label="Resolution outcome"
@@ -407,14 +469,14 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
               {RESOLVE_OUTCOMES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
             </select>
             <input
-              className="input h-9 min-w-[220px] flex-1 text-[13px]"
+              className="input h-9 w-full min-w-0 max-w-full text-[13px]"
               placeholder="Reason (required)…"
               value={resolveReason}
               onChange={(e) => setResolveReason(e.target.value)}
             />
             <button
               type="button"
-              className="btn btn-primary btn-sm shrink-0"
+              className="btn btn-primary btn-sm self-start"
               disabled={resolveDisconnect.isPending}
               onClick={submitResolve}
             >
@@ -422,6 +484,35 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
             </button>
           </div>
           {resolveToast && <p className="mt-2 text-[12px] text-ams-muted">{resolveToast}</p>}
+        </div>
+      )}
+
+      {!isBusinessUser && account.status === 'IN_USE' && account.restrict_kind && (
+        <div className="mb-4 min-w-0 rounded-lg border border-ams-accent/40 bg-ams-accent/10 p-4">
+          <p className="text-[13px] font-semibold text-ams-ink">
+            Restriction period — return to Standby when it ends
+          </p>
+          <p className="mt-1 text-[13px] text-ams-muted">
+            {restriction.label}. After the restriction lifts, put this account back on Standby
+            so the assigned staff can request it again from Delivery tickets.
+          </p>
+          <div className="mt-3 flex min-w-0 flex-col gap-2">
+            <input
+              className="input h-9 w-full min-w-0 max-w-full text-[13px]"
+              placeholder="Optional note (e.g. restriction ended)…"
+              value={standbyReason}
+              onChange={(e) => setStandbyReason(e.target.value)}
+            />
+            <button
+              type="button"
+              className="btn btn-primary btn-sm self-start"
+              disabled={returnStandby.isPending}
+              onClick={submitReturnStandby}
+            >
+              {returnStandby.isPending ? 'Saving…' : 'Return to Standby'}
+            </button>
+          </div>
+          {standbyToast && <p className="mt-2 text-[12px] text-ams-muted">{standbyToast}</p>}
         </div>
       )}
 
@@ -529,6 +620,11 @@ export default function AccountsPage() {
   const [page, setPage] = useState(1);
 
   const { data: accounts = [], isLoading } = useAllAccounts();
+  const staffScope = useMemo(() => profileStaffScope(profile), [profile]);
+  const visibleAccounts = useMemo(
+    () => accounts.filter((a) => accountInStaffScope(a, staffScope)),
+    [accounts, staffScope],
+  );
 
   useEffect(() => {
     const openId = searchParams.get('open');
@@ -541,12 +637,12 @@ export default function AccountsPage() {
 
   const staffOptions = useMemo(() => {
     const names = new Set();
-    accounts.forEach((a) => {
+    visibleAccounts.forEach((a) => {
       const s = String(a.staff || '').trim();
       if (s) names.add(s);
     });
     return [...names].sort((a, b) => a.localeCompare(b));
-  }, [accounts]);
+  }, [visibleAccounts]);
 
   const pendingDisconnects = useMemo(() => {
     if (isBusiness) return [];
@@ -573,12 +669,11 @@ export default function AccountsPage() {
 
   const businessRows = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return accounts
+    return visibleAccounts
       .filter((a) => {
         if (site !== 'all' && a.siteKey !== site && a.siteKey !== 'all') return false;
         if (fBrand && resolveAccountBrand(a) !== fBrand) return false;
-        if (fStaff && a.staff !== fStaff) return false;
-        if (fSt && statusMeta(a.status).filter !== fSt) return false;
+        if (!matchesLedgerStatusFilter(a, fSt)) return false;
         if (q) {
           const hay = `${a.account_name} ${a.phone_number} ${a.staff}`.toLowerCase();
           if (!hay.includes(q)) return false;
@@ -586,7 +681,7 @@ export default function AccountsPage() {
         return true;
       })
       .sort((a, b) => String(a.account_name || '').localeCompare(String(b.account_name || '')));
-  }, [accounts, search, site, fBrand, fStaff, fSt]);
+  }, [visibleAccounts, search, site, fBrand, fSt]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -615,7 +710,7 @@ export default function AccountsPage() {
       function acctMatch(a) {
         if (fBrand && resolveAccountBrand(a) !== fBrand) return false;
         if (fStaff && a.staff !== fStaff) return false;
-        if (fSt && statusMeta(a.status).filter !== fSt) return false;
+        if (!matchesLedgerStatusFilter(a, fSt)) return false;
         if (q) {
           const hay = `${a.account_name} ${a.phone_number} ${a.staff} ${device.device_name}`.toLowerCase();
           if (!hay.includes(q)) return false;
@@ -639,7 +734,7 @@ export default function AccountsPage() {
       if (site !== 'all' && a.siteKey !== site) return false;
       if (fBrand && resolveAccountBrand(a) !== fBrand) return false;
       if (fStaff && a.staff !== fStaff) return false;
-      if (fSt && statusMeta(a.status).filter !== fSt) return false;
+      if (!matchesLedgerStatusFilter(a, fSt)) return false;
       if (q) {
         const hay = `${a.account_name} ${a.phone_number} ${a.staff}`.toLowerCase();
         if (!hay.includes(q)) return false;
@@ -702,6 +797,8 @@ export default function AccountsPage() {
     ? [
         ['', 'All statuses'],
         ['inuse', 'In Use'],
+        ['restricted', 'Restricted'],
+        ['standby', 'Standby'],
         ['loggedout', 'Logged out'],
         ['recovering', 'Recovering'],
         ['banned', 'Banned'],
@@ -712,6 +809,8 @@ export default function AccountsPage() {
         ['nurturing', 'Nurturing'],
         ['standby', 'Standby'],
         ['inuse', 'In Use'],
+        ['restricted', 'Restricted'],
+        ['loggedout', 'Logged out'],
         ['recovering', 'Recovering'],
         ['banned', 'Banned'],
       ];
@@ -787,8 +886,8 @@ export default function AccountsPage() {
       <PageHead
         title={isBusiness ? 'Check Account Status' : 'Resource Ledger'}
         description={isBusiness
-          ? 'Accounts already delivered to you — check their current status (In Use, Logged out, Restricted, Banned, Recovering) without asking R&M in the group.'
-          : 'Lookup by device, account, phone, brand, or Staff. Disconnect reports from business appear at the top — open an account to set Restricted / Logged out / Banned.'}
+          ? 'Your delivered accounts only — check status (In Use, Logged out, Restricted, Banned, Recovering) without asking R&M in the group.'
+          : 'Lookup by device, account, phone, brand, or Staff. After a Restricted review, return the account to Standby when the period ends so business can request it again.'}
       />
 
       {!isBusiness && pendingDisconnects.length > 0 && (
@@ -843,6 +942,7 @@ export default function AccountsPage() {
             {BRAND_OPTIONS.map((b) => <option key={b} value={b}>{b}</option>)}
           </select>
         </label>
+        {!isBusiness && (
         <label className="page-filter-chip">
           <select
             className="page-filter-chip-select"
@@ -854,6 +954,7 @@ export default function AccountsPage() {
             {staffOptions.map((o) => <option key={o} value={o}>{o}</option>)}
           </select>
         </label>
+        )}
         <label className="page-filter-chip">
           <select
             className="page-filter-chip-select"

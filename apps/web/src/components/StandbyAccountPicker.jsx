@@ -27,6 +27,7 @@ export default function StandbyAccountPicker({
   onChange,
   disabled = false,
   placeholder = 'Search account, staff, phone, brand…',
+  showStaffFilters = true,
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -154,7 +155,7 @@ export default function StandbyAccountPicker({
             />
           </div>
 
-          {staffOptions.length > 1 && (
+          {showStaffFilters && staffOptions.length > 1 && (
             <div className="standby-acct-picker-filters" role="group" aria-label="Filter by staff">
               <button
                 type="button"

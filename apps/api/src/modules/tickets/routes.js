@@ -24,6 +24,7 @@ import {
   profileBrandScope,
   resolveAccountBrand,
 } from '../../lib/accountBrand.js';
+import { accountInStaffScope, profileStaffScope } from '../../lib/accountStaff.js';
 
 const BACKLOG_MS = 30 * 60 * 1000;
 
@@ -255,6 +256,7 @@ router.get('/', async (req, res, next) => {
 
     const requesterMap = await loadRequesterNameMap((tickets || []).map((t) => t.requester_id));
     const brandScope = profileBrandScope(req.profile);
+    const staffScope = profileStaffScope(req.profile);
     const rows = [];
     for (const t of tickets || []) {
       let account = null;
@@ -264,6 +266,7 @@ router.get('/', async (req, res, next) => {
       const row = enrichRow(t, account, null, requesterMap.get(t.requester_id) || '');
       if (siteKey && siteKey !== 'all' && row.site_key !== siteKey) continue;
       if (!accountInBrandScope(account, brandScope)) continue;
+      if (!accountInStaffScope(account || row, staffScope)) continue;
       rows.push(row);
     }
     res.json({ data: await attachScreenshotUrls(rows) });
@@ -281,6 +284,7 @@ router.get('/stats', async (req, res, next) => {
     const { data: tickets } = await supabaseAdmin.from('tickets').select('*').limit(500);
     const requesterMap = await loadRequesterNameMap((tickets || []).map((t) => t.requester_id));
     const brandScope = profileBrandScope(req.profile);
+    const staffScope = profileStaffScope(req.profile);
     const rows = [];
     for (const t of tickets || []) {
       let account = null;
@@ -290,6 +294,7 @@ router.get('/stats', async (req, res, next) => {
       const row = enrichRow(t, account, null, requesterMap.get(t.requester_id) || '');
       if (siteKey && siteKey !== 'all' && row.site_key !== siteKey) continue;
       if (!accountInBrandScope(account, brandScope)) continue;
+      if (!accountInStaffScope(account || row, staffScope)) continue;
       rows.push(row);
     }
 
@@ -407,6 +412,7 @@ router.get('/standby-accounts', async (req, res, next) => {
     if (error) throw error;
 
     const enriched = await enrichAccountsIpEmbed(data);
+    const staffScope = profileStaffScope(req.profile);
     const rows = enriched
       .map(standbyAccountRow)
       .filter((row) => !siteKey || siteKey === 'all' || row.siteKey === siteKey)
@@ -414,7 +420,8 @@ router.get('/standby-accounts', async (req, res, next) => {
         if (!brandScope) return true;
         if (!brandScope.length) return false;
         return row.brand && brandScope.includes(row.brand);
-      });
+      })
+      .filter((row) => accountInStaffScope(row, staffScope));
 
     res.set('Cache-Control', 'no-store');
     res.json({ data: rows });
@@ -434,6 +441,9 @@ router.post('/', async (req, res, next) => {
     const brandScope = profileBrandScope(req.profile);
     if (!accountInBrandScope(account, brandScope)) {
       return res.status(403).json({ error: 'Account brand is outside your assigned brands' });
+    }
+    if (!accountInStaffScope(account, profileStaffScope(req.profile))) {
+      return res.status(403).json({ error: 'This account is assigned to another staff member' });
     }
     const opMeta = parseOperatorMeta(account);
     const hubOwner = resolveHubOwner(account, opMeta);
@@ -692,6 +702,9 @@ router.post('/:id/resubmit', async (req, res, next) => {
     const { data: ticket, error } = await supabaseAdmin.from('tickets').select('*').eq('id', req.params.id).single();
     if (error) throw error;
     const account = await loadAccount(ticket.account_id);
+    if (!accountInStaffScope(account, profileStaffScope(req.profile))) {
+      return res.status(403).json({ error: 'This ticket belongs to another staff member' });
+    }
 
     const { data: review, error: revErr } = await supabaseAdmin
       .from('ip_gate_reviews')
@@ -757,6 +770,9 @@ router.post('/:id/confirm', async (req, res, next) => {
     const { data: ticket, error } = await supabaseAdmin.from('tickets').select('*').eq('id', req.params.id).single();
     if (error) throw error;
     const account = await loadAccount(ticket.account_id);
+    if (!accountInStaffScope(account, profileStaffScope(req.profile))) {
+      return res.status(403).json({ error: 'This ticket belongs to another staff member' });
+    }
     const row = enrichRow(ticket, account);
     if (row.delivery_stage !== 'posted') {
       return res.status(400).json({ error: 'Ticket is not awaiting business confirmation' });

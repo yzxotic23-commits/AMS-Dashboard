@@ -192,6 +192,15 @@ export function historyRowCaption(h) {
   if (h.from_status === 'AVAILABLE' && h.to_status === 'IN_USE') {
     return { fromStatus: 'AVAILABLE', toStatus: 'IN_USE' };
   }
+  if (h.from_status === 'IN_USE' && h.to_status === 'AVAILABLE') {
+    return { fromStatus: 'IN_USE', toStatus: 'AVAILABLE' };
+  }
+  if (h.from_status === 'IN_USE' && h.to_status === 'IN_USE' && /Restricted/i.test(reason)) {
+    const toLabel = /Restricted Chat/i.test(reason)
+      ? 'Restricted Chat New Contact'
+      : 'Restricted Scan';
+    return { fromStatus: 'IN_USE', toLabel };
+  }
   if (h.from_status === 'AVAILABLE' && h.to_status === 'AVAILABLE' && /delivery ticket/i.test(reason)) {
     return { fromStatus: 'AVAILABLE', toLabel: 'Delivery ticket' };
   }

@@ -832,7 +832,20 @@ export function getMockResponse(config) {
           throw new Error(`Invalid state transition: ${current.status} → ${toStatus}`);
         }
       }
-      const nextMeta = { ...meta, disconnect_report: null };
+      const nextMeta = {
+        ...meta,
+        disconnect_report: undefined,
+        business_notice: {
+          type: 'disconnect_resolved',
+          at: new Date().toISOString(),
+          outcome,
+          title: `${current.account_name || 'Account'} · ${toStatus === 'BANNED' ? 'Banned' : 'Logged out'}`,
+          body: toStatus === 'BANNED'
+            ? 'R&M reviewed your disconnect report. This account is Banned.'
+            : 'R&M reviewed your disconnect report. This account is Logged out.',
+        },
+      };
+      delete nextMeta.disconnect_report;
       let notes = serializeAccountNotes(nextMeta);
       if (toStatus === 'BANNED') {
         notes = serializeRecoveryNotes(notes, recoveryOnBanDefaults('manual', body.reason || 'Banned'));
@@ -848,10 +861,20 @@ export function getMockResponse(config) {
       }
       return enrichAccount(demoAccounts.find((a) => a.id === id));
     }
+    const restrictLabel = outcome === 'restrict_scan'
+      ? 'Restricted Scan'
+      : 'Restricted Chat New Contact';
     const nextMeta = {
       ...meta,
-      disconnect_report: null,
+      disconnect_report: undefined,
       restrict_kind: outcome,
+      business_notice: {
+        type: 'disconnect_resolved',
+        at: new Date().toISOString(),
+        outcome,
+        title: `${current.account_name || 'Account'} · Restricted`,
+        body: `${restrictLabel} — R&M reviewed your disconnect report. Status is Restricted until the period ends.`,
+      },
       ...(outcome === 'restrict_scan'
         ? {
             nurturing_phase: 'manual',
@@ -859,6 +882,63 @@ export function getMockResponse(config) {
           }
         : {}),
     };
+    delete nextMeta.disconnect_report;
+    const notes = serializeAccountNotes(nextMeta);
+    demoAccounts = demoAccounts.map((a) => (
+      a.id === id ? { ...a, notes, updated_at: new Date().toISOString() } : a
+    ));
+    pushStatusHistory(id, current.status, current.status, `${restrictLabel} · ${body.reason || outcome}`);
+    return enrichAccount(demoAccounts.find((a) => a.id === id));
+  }
+
+  if (method === 'POST' && /^accounts\/[^/]+\/return-standby$/.test(url)) {
+    const id = url.split('/')[1];
+    const body = typeof config.data === 'string' ? JSON.parse(config.data) : (config.data || {});
+    const current = demoAccounts.find((a) => a.id === id);
+    if (!current) throw new Error('Account not found');
+    const meta = parseOperatorMeta(current);
+    if (current.status !== 'IN_USE' || !meta.restrict_kind) {
+      throw new Error('Only In Use accounts that are Restricted can return to Standby');
+    }
+    const allowed = ALLOWED_TRANSITIONS[current.status] || [];
+    if (!allowed.includes('AVAILABLE')) {
+      throw new Error(`Invalid state transition: ${current.status} → AVAILABLE`);
+    }
+    const restrictLabel = meta.restrict_kind === 'restrict_scan'
+      ? 'Restricted Scan'
+      : 'Restricted Chat New Contact';
+    const note = (body.reason || '').trim()
+      || `${restrictLabel} period ended — returned to Standby for re-delivery`;
+    const nextMeta = {
+      ...meta,
+      restrict_kind: undefined,
+      disconnect_report: undefined,
+      business_notice: {
+        type: 'returned_standby',
+        at: new Date().toISOString(),
+        title: `${current.account_name || 'Account'} is back on Standby`,
+        body: `${current.account_name} restriction ended. You can request this account again from Delivery tickets.`,
+      },
+    };
+    delete nextMeta.restrict_kind;
+    delete nextMeta.disconnect_report;
+    const notes = serializeAccountNotes(nextMeta, note);
+    demoAccounts = demoAccounts.map((a) => (
+      a.id === id
+        ? { ...a, status: 'AVAILABLE', notes, wsaf_slot: null, updated_at: new Date().toISOString() }
+        : a
+    ));
+    pushStatusHistory(id, current.status, 'AVAILABLE', note);
+    return enrichAccount(demoAccounts.find((a) => a.id === id));
+  }
+
+  if (method === 'POST' && /^accounts\/[^/]+\/ack-notice$/.test(url)) {
+    const id = url.split('/')[1];
+    const current = demoAccounts.find((a) => a.id === id);
+    if (!current) throw new Error('Account not found');
+    const meta = parseOperatorMeta(current);
+    const nextMeta = { ...meta };
+    delete nextMeta.business_notice;
     const notes = serializeAccountNotes(nextMeta);
     demoAccounts = demoAccounts.map((a) => (
       a.id === id ? { ...a, notes, updated_at: new Date().toISOString() } : a

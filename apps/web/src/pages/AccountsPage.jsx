@@ -460,24 +460,26 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
               Status already set to Logged out — confirm Restricted / Banned if that was the real outcome, or confirm Logged out to clear this alert.
             </p>
           )}
-          <div className="mt-3 flex min-w-0 flex-col gap-2">
-            <select
-              className="input h-9 w-full min-w-0 max-w-full text-[13px]"
-              value={resolveOutcome}
-              onChange={(e) => setResolveOutcome(e.target.value)}
-              aria-label="Resolution outcome"
-            >
-              {RESOLVE_OUTCOMES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-            </select>
+          <div className="relative z-20 mt-3 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="w-full max-w-[16.5rem] shrink-0">
+              <select
+                className="input h-10 w-full py-0 text-[13px] leading-normal"
+                value={resolveOutcome}
+                onChange={(e) => setResolveOutcome(e.target.value)}
+                aria-label="Resolution outcome"
+              >
+                {RESOLVE_OUTCOMES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+            </div>
             <input
-              className="input h-9 w-full min-w-0 max-w-full text-[13px]"
+              className="input h-10 min-w-0 flex-1 py-0 text-[13px] leading-normal"
               placeholder="Reason (required)…"
               value={resolveReason}
               onChange={(e) => setResolveReason(e.target.value)}
             />
             <button
               type="button"
-              className="btn btn-primary btn-sm self-start"
+              className="btn btn-primary btn-sm shrink-0 self-start sm:self-auto"
               disabled={resolveDisconnect.isPending}
               onClick={submitResolve}
             >
@@ -921,26 +923,32 @@ export default function AccountsPage() {
           <p className="text-[13px] font-semibold text-ams-warn">
             {pendingDisconnects.length} disconnect report{pendingDisconnects.length === 1 ? '' : 's'} from business — action needed
           </p>
-          <ul className="mt-2 space-y-1.5">
+          <ul className="mt-2 space-y-2">
             {pendingDisconnects.map((a) => (
-              <li key={a.id} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[13px]">
+              <li key={a.id} className="flex flex-wrap items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-[13px]">
+                    <span className="font-semibold text-ams-ink">{a.account_name}</span>
+                    <span className="text-ams-muted">
+                      {' · '}
+                      {a.staff ? `Staff · ${a.staff}` : (a.disconnect_report.reported_by || 'Business')}
+                      {' · '}
+                      {new Date(a.disconnect_report.reported_at).toLocaleString()}
+                    </span>
+                  </p>
+                  {a.disconnect_report.note ? (
+                    <p className="mt-0.5 text-[12px] text-ams-faint">
+                      “{a.disconnect_report.note}”
+                    </p>
+                  ) : null}
+                </div>
                 <button
                   type="button"
-                  className="font-semibold text-ams-ink underline-offset-2 hover:underline"
+                  className="btn btn-primary btn-sm shrink-0"
                   onClick={() => setDetailId(a.id)}
                 >
-                  {a.account_name}
+                  Review
                 </button>
-                <span className="text-ams-muted">
-                  {a.staff ? `Staff · ${a.staff}` : (a.disconnect_report.reported_by || 'Business')}
-                  {' · '}
-                  {new Date(a.disconnect_report.reported_at).toLocaleString()}
-                </span>
-                {a.disconnect_report.note ? (
-                  <span className="w-full text-[12px] text-ams-faint sm:w-auto">
-                    “{a.disconnect_report.note}”
-                  </span>
-                ) : null}
               </li>
             ))}
           </ul>

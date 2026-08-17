@@ -44,7 +44,7 @@ const BUSINESS_NAV = [
     section: 'DELIVERY / DATA',
     collapsible: true,
     items: [
-      { to: '/tickets', icon: Ticket, label: 'Business Self-Service Delivery' },
+      { to: '/tickets', icon: Ticket, label: 'Business Self-Service Delivery', badge: 'tickets' },
       { to: '/governance', icon: LineChart, label: 'Dashboard (Governance)' },
     ],
   },

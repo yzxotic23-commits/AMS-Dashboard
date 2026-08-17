@@ -6,6 +6,7 @@ import {
   buildMetaPatch,
 } from '../lib/account-operator-meta';
 import { useAuth } from '../context/AuthContext';
+import { profileStaffScope, accountInStaffScope } from '../lib/account-staff';
 
 export function useAccountsByStatus(status, options = {}) {
   return useQuery({
@@ -37,6 +38,7 @@ export function useAllAccounts(options = {}) {
 export function useReturnedStandbyNotices(enabled = true) {
   const { profile } = useAuth();
   const canSee = profile?.role === 'business';
+  const staffScope = useMemo(() => profileStaffScope(profile), [profile]);
   const { data: accounts = [] } = useAllAccounts({
     enabled: enabled && canSee,
     refetchInterval: enabled && canSee ? 15_000 : false,
@@ -45,12 +47,13 @@ export function useReturnedStandbyNotices(enabled = true) {
     if (!canSee) return [];
     return accounts
       .filter((a) => a.business_notice?.type === 'returned_standby')
+      .filter((a) => accountInStaffScope(a, staffScope))
       .sort((a, b) => {
         const ta = new Date(a.business_notice?.at || 0).getTime();
         const tb = new Date(b.business_notice?.at || 0).getTime();
         return tb - ta;
       });
-  }, [accounts, canSee]);
+  }, [accounts, canSee, staffScope]);
 }
 
 export function useAccountDetail(id) {

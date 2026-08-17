@@ -266,7 +266,6 @@ function TicketCard({
   }
 
   const showFoot = stage === 'submitted' && !isRejected;
-  const showRejectedFoot = isRejected;
   const showReviewVerdict = stage === 'submitted' && !isRejected;
   const reviewTone = reviewMatch === true ? 'ok' : reviewMatch === false ? 'bad' : 'pending';
 
@@ -393,20 +392,17 @@ function TicketCard({
         <TicketDetailsBlock ticket={ticket} bind={bind} />
       </div>
 
-      {(showFoot || showRejectedFoot || footActions) && (
-        <div className={`tk-foot${showFoot ? ` tk-foot--${reviewTone}` : ''}`}>
-          {showFoot && (
-            <div className="tk-foot-review">
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => onShot(ticket)}>
-                View business screenshot
-              </button>
-              {ticket.link_code && (
-                <span className="tk-code-pill" title="Link code">
-                  {formatLinkCodeDisplay(ticket.link_code)}
-                </span>
-              )}
-            </div>
-          )}
+      <div className={`tk-foot${showFoot ? ` tk-foot--${reviewTone}` : ''}`}>
+          <div className="tk-foot-review">
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => onShot(ticket)}>
+              View business screenshot
+            </button>
+            {ticket.link_code && (
+              <span className="tk-code-pill" title="Link code">
+                {formatLinkCodeDisplay(ticket.link_code)}
+              </span>
+            )}
+          </div>
           <div className="tk-foot-actions">
             {showFoot && canOperatorAct && role === 'operator' && reviewMatch == null && (
               <ReviewVerdictButtons
@@ -426,7 +422,6 @@ function TicketCard({
             {footActions}
           </div>
         </div>
-      )}
     </article>
   );
 }

@@ -89,8 +89,11 @@ export default function BusinessNoticeBell() {
       playNoticeAlertSound();
     };
 
-    chimeIfVisible();
-    const id = setInterval(chimeIfVisible, CHIME_INTERVAL_MS);
+    let id;
+    const startDelay = setTimeout(() => {
+      chimeIfVisible();
+      id = setInterval(chimeIfVisible, CHIME_INTERVAL_MS);
+    }, 2500);
 
     function onVis() {
       if (!document.hidden && pending.length > 0 && !muted) {
@@ -100,7 +103,8 @@ export default function BusinessNoticeBell() {
     document.addEventListener('visibilitychange', onVis);
 
     return () => {
-      clearInterval(id);
+      clearTimeout(startDelay);
+      if (id) clearInterval(id);
       document.removeEventListener('visibilitychange', onVis);
     };
   }, [pending.length, canSee, muted]);

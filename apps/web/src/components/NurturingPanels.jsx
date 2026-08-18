@@ -172,22 +172,6 @@ export default function NurturingPanels() {
     [allAccounts, scanRow?.id],
   );
 
-  // Push proxy as soon as operator picks IP + slot — before QR/pairing (kills scam popup).
-  useEffect(() => {
-    if (!scanRow || scanSlot == null || !scanProxyUrl) return undefined;
-    let cancelled = false;
-    (async () => {
-      try {
-        await syncSlotProxyToEngine(scanSlot, scanProxyUrl);
-      } catch {
-        if (!cancelled) {
-          /* link step will retry / surface error */
-        }
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [scanRow, scanSlot, scanProxyUrl]);
-
   const ipBindings = useMemo(() => buildIpBindings(allAccounts), [allAccounts]);
 
   const manualList = useMemo(() => {
@@ -322,12 +306,12 @@ export default function NurturingPanels() {
       });
 
       let proxySyncFailed = false;
-      const proxyUrl = proxyUrlFromIp(ipRow) || proxyUrlFromIp(
-        nextIpId ? { id: nextIpId, ip_address: nextIp, ...(scanRow.bind_proxy || {}) } : null,
-      );
-      if (proxyUrl && scanSlot != null) {
+      // Only the Engine proxy the operator picked here is pushed to FeedFlow.
+      // Empty = phone Shadowrocket / direct — never copy the register IP into Settings.
+      const engineProxyUrl = proxyUrlFromIp(ipRow) || 'direct';
+      if (scanSlot != null) {
         try {
-          await syncSlotProxyToEngine(scanSlot, proxyUrl);
+          await syncSlotProxyToEngine(scanSlot, engineProxyUrl);
           await syncSlotDisplayLabelToEngine(
             scanSlot,
             feedflowSlotLabelBody({

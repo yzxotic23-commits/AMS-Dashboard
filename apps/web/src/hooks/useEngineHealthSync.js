@@ -39,7 +39,7 @@ export function useEngineHealthSync() {
       if (!slot.phone) return;
 
       const match = matchAccountForEngineSlot(accounts, slot);
-      if (!match || match.status !== 'IN_USE') return;
+      if (!match || (match.status !== 'IN_USE' && match.status !== 'NURTURING')) return;
 
       const strikeKey = `offline-${match.id}-${slot.slot}`;
       seenKeys.add(strikeKey);

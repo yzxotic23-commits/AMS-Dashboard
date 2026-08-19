@@ -1,6 +1,7 @@
-import { Plug } from 'lucide-react';
 import PageHead from '../components/PageHead';
 import KpiInfoTip from '../components/KpiInfoTip';
+import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useSite } from '../context/SiteContext';
 import { useGovernanceDate } from '../context/GovernanceDateContext';
 import { SITES } from '../lib/sites';
@@ -11,6 +12,8 @@ import { useTicketStats } from '../hooks/useTickets';
 import { BAD_IP_FLAG_THRESHOLD } from '../lib/ban-analytics';
 import { kpiInfoForSupply } from '../lib/supplyKpiInfo';
 import { formatRangeCompact, isRangeEndingToday } from '../lib/governanceDateRange';
+import { filterSimsBySite, mapSimRow } from '../lib/resource-mappers';
+import api from '../lib/api';
 
 const BAR_TONE = {
   danger: 'bar-row-fill-danger',
@@ -112,12 +115,31 @@ function DashSection({ title, badge, children }) {
   );
 }
 
-function StatBlock({ value, label, tone }) {
-  const toneClass = tone === 'danger' ? 'text-ams-danger' : tone === 'warn' ? 'text-ams-warn' : 'text-ams-ink';
+function KpiPanel({ title, value, hint, tone }) {
+  const warn = tone === 'warn';
+  const danger = tone === 'danger';
+  const panelClass = warn
+    ? 'dash-panel border-ams-warn/40 bg-ams-warn/5'
+    : danger
+      ? 'dash-panel border-ams-danger/30 bg-ams-danger/5'
+      : 'dash-panel';
+  const titleClass = warn
+    ? 'dash-panel-title text-ams-warn'
+    : danger
+      ? 'dash-panel-title text-ams-danger'
+      : 'dash-panel-title';
+  const valueClass = warn
+    ? 'text-ams-warn'
+    : danger
+      ? 'text-ams-danger'
+      : 'text-ams-ink';
   return (
-    <div>
-      <div className={`text-2xl font-bold tracking-tight ${toneClass}`}>{value}</div>
-      <div className="mt-0.5 text-xs text-ams-muted">{label}</div>
+    <div className={panelClass}>
+      <h4 className={titleClass}>{title}</h4>
+      <div className={`text-2xl font-bold tracking-tight ${valueClass}`}>{value}</div>
+      {hint ? (
+        <p className="mt-1 text-[12px] leading-snug text-ams-muted">{hint}</p>
+      ) : null}
     </div>
   );
 }
@@ -129,6 +151,20 @@ export default function GovernancePage() {
   const { data: recStats } = useRecoveryStats(site, dateRange);
   const { data: supplyData } = useSupplyStats(site, dateRange);
   const { data: tkStats } = useTicketStats(site, dateRange);
+  const { data: simRows = [] } = useQuery({
+    queryKey: ['sims', 'governance', site],
+    queryFn: async () => {
+      const res = await api.get('/sims', { params: { limit: 500 } });
+      return (res.data?.data || []).map(mapSimRow);
+    },
+    staleTime: 30_000,
+  });
+  const simKpis = useMemo(() => {
+    const rows = filterSimsBySite(simRows, site);
+    const due = rows.filter((s) => s.days_left != null && s.days_left <= 0).length;
+    const expiring = rows.filter((s) => s.days_left != null && s.days_left > 0 && s.days_left <= 7).length;
+    return { due, expiring };
+  }, [simRows, site]);
   const supply = supplyData?.pools?.length ? supplyData.pools : [];
   const rangeLabel = formatRangeCompact(dateRange.from, dateRange.to);
   const liveEnd = isRangeEndingToday(dateRange.to);
@@ -146,7 +182,9 @@ export default function GovernancePage() {
     ? banStats.byStage.map((b) => ({
       name: b.name,
       val: b.pct,
-      count: b.count,
+      count: b.count ?? b.banned,
+      restrict: b.restrict,
+      pending: b.pending,
     }))
     : [];
 
@@ -211,12 +249,18 @@ export default function GovernancePage() {
 
       <DashSection
         title="Ban Rate · By Stage"
-        badge={banLoading ? 'Loading…' : `Overall ${overallBan} · ${banStats?.total ?? 0} events`}
+        badge={banLoading ? 'Loading…' : `Banned ${overallBan} · ${banStats?.total ?? 0} bans · ${banStats?.pendingBacklog ?? 0} pending`}
       >
+        {(banStats?.pendingBacklog > 0) && (
+          <div className="mb-3 rounded-lg border border-ams-warn/50 bg-ams-warn/10 px-4 py-3 text-[13px] text-ams-warn">
+            {banStats.pendingBacklog} event{banStats.pendingBacklog === 1 ? '' : 's'} still Pending Confirmation.
+            Ban-rate KPIs stay incomplete until Resource confirms Restrict / Banned / false positive.
+          </div>
+        )}
         {byStage.length === 0 ? (
           <div className="dash-panel">
             <div className="dash-empty-hint">
-              No ban events recorded yet for this range. When bans occur, this is the first place to look — a rising ban rate is addressed at its root (usage / IP / warming quality), not by adding devices or stock.
+              No keep-alive logout events in this range. Ban rate counts confirmed Banned only — Restrict and pending are tracked separately.
             </div>
           </div>
         ) : (
@@ -226,9 +270,9 @@ export default function GovernancePage() {
               key={b.name}
               name={b.name}
               value={`${b.val}%`}
-              sub={b.count != null ? `(${b.count})` : null}
+              sub={b.count != null ? `(${b.count} banned)` : null}
               pct={Math.min(100, b.val * 5)}
-              pctLabel={`${b.val}% of bans`}
+              pctLabel={`${b.val}% ban rate · ${b.restrict ?? 0} restrict · ${b.pending ?? 0} pending`}
               tone={banTone(b.val)}
             />
           ))}
@@ -298,17 +342,31 @@ export default function GovernancePage() {
       </DashSection>
 
       <DashSection title="Account Recovery">
-        <div className="grid gap-3 lg:grid-cols-2">
-          <div className="dash-panel">
-            <h4 className="dash-panel-title">Recovery Success Rate</h4>
-            <div className="mb-1 text-3xl font-bold tracking-tight text-ams-ink">
-              {recStats?.total > 0 ? `${recStats.successRate}%` : '—'}
-            </div>
-            <p className="mb-4 text-xs text-ams-muted">
-              {recStats?.detail || 'No recovery attempts logged yet for this range.'}
-            </p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <KpiPanel
+            title="Success rate"
+            value={recStats?.total > 0 ? `${recStats.successRate}%` : '—'}
+            hint={recStats?.total > 0
+              ? `${recStats.total} completed attempts in this range`
+              : 'No recovery attempts logged in this range'}
+          />
+          <KpiPanel
+            title="Success"
+            value={recStats?.success ?? 0}
+            hint="Recovered back to a usable account"
+          />
+          <KpiPanel
+            title="Failed"
+            value={recStats?.failed ?? 0}
+            hint="Could not recover"
+            tone={(recStats?.failed || 0) > 0 ? 'danger' : undefined}
+          />
+        </div>
+        {(recStats?.failReasons?.length > 0) && (
+          <div className="dash-panel mt-3">
+            <h4 className="dash-panel-title">Fail reasons</h4>
             <div className="space-y-3">
-              {(recStats?.failReasons?.length ? recStats.failReasons : []).map((r) => (
+              {recStats.failReasons.map((r) => (
                 <BarRow
                   key={r.label || r.l}
                   label={r.label || r.l}
@@ -319,59 +377,91 @@ export default function GovernancePage() {
               ))}
             </div>
           </div>
-          <div className="dash-panel">
-            <h4 className="dash-panel-title">SIM Top-up</h4>
-            <div className="flex gap-10">
-              <StatBlock value="—" label="due for top-up" tone="danger" />
-              <StatBlock value="—" label="expiring within 7 days" tone="warn" />
-            </div>
-          </div>
+        )}
+      </DashSection>
+
+      <DashSection title="SIM Top-up">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <KpiPanel
+            title="Due for top-up"
+            value={simKpis.due}
+            hint="Expiry reached or already overdue"
+            tone={simKpis.due > 0 ? 'danger' : undefined}
+          />
+          <KpiPanel
+            title="Expiring within 7 days"
+            value={simKpis.expiring}
+            hint="Needs a top-up this week"
+            tone={simKpis.expiring > 0 ? 'warn' : undefined}
+          />
         </div>
       </DashSection>
 
       <DashSection title="Logout Rate">
-        <div className="dash-panel flex items-start gap-4 border-dashed bg-ams-surface-muted/50">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-ams-surface-muted text-ams-faint">
-            <Plug size={18} />
-          </div>
-          <div>
-            <div className="text-sm font-semibold text-ams-ink">Engine health sync active</div>
-            <p className="mt-1 text-xs leading-relaxed text-ams-muted">
-              Logged-out slots from FeedFlow bridge auto-update account status. Full logout analytics pending.
-            </p>
-          </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <KpiPanel
+            title="Confirmed logouts"
+            value={banStats?.logoutTotal ?? 0}
+            hint="Keep-alive drop confirmed as logout — not counted in ban rate"
+          />
+          <KpiPanel
+            title="False positive"
+            value={banStats?.falsePositiveTotal ?? 0}
+            hint="Monitor / proxy interruption — account was actually fine"
+          />
+          <KpiPanel
+            title="Pending confirmation"
+            value={banStats?.pendingBacklog ?? 0}
+            hint="Backlog — ban-rate KPIs stay incomplete until Resource confirms"
+            tone={(banStats?.pendingBacklog || 0) > 0 ? 'warn' : undefined}
+          />
         </div>
+        <p className="mt-3 text-[12px] leading-relaxed text-ams-faint">
+          Event time is the keep-alive logout, not the Resource fill-in time. Ban rate numerator is Banned only.
+        </p>
       </DashSection>
 
       <DashSection title="Collaboration · Tickets">
-        <div className="grid gap-3 lg:grid-cols-2">
-          <div className="dash-panel">
-            <h4 className="dash-panel-title">Ticket Processing</h4>
-            <div className="dash-stat-row"><span>Pending review</span><span>{tkStats?.tkPending ?? 0}</span></div>
-            <div className="dash-stat-row">
-              <span>Avg. handling time</span>
-              <span>{tkStats?.avgHandlingTime ?? '—'}</span>
-            </div>
-            <div className="dash-stat-row">
-              <span>Backlog (&gt;30 min)</span>
-              <span>{tkStats?.backlogOver30 ?? 0}</span>
-            </div>
-            {!liveEnd && (
-              <p className="mt-2 text-[11px] text-ams-faint">
-                Pending &amp; backlog reflect queue state at end of selected range.
-              </p>
-            )}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <KpiPanel
+            title="Pending review"
+            value={tkStats?.tkPending ?? 0}
+            hint={!liveEnd
+              ? `Queue at end of range${snapshotSuffix}`
+              : 'Tickets waiting for operator review'}
+            tone={(tkStats?.tkPending || 0) > 0 ? 'warn' : undefined}
+          />
+          <KpiPanel
+            title="Avg. handling time"
+            value={tkStats?.avgHandlingTime ?? '—'}
+            hint="Submitted → first operator action"
+          />
+          <KpiPanel
+            title="Backlog (>30 min)"
+            value={tkStats?.backlogOver30 ?? 0}
+            hint="Still pending after 30 minutes"
+            tone={(tkStats?.backlogOver30 || 0) > 0 ? 'danger' : undefined}
+          />
+        </div>
+        <div className="mt-3 grid gap-3 lg:grid-cols-2">
+          <div className="grid grid-cols-2 gap-3">
+            <KpiPanel
+              title="Completed"
+              value={tkStats?.tkDone ?? 0}
+              hint="Delivered in this range"
+            />
+            <KpiPanel
+              title="Rejected"
+              value={tkStats?.tkReject ?? 0}
+              hint="Returned to business"
+              tone={(tkStats?.tkReject || 0) > 0 ? 'danger' : undefined}
+            />
           </div>
           <div className="dash-panel">
-            <h4 className="dash-panel-title">Completed / Rejected</h4>
-            <p className="mb-4 text-[13px] text-ams-muted">
-              Completed <span className="font-semibold text-ams-success">{tkStats?.tkDone ?? 0}</span>
-              {' · '}
-              Rejected <span className="font-semibold text-ams-danger">{tkStats?.tkReject ?? 0}</span>
-            </p>
+            <h4 className="dash-panel-title">Reject reasons</h4>
             <div className="space-y-3">
               {rejReason.length === 0 ? (
-                <p className="text-xs text-ams-muted">No rejections recorded yet for this range.</p>
+                <p className="text-[12px] leading-snug text-ams-muted">No rejections recorded yet for this range.</p>
               ) : rejReason.map((r) => (
                 <BarRow key={r.l} label={r.l} val={`${r.v}%`} pct={r.v} tone={r.tone} />
               ))}

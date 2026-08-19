@@ -16,6 +16,13 @@ import {
 } from '../../lib/accountSelect.js';
 import { enrichAccountsIpEmbed } from '../../lib/accountEnrich.js';
 import { parseOperatorMeta, mergeOperatorNotes } from '../../lib/accountMeta.js';
+import {
+  openAnomalyEvent,
+  closeAnomalyEvent,
+  eventLogoutAt,
+  finalizeAnomaly,
+  ANOMALY_FALSE_POSITIVE,
+} from '../../lib/anomalyEvent.js';
 import { assertDeviceSlotAvailable, DeviceSlotError } from '../../lib/deviceSlots.js';
 import { postWsafAuditRecord } from '../../lib/wsafBridge.js';
 import { accountInBrandScope, profileBrandScope } from '../../lib/accountBrand.js';
@@ -156,7 +163,13 @@ const engineDisconnectSchema = z.object({
 });
 
 const resolveDisconnectSchema = z.object({
-  outcome: z.enum(['restrict_scan', 'restrict_chat_new', 'logged_out', 'banned']),
+  outcome: z.enum([
+    'restrict_scan',
+    'restrict_chat_new',
+    'logged_out',
+    'banned',
+    'false_positive',
+  ]),
   reason: z.string().min(1),
 });
 
@@ -483,6 +496,9 @@ router.patch('/:id', async (req, res, next) => {
       'account_name', 'phone_number', 'device_id', 'sim_id', 'ip_id',
       'wsaf_slot', 'notes', 'last_active',
     ]);
+    // Registration IP is the ledger record — never unbind by sending ip_id: null
+    // (scan-in with empty engine proxy used to wipe it).
+    if (updates.ip_id == null) delete updates.ip_id;
 
     if (body.status) updates.status = body.status;
 
@@ -496,13 +512,14 @@ router.patch('/:id', async (req, res, next) => {
 
     const assignmentDiffs = [];
     for (const field of ['device_id', 'sim_id', 'ip_id']) {
-      if (body[field] !== undefined && body[field] !== current[field]) {
-        assignmentDiffs.push({ field, fromId: current[field], toId: body[field] });
-        await recordAssignmentHistory(data.id, field, current[field], body[field], req.profile.id);
+      const nextId = field === 'ip_id' ? updates.ip_id : body[field];
+      if (nextId !== undefined && nextId !== current[field]) {
+        assignmentDiffs.push({ field, fromId: current[field], toId: nextId });
+        await recordAssignmentHistory(data.id, field, current[field], nextId, req.profile.id);
       }
     }
 
-    if (body.device_id !== undefined || body.sim_id !== undefined || body.ip_id !== undefined) {
+    if (body.device_id !== undefined || body.sim_id !== undefined || updates.ip_id !== undefined) {
       await syncResourceBindings(data.id, {
         device_id: data.device_id,
         sim_id: data.sim_id,
@@ -671,10 +688,20 @@ router.post('/:id/ban', async (req, res, next) => {
     assertTransition(current.status, 'BANNED');
 
     const banReason = `[${stage}] ${reason}${source ? ` · ${source}` : ''}`;
+    const meta = parseOperatorMeta(current);
+    const closed = finalizeAnomaly(meta, {
+      outcome: 'banned',
+      reason: banReason,
+      fromStatus: current.status,
+      source: source || 'ban_form',
+      reportedBy: req.profile?.full_name || req.profile?.username || 'R&M',
+    });
+    const logoutAt = eventLogoutAt(closed.last_anomaly) || new Date().toISOString();
+    const notesWithEvent = mergeOperatorNotes(current.notes, { ...closed, business_notice: null });
 
     const { data, error } = await supabaseAdmin
       .from('accounts')
-      .update({ status: 'BANNED' })
+      .update({ status: 'BANNED', notes: notesWithEvent })
       .eq('id', req.params.id)
       .select(ACCOUNT_SELECT_WITH_SIM_LOCATION)
       .single();
@@ -686,6 +713,7 @@ router.post('/:id/ban', async (req, res, next) => {
       to_status: 'BANNED',
       reason: banReason,
       changed_by: req.profile.id,
+      changed_at: logoutAt,
     });
 
     await bumpIpRisk(current.ip_id);
@@ -751,6 +779,17 @@ router.post('/:id/mark-strict', async (req, res, next) => {
       };
       auditReason = 'operator_strict_scan';
       strictScanPossible = true;
+    }
+
+    if (kind !== 'active') {
+      Object.assign(metaPatch, finalizeAnomaly(meta, {
+        outcome: kind,
+        reason: humanNote,
+        fromStatus: current.status,
+        source: 'mark_strict',
+        restrictKind: kind,
+        reportedBy: req.profile?.full_name || req.profile?.username || 'R&M',
+      }));
     }
 
     const notes = mergeOperatorNotes(current.notes, metaPatch, humanNote);
@@ -850,40 +889,49 @@ router.post('/:id/engine-disconnect', async (req, res, next) => {
       .single();
     if (fetchErr) throw fetchErr;
 
-    if (current.status !== 'IN_USE') {
+    if (current.status !== 'IN_USE' && current.status !== 'NURTURING') {
       const [already] = sanitizeAccountsForRole([current], req.profile);
-      return res.json({ ...already, _skipped: true, reason: 'not_in_use' });
+      return res.json({ ...already, _skipped: true, reason: 'not_keep_alive' });
     }
 
     const meta = parseOperatorMeta(current);
     const reportNote = (note || '').trim()
       || 'Auto-detected by AMS: FeedFlow slot offline / logged out';
-    const report = meta.disconnect_report || {
-      reported_at: new Date().toISOString(),
-      reported_by: 'AMS Engine',
+    const alreadyPending = Boolean(
+      meta.disconnect_report?.logout_at || meta.disconnect_report?.reported_at,
+    );
+    const opened = openAnomalyEvent(meta, {
+      fromStatus: current.status,
+      reportedBy: 'AMS Engine',
       note: reportNote,
       source: 'engine_health',
       slot: slot == null ? null : Number(slot),
-    };
+    });
+    const notes = mergeOperatorNotes(current.notes, opened);
 
-    assertTransition(current.status, 'LOGGED_OUT');
-    const notes = mergeOperatorNotes(current.notes, { disconnect_report: report });
+    const nextStatus = current.status === 'IN_USE' ? 'LOGGED_OUT' : current.status;
+    if (nextStatus !== current.status) {
+      assertTransition(current.status, nextStatus);
+    }
 
     const { data, error } = await supabaseAdmin
       .from('accounts')
-      .update({ status: 'LOGGED_OUT', notes })
+      .update({ status: nextStatus, notes })
       .eq('id', req.params.id)
       .select(ACCOUNT_SELECT_WITH_SIM_LOCATION)
       .single();
     if (error) throw error;
 
-    await supabaseAdmin.from('account_status_history').insert({
-      account_id: data.id,
-      from_status: current.status,
-      to_status: 'LOGGED_OUT',
-      reason: reportNote,
-      changed_by: req.profile.id,
-    });
+    if (!alreadyPending && nextStatus !== current.status) {
+      await supabaseAdmin.from('account_status_history').insert({
+        account_id: data.id,
+        from_status: current.status,
+        to_status: nextStatus,
+        reason: `[pending] ${reportNote}`,
+        changed_by: req.profile.id,
+        changed_at: eventLogoutAt(opened.disconnect_report),
+      });
+    }
 
     await writeAudit({
       entityType: 'account',
@@ -891,15 +939,17 @@ router.post('/:id/engine-disconnect', async (req, res, next) => {
       action: 'STATE_CHANGE',
       previousValue: { status: current.status, disconnect_report: meta.disconnect_report || null },
       newValue: {
-        status: 'LOGGED_OUT',
-        disconnect_report: report,
+        status: nextStatus,
+        disconnect_report: opened.disconnect_report,
         reason: reportNote,
       },
       metadata: {
         account_name: data.account_name,
         field: 'Engine disconnect',
         engine_health: true,
-        slot: report.slot,
+        slot: opened.disconnect_report.slot,
+        confirmation_status: 'pending',
+        logout_at: eventLogoutAt(opened.disconnect_report),
       },
       userId: req.profile.id,
       req,
@@ -945,12 +995,13 @@ router.post('/:id/report-disconnect', async (req, res, next) => {
     }
 
     const reporterName = req.profile?.full_name || req.profile?.username || 'Business';
-    const report = {
-      reported_at: new Date().toISOString(),
-      reported_by: reporterName,
+    const opened = openAnomalyEvent(meta, {
+      fromStatus: current.status,
+      reportedBy: reporterName,
       note: (note || '').trim(),
-    };
-    const notes = mergeOperatorNotes(current.notes, { disconnect_report: report });
+      source: 'business',
+    });
+    const notes = mergeOperatorNotes(current.notes, opened);
 
     const { data, error } = await supabaseAdmin
       .from('accounts')
@@ -969,13 +1020,15 @@ router.post('/:id/report-disconnect', async (req, res, next) => {
         account_name: data.account_name,
         field: 'Disconnect report',
         reported_by: reporterName,
-        note: report.note,
+        note: opened.disconnect_report.note,
       },
       metadata: {
         account_name: data.account_name,
         field: 'Disconnect report',
         business_report: true,
         reported_by: reporterName,
+        confirmation_status: 'pending',
+        logout_at: eventLogoutAt(opened.disconnect_report),
       },
       userId: req.profile.id,
       req,
@@ -1006,38 +1059,70 @@ router.post('/:id/resolve-disconnect', async (req, res, next) => {
       return res.status(400).json({ error: 'No pending disconnect report for this account' });
     }
     const reportedBy = meta.disconnect_report.reported_by || 'Business';
+    const logoutAt = eventLogoutAt(meta.disconnect_report);
+    const closed = closeAnomalyEvent(meta, {
+      outcome,
+      reason,
+      restrictKind: (outcome === 'restrict_scan' || outcome === 'restrict_chat_new') ? outcome : null,
+    });
 
     let data;
     let toLabel;
+    let nextStatus = current.status;
 
-    if (outcome === 'logged_out' || outcome === 'banned') {
-      const toStatus = outcome === 'logged_out' ? 'LOGGED_OUT' : 'BANNED';
-      // Engine auto-disconnect may already have set LOGGED_OUT; still allow clearing the
-      // report, or escalate LOGGED_OUT → BANNED when R&M confirms.
-      if (current.status !== toStatus) {
-        assertTransition(current.status, toStatus);
+    if (outcome === ANOMALY_FALSE_POSITIVE) {
+      const fromStatus = meta.disconnect_report.from_status || current.status;
+      nextStatus = fromStatus === 'NURTURING' || fromStatus === 'IN_USE' ? fromStatus : current.status;
+      if (nextStatus !== current.status) assertTransition(current.status, nextStatus);
+      const notes = mergeOperatorNotes(current.notes, {
+        ...closed,
+        business_notice: null,
+      });
+      const { data: updated, error } = await supabaseAdmin
+        .from('accounts')
+        .update({ status: nextStatus, notes })
+        .eq('id', req.params.id)
+        .select(ACCOUNT_SELECT_WITH_SIM_LOCATION)
+        .single();
+      if (error) throw error;
+      data = updated;
+      toLabel = 'False positive';
+      await supabaseAdmin.from('account_status_history').insert({
+        account_id: data.id,
+        from_status: current.status,
+        to_status: nextStatus,
+        reason: `[false_positive] ${reason} · reported by ${reportedBy}`,
+        changed_by: req.profile.id,
+        changed_at: logoutAt,
+      });
+    } else if (outcome === 'logged_out' || outcome === 'banned') {
+      nextStatus = outcome === 'logged_out' ? 'LOGGED_OUT' : 'BANNED';
+      if (current.status !== nextStatus) {
+        assertTransition(current.status, nextStatus);
       }
-      const notes = mergeOperatorNotes(current.notes, { disconnect_report: null, business_notice: null });
+      const notes = mergeOperatorNotes(current.notes, { ...closed, business_notice: null });
 
       const { data: updated, error } = await supabaseAdmin
         .from('accounts')
-        .update({ status: toStatus, notes })
+        .update({ status: nextStatus, notes })
         .eq('id', req.params.id)
         .select(ACCOUNT_SELECT_WITH_SIM_LOCATION)
         .single();
       if (error) throw error;
 
-      if (current.status !== toStatus) {
-        await supabaseAdmin.from('account_status_history').insert({
-          account_id: updated.id,
-          from_status: current.status,
-          to_status: toStatus,
-          reason: `${reason} · reported by ${reportedBy}`,
-          changed_by: req.profile.id,
-        });
-      }
+      const histReason = outcome === 'banned'
+        ? `[manual] ${reason} · reported by ${reportedBy}`
+        : `${reason} · reported by ${reportedBy}`;
+      await supabaseAdmin.from('account_status_history').insert({
+        account_id: updated.id,
+        from_status: current.status,
+        to_status: nextStatus,
+        reason: histReason,
+        changed_by: req.profile.id,
+        changed_at: logoutAt,
+      });
 
-      if (toStatus === 'BANNED') {
+      if (nextStatus === 'BANNED') {
         await bumpIpRisk(current.ip_id);
         const recNotes = serializeRecoveryNotes(updated.notes, recoveryOnBanDefaults('manual', reason));
         await supabaseAdmin.from('accounts').update({ notes: recNotes }).eq('id', updated.id);
@@ -1045,23 +1130,22 @@ router.post('/:id/resolve-disconnect', async (req, res, next) => {
       }
 
       data = updated;
-      toLabel = toStatus === 'BANNED' ? 'Banned' : 'Logged out';
+      toLabel = nextStatus === 'BANNED' ? 'Banned' : 'Logged out';
     } else {
-      // restrict_scan | restrict_chat_new — WA-level overlay, account.status stays IN_USE.
       const label = STRICT_KIND_LABEL[outcome];
-      const metaPatch = outcome === 'restrict_scan'
-        ? {
-            restrict_kind: outcome,
-            nurturing_phase: 'manual',
-            nurturing_started_at: new Date(Date.now() - 2 * 86_400_000).toISOString(),
-            disconnect_report: null,
-            business_notice: null,
-          }
-        : {
-            restrict_kind: outcome,
-            disconnect_report: null,
-            business_notice: null,
-          };
+      nextStatus = current.status === 'LOGGED_OUT' ? 'IN_USE' : current.status;
+      if (nextStatus !== current.status) assertTransition(current.status, nextStatus);
+      const metaPatch = {
+        ...closed,
+        restrict_kind: outcome,
+        business_notice: null,
+        ...(outcome === 'restrict_scan'
+          ? {
+              nurturing_phase: 'manual',
+              nurturing_started_at: new Date(Date.now() - 2 * 86_400_000).toISOString(),
+            }
+          : {}),
+      };
       const humanNote = outcome === 'restrict_scan'
         ? 'Restricted Scan — cannot scan / re-link during restriction period'
         : 'Restricted Chat New Contact — can scan; chat limited to existing contacts only';
@@ -1069,7 +1153,7 @@ router.post('/:id/resolve-disconnect', async (req, res, next) => {
 
       const { data: updated, error } = await supabaseAdmin
         .from('accounts')
-        .update({ notes })
+        .update({ status: nextStatus, notes })
         .eq('id', req.params.id)
         .select(ACCOUNT_SELECT_WITH_SIM_LOCATION)
         .single();
@@ -1079,9 +1163,10 @@ router.post('/:id/resolve-disconnect', async (req, res, next) => {
       await supabaseAdmin.from('account_status_history').insert({
         account_id: data.id,
         from_status: current.status,
-        to_status: current.status,
-        reason: `${label} · ${reason} · reported by ${reportedBy}`,
+        to_status: nextStatus,
+        reason: `[restrict] ${label} · ${reason} · reported by ${reportedBy}`,
         changed_by: req.profile.id,
+        changed_at: logoutAt,
       });
     }
 
@@ -1090,7 +1175,13 @@ router.post('/:id/resolve-disconnect', async (req, res, next) => {
       entityId: data.id,
       action: 'STATE_CHANGE',
       previousValue: { status: current.status, disconnect_report: meta.disconnect_report },
-      newValue: { status: data.status, outcome, reason, resolved_report: true },
+      newValue: {
+        status: data.status,
+        outcome,
+        reason,
+        resolved_report: true,
+        logout_at: logoutAt,
+      },
       metadata: {
         account_name: data.account_name,
         field: 'Disconnect report',
@@ -1098,6 +1189,7 @@ router.post('/:id/resolve-disconnect', async (req, res, next) => {
         reason,
         to: toLabel,
         reported_by: reportedBy,
+        logout_at: logoutAt,
       },
       userId: req.profile.id,
       req,

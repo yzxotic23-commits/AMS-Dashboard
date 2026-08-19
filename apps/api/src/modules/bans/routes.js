@@ -3,6 +3,7 @@ import { authenticate, requireRole } from '../../middleware/auth.js';
 import { supabaseAdmin } from '../../lib/supabase.js';
 import { parsePagination, paginatedResponse } from '../../lib/pagination.js';
 import { parseOperatorMeta } from '../../lib/accountMeta.js';
+import { aggregateAnomalyKpis } from '../../lib/anomalyEvent.js';
 import {
   buildBanRecords, aggregateBanStats, parseBanReason, banStageLabel,
 } from '../../lib/banAnalytics.js';
@@ -62,24 +63,22 @@ router.get('/stats', requireRole('admin', 'operator', 'business'), async (req, r
     const stats = aggregateBanStats(filtered, { siteKey });
 
     const brandScope = profileBrandScope(req.profile);
-    let poolSize = 0;
-    if (brandScope) {
-      const { data: poolAccounts } = await supabaseAdmin
-        .from('accounts')
-        .select('id, notes, account_name, device_id')
-        .neq('status', 'RECYCLED')
-        .limit(2000);
-      poolSize = (poolAccounts || []).filter((a) => accountInBrandScope(a, brandScope)).length;
-    } else {
-      const { count } = await supabaseAdmin
-        .from('accounts')
-        .select('id', { count: 'exact', head: true })
-        .neq('status', 'RECYCLED');
-      poolSize = count || 0;
-    }
+    const { data: poolRows } = await supabaseAdmin
+      .from('accounts')
+      .select('id, status, notes, account_name, device_id')
+      .neq('status', 'RECYCLED')
+      .limit(2000);
+    const scopedPool = brandScope
+      ? (poolRows || []).filter((a) => accountInBrandScope(a, brandScope))
+      : (poolRows || []);
+    const poolSize = scopedPool.length;
+    const anomalyKpis = aggregateAnomalyKpis(
+      scopedPool.map((a) => ({ ...a, _meta: parseOperatorMeta(a) })),
+      { range, siteKey, inDateRange },
+    );
 
     const overallPct = poolSize > 0
-      ? Math.round((stats.total / poolSize) * 1000) / 10
+      ? Math.round((anomalyKpis.bannedTotal / poolSize) * 1000) / 10
       : 0;
 
     const { data: flaggedIps } = await supabaseAdmin
@@ -91,8 +90,14 @@ router.get('/stats', requireRole('admin', 'operator', 'business'), async (req, r
 
     res.json({
       ...stats,
+      byStage: anomalyKpis.byStage.length ? anomalyKpis.byStage : stats.byStage,
+      total: anomalyKpis.bannedTotal,
       overallPct,
       poolSize,
+      pendingBacklog: anomalyKpis.pendingBacklog,
+      restrictTotal: anomalyKpis.restrictTotal,
+      logoutTotal: anomalyKpis.logoutTotal,
+      falsePositiveTotal: anomalyKpis.falsePositiveTotal,
       flaggedIps: flaggedIps || [],
       date_range: range ? { from: range.from, to: range.to } : null,
     });

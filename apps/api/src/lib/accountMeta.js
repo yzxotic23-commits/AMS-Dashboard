@@ -36,7 +36,7 @@ export function mergeOperatorNotes(currentNotes, metaPatch = {}, humanNote) {
   const next = { ...prev, ...metaPatch };
   const note = humanNote !== undefined ? humanNote : (next.human_note || '');
   if (humanNote !== undefined) next.human_note = humanNote;
-  ['restrict_kind', 'disconnect_report', 'business_notice'].forEach((key) => {
+  ['restrict_kind', 'disconnect_report', 'business_notice', 'anomaly_history', 'last_anomaly'].forEach((key) => {
     if (next[key] == null) delete next[key];
   });
   return serializeAccountNotes(next, note);

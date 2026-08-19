@@ -3,7 +3,7 @@ import { useAllAccounts } from '../hooks/useOperatorAccounts';
 import { useSite } from '../context/SiteContext';
 import { useAuth } from '../context/AuthContext';
 
-/** Pending business disconnect reports awaiting R&M resolve. */
+/** Pending confirmation (keep-alive / business report) awaiting R&M. */
 export default function DisconnectNavBadge() {
   const { profile } = useAuth();
   const { site } = useSite();
@@ -22,7 +22,7 @@ export default function DisconnectNavBadge() {
   if (!count) return null;
   const label = count > 99 ? '99+' : count;
   return (
-    <span className="hub-nav-badge ml-auto shrink-0" aria-label={`${count} disconnect reports`}>
+    <span className="hub-nav-badge ml-auto shrink-0" aria-label={`${count} pending confirmation`}>
       {label}
     </span>
   );

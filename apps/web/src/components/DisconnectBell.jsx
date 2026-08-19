@@ -61,8 +61,8 @@ export default function DisconnectBell() {
       .filter((a) => a.disconnect_report)
       .filter((a) => site === 'all' || a.siteKey === site || a.siteKey === 'all')
       .sort((a, b) => {
-        const ta = new Date(a.disconnect_report?.reported_at || 0).getTime();
-        const tb = new Date(b.disconnect_report?.reported_at || 0).getTime();
+        const ta = new Date(a.disconnect_report?.logout_at || a.disconnect_report?.reported_at || 0).getTime();
+        const tb = new Date(b.disconnect_report?.logout_at || b.disconnect_report?.reported_at || 0).getTime();
         return tb - ta;
       });
   }, [accounts, canSee, site]);
@@ -133,7 +133,7 @@ export default function DisconnectBell() {
       <button
         type="button"
         className="header-bell-btn"
-        aria-label={count ? `${count} disconnect reports` : 'No disconnect reports'}
+        aria-label={count ? `${count} pending confirmation` : 'No pending confirmation'}
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
@@ -144,15 +144,15 @@ export default function DisconnectBell() {
       {open && (
         <div className="header-bell-panel" role="menu">
           <div className="border-b border-ams-line px-3 py-2.5">
-            <p className="text-[13px] font-semibold text-ams-ink">Disconnect reports</p>
+            <p className="text-[13px] font-semibold text-ams-ink">Pending confirmation</p>
             <p className="text-[11px] text-ams-faint">
-              {count ? `${count} awaiting R&M review` : 'Nothing pending'}
+              {count ? `${count} awaiting R&M (Restrict / Banned / false positive)` : 'Nothing pending'}
               {count > 0 && !muted ? ' · alert sound on' : ''}
               {count > 0 && muted ? ' · alerts muted' : ''}
             </p>
           </div>
           {count === 0 ? (
-            <p className="px-3 py-4 text-[13px] text-ams-muted">No disconnect reports right now.</p>
+            <p className="px-3 py-4 text-[13px] text-ams-muted">No accounts pending confirmation.</p>
           ) : (
             <ul className="max-h-72 overflow-y-auto py-1">
               {pending.map((a) => (
@@ -166,7 +166,7 @@ export default function DisconnectBell() {
                     <span className="mt-0.5 block text-[11px] text-ams-muted">
                       {a.disconnect_report.reported_by || a.staff || 'Business'}
                       {' · '}
-                      {new Date(a.disconnect_report.reported_at).toLocaleString()}
+                      {new Date(a.disconnect_report.logout_at || a.disconnect_report.reported_at).toLocaleString()}
                     </span>
                     {a.disconnect_report.note ? (
                       <span className="mt-0.5 block truncate text-[11px] text-ams-faint">
@@ -175,7 +175,7 @@ export default function DisconnectBell() {
                     ) : null}
                     {a.status === 'LOGGED_OUT' ? (
                       <span className="mt-0.5 block text-[11px] font-medium text-ams-warn">
-                        Status · Logged out (confirm Restricted / Banned if needed)
+                        Confirm Restrict / Banned / false positive
                       </span>
                     ) : null}
                   </button>

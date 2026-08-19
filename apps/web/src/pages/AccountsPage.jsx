@@ -3,6 +3,7 @@ import { Search } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import PageHead from '../components/PageHead';
+import DetailDialog from '../components/DetailDialog';
 import { useSite } from '../context/SiteContext';
 import { useAuth } from '../context/AuthContext';
 import { SITES, getSiteChipClass } from '../lib/sites';
@@ -21,6 +22,13 @@ import { buildAccountPath, historyRowCaption } from '../lib/nurture-history';
 import { getBridgeSummary } from '../lib/bridge-client';
 import { liveSlotConnection } from '../lib/engine-slot';
 import { profileStaffScope, accountInStaffScope } from '../lib/account-staff';
+import { ledgerIp } from '../lib/account-operator-meta';
+import {
+  collectAnomalyEvents,
+  eventLogoutAt,
+  stageLabel,
+  anomalyStatusLabel,
+} from '../lib/anomaly-event';
 import api from '../lib/api';
 
 const LEDGER_PAGE_SIZE = 5;
@@ -31,7 +39,14 @@ function siteChipLabel(siteKey) {
   return SITES[siteKey]?.name || siteKey;
 }
 
-function StatusPill({ status, note, restrictKind }) {
+function StatusPill({ status, note, restrictKind, pendingConfirmation }) {
+  if (pendingConfirmation) {
+    return (
+      <span className="badge badge-warn" title="Keep-alive session dropped — awaiting resource confirmation">
+        Pending confirmation
+      </span>
+    );
+  }
   if (restrictKind) {
     const restriction = restrictionMeta(restrictKind);
     return (
@@ -75,16 +90,40 @@ function HistoryPills({ event }) {
   );
 }
 
-function NurtureTimeline({ account, history, tickets }) {
-  const steps = buildAccountPath(account, history, tickets);
-  if (!steps.length) return null;
+function HistoryEventItem({ event }) {
+  return (
+    <li className="rounded-lg border border-ams-line px-3 py-2.5 text-[13px]">
+      <HistoryPills event={event} />
+      {event.reason && (
+        <p className="mt-1.5 text-ams-muted">{event.reason}</p>
+      )}
+      <p className="mt-1 text-[11px] text-ams-faint">
+        {event.profiles?.full_name || 'System'}
+        {' · '}
+        {new Date(event.changed_at).toLocaleString()}
+      </p>
+    </li>
+  );
+}
+
+function NurtureTimeline({ account, history, tickets, compact = false }) {
+  const all = buildAccountPath(account, history, tickets);
+  if (!all.length) return null;
+  const PATH_PREVIEW = 4;
+  const hidden = compact && all.length > PATH_PREVIEW ? all.length - PATH_PREVIEW : 0;
+  const steps = hidden ? all.slice(-PATH_PREVIEW) : all;
   return (
     <div className="mb-4 rounded-lg border border-ams-line bg-ams-canvas/60 px-3 py-3">
       <p className="text-[11px] font-semibold uppercase tracking-wide text-ams-faint">Account path</p>
-      <ol className="mt-2 space-y-2">
+      {hidden > 0 && (
+        <p className="mt-1 text-[11px] text-ams-faint">
+          Showing latest {PATH_PREVIEW} of {all.length} stages — open Full history for the rest
+        </p>
+      )}
+      <ol className="mt-2 space-y-2" start={hidden + 1}>
         {steps.map((step, i) => (
           <li key={step.key} className="flex gap-2 text-[13px]">
-            <span className="mt-0.5 w-4 shrink-0 text-[11px] font-semibold text-ams-faint">{i + 1}.</span>
+            <span className="mt-0.5 w-4 shrink-0 text-[11px] font-semibold text-ams-faint">{hidden + i + 1}.</span>
             <div className="min-w-0">
               <p className="font-semibold text-ams-ink">
                 {step.title}
@@ -148,7 +187,7 @@ function AcctRow({ account, onOpen, showSiteBubble = false, slotLabel, extra = f
     : null;
 
   const flag = account.disconnect_report
-    ? { text: 'Reported', title: 'Business reported a disconnect — awaiting review' }
+    ? { text: 'Pending confirmation', title: 'Keep-alive dropped — resource team is verifying Banned vs Restrict' }
     : null;
 
   return (
@@ -178,13 +217,18 @@ function AcctRow({ account, onOpen, showSiteBubble = false, slotLabel, extra = f
         )}
       </div>
       <div className="rl-col-status">
-        <StatusPill status={account.status} note={dayNote} restrictKind={account.restrict_kind} />
+        <StatusPill
+          status={account.status}
+          note={dayNote}
+          restrictKind={account.restrict_kind}
+          pendingConfirmation={Boolean(account.disconnect_report)}
+        />
         {flag && (
           <span className="rl-flag-chip" title={flag.title}>{flag.text}</span>
         )}
       </div>
       <div className="font-mono text-[12px]">{account.phone_number || '—'}</div>
-      <div className="font-mono text-[12px]">{account.ip || '—'}</div>
+      <div className="font-mono text-[12px]">{ledgerIp(account) || '—'}</div>
       <div className="text-[12.5px] text-ams-muted">{resolveAccountBrand(account) || '—'}</div>
       <div className="rl-col-staff">{account.staff || '—'}</div>
     </div>
@@ -192,10 +236,11 @@ function AcctRow({ account, onOpen, showSiteBubble = false, slotLabel, extra = f
 }
 
 const RESOLVE_OUTCOMES = [
-  ['logged_out', 'Logged out'],
-  ['restrict_scan', 'Restricted Scan'],
-  ['restrict_chat_new', 'Restricted Chat New Contact'],
+  ['restrict_scan', 'Restrict — Scan'],
+  ['restrict_chat_new', 'Restrict — Chat New Contact'],
   ['banned', 'Banned'],
+  ['false_positive', 'False positive / monitoring interruption'],
+  ['logged_out', 'Logged out (not ban)'],
 ];
 
 function AccountDetail({ accountId, onBack, staffOptions = [] }) {
@@ -211,11 +256,12 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
   const [reportNote, setReportNote] = useState('');
   const [reportOpen, setReportOpen] = useState(false);
   const [reportToast, setReportToast] = useState('');
-  const [resolveOutcome, setResolveOutcome] = useState('logged_out');
+  const [resolveOutcome, setResolveOutcome] = useState('restrict_scan');
   const [resolveReason, setResolveReason] = useState('');
   const [resolveToast, setResolveToast] = useState('');
   const [standbyReason, setStandbyReason] = useState('');
   const [standbyToast, setStandbyToast] = useState('');
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   useEffect(() => {
     setStaffDraft(account?.staff || '');
@@ -226,6 +272,17 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
     queryFn: getBridgeSummary,
     staleTime: 20_000,
   });
+
+  const anomalyEvents = useMemo(() => {
+    if (!account) return [];
+    const list = collectAnomalyEvents({
+      disconnect_report: account.disconnect_report,
+      anomaly_history: account.anomaly_history,
+    });
+    return [...list].sort((a, b) => (
+      new Date(eventLogoutAt(b) || 0).getTime() - new Date(eventLogoutAt(a) || 0).getTime()
+    ));
+  }, [account]);
 
   if (isLoading || !account) {
     return <p className="py-10 text-center text-sm text-ams-faint">Loading account…</p>;
@@ -342,8 +399,12 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
     ['Staff', account.staff || '—'],
     ['Device', account.device || '—'],
     ['Site', SITES[account.siteKey]?.name || account.siteKey],
-    ['Reference IP', account.reference_ip_address || account.ip || '—'],
-    ['Current IP', account.ip || '—'],
+    ['IP (registration)', ledgerIp(account) || '—'],
+  );
+  if (ipMismatch) {
+    infoRows.push(['Current IP (engine)', account.ip || '—']);
+  }
+  infoRows.push(
     ['SIM', account.sim || '—'],
   );
   if (nurture) infoRows.push(['Nurturing', `Day ${nurture.day}/${nurture.max} · ${nurture.remaining} left`]);
@@ -394,12 +455,19 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
         </div>
       )}
 
-      {isBusinessUser && account.status === 'IN_USE' && (
-        account.disconnect_report ? (
+      {isBusinessUser && account.disconnect_report && (
           <div className="mb-4 rounded-lg border border-ams-warn/40 bg-ams-warn/10 px-4 py-3 text-[13px] text-ams-warn">
-            Disconnect reported on {new Date(account.disconnect_report.reported_at).toLocaleString()} — awaiting R&amp;M review.
+            Pending confirmation — keep-alive dropped
+            {' '}
+            {new Date(account.disconnect_report.logout_at || account.disconnect_report.reported_at).toLocaleString()}
+            {' · '}
+            {stageLabel(account.disconnect_report.stage)}
+            {' · '}
+            disconnect #{account.disconnect_report.disconnect_count || account.disconnect_count || 1}
+            . Resource team is verifying whether this is Restrict or Banned.
           </div>
-        ) : (
+      )}
+      {isBusinessUser && account.status === 'IN_USE' && !account.disconnect_report && (
           <div className="mb-4 rounded-lg border border-ams-line bg-ams-panel px-4 py-3">
             {reportOpen ? (
               <div className="space-y-2">
@@ -438,28 +506,32 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
             )}
             {reportToast && <p className="mt-2 text-[12px] text-ams-muted">{reportToast}</p>}
           </div>
-        )
       )}
 
       {!isBusinessUser && account.disconnect_report && (
         <div className="mb-4 rounded-lg border border-ams-warn/50 bg-ams-warn/10 p-4">
           <p className="text-[13px] font-semibold text-ams-warn">
-            ⚠ {account.disconnect_report.source === 'engine_health'
-              ? 'AMS auto-detected a disconnect'
-              : 'Business reported a disconnect'}
+            ⚠ Pending confirmation
             {' — '}
+            {account.disconnect_report.source === 'engine_health'
+              ? 'keep-alive session dropped'
+              : 'business reported a disconnect'}
+            {' · '}
             {account.disconnect_report.reported_by}
             {' · '}
-            {new Date(account.disconnect_report.reported_at).toLocaleString()}
+            {new Date(account.disconnect_report.logout_at || account.disconnect_report.reported_at).toLocaleString()}
+            {' · '}
+            {stageLabel(account.disconnect_report.stage)}
+            {' · '}
+            disconnect #{account.disconnect_report.disconnect_count || account.disconnect_count || 1}
           </p>
           {account.disconnect_report.note && (
             <p className="mt-1 text-[13px] text-ams-muted">“{account.disconnect_report.note}”</p>
           )}
-          {account.status === 'LOGGED_OUT' && (
-            <p className="mt-1 text-[12px] text-ams-muted">
-              Status already set to Logged out — confirm Restricted / Banned if that was the real outcome, or confirm Logged out to clear this alert.
-            </p>
-          )}
+          <p className="mt-1 text-[12px] text-ams-muted">
+            Event time is the logout timestamp above — not the time you confirm.
+            Check the phone, then mark Restrict, Banned, or false positive.
+          </p>
           <div className="relative z-20 mt-3 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
             <div className="w-full max-w-[16.5rem] shrink-0">
               <select
@@ -487,6 +559,39 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
             </button>
           </div>
           {resolveToast && <p className="mt-2 text-[12px] text-ams-muted">{resolveToast}</p>}
+        </div>
+      )}
+
+      {!isBusinessUser && anomalyEvents.length > 0 && (
+        <div className="card mb-4">
+          <div className="border-b border-ams-line px-4 py-3 text-sm font-semibold">Anomaly events</div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-[13px]">
+              <thead>
+                <tr className="border-b border-ams-line text-[11px] uppercase tracking-wide text-ams-faint">
+                  <th className="px-4 py-2 font-semibold">Logout time</th>
+                  <th className="px-4 py-2 font-semibold">Stage</th>
+                  <th className="px-4 py-2 font-semibold">Disconnect #</th>
+                  <th className="px-4 py-2 font-semibold">Confirmation</th>
+                </tr>
+              </thead>
+              <tbody>
+                {anomalyEvents.map((ev, i) => (
+                  <tr key={`${eventLogoutAt(ev) || i}-${ev.confirmation_status || ev.outcome || i}`} className="border-b border-ams-line/70">
+                    <td className="px-4 py-2 font-mono text-[12px]">
+                      {eventLogoutAt(ev) ? new Date(eventLogoutAt(ev)).toLocaleString() : '—'}
+                    </td>
+                    <td className="px-4 py-2">{stageLabel(ev.stage)}</td>
+                    <td className="px-4 py-2">{ev.disconnect_count || '—'}</td>
+                    <td className="px-4 py-2">{anomalyStatusLabel(ev)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="px-4 py-2 text-[11px] text-ams-faint">
+            Occurrence time is the keep-alive logout, not when Resource filled the form.
+          </p>
         </div>
       )}
 
@@ -577,35 +682,65 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
           </div>
         </div>
         <div className="card">
-          <div className="border-b border-ams-line px-4 py-3 text-sm font-semibold">Status History</div>
+          <div className="flex items-center justify-between gap-3 border-b border-ams-line px-4 py-3">
+            <span className="text-sm font-semibold">Status History</span>
+            {(account.statusHistory || []).length > 0 && (
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm shrink-0"
+                onClick={() => setHistoryOpen(true)}
+              >
+                Full history
+              </button>
+            )}
+          </div>
           <div className="p-4">
             <NurtureTimeline
               account={account}
               history={account.statusHistory || []}
               tickets={account.deliveryTickets || []}
+              compact
             />
             {(account.statusHistory || []).length === 0 ? (
               <p className="text-[13px] text-ams-muted">No status changes recorded yet.</p>
             ) : (
-              <ul className="space-y-3">
-                {account.statusHistory.map((h) => (
-                  <li key={h.id} className="rounded-lg border border-ams-line px-3 py-2.5 text-[13px]">
-                    <HistoryPills event={h} />
-                    {h.reason && (
-                      <p className="mt-1.5 text-ams-muted">{h.reason}</p>
-                    )}
-                    <p className="mt-1 text-[11px] text-ams-faint">
-                      {h.profiles?.full_name || 'System'}
-                      {' · '}
-                      {new Date(h.changed_at).toLocaleString()}
-                    </p>
-                  </li>
-                ))}
-              </ul>
+              <>
+                <ul className="space-y-3">
+                  {(account.statusHistory || []).slice(0, 4).map((h) => (
+                    <HistoryEventItem key={h.id} event={h} />
+                  ))}
+                </ul>
+                {(account.statusHistory || []).length > 4 && (
+                  <p className="mt-3 text-[12px] text-ams-faint">
+                    {(account.statusHistory || []).length - 4} older events — open Full history
+                  </p>
+                )}
+              </>
             )}
           </div>
         </div>
       </div>
+
+      <DetailDialog
+        open={historyOpen}
+        title={`Status history · ${account.account_name}`}
+        onClose={() => setHistoryOpen(false)}
+      >
+        <NurtureTimeline
+          account={account}
+          history={account.statusHistory || []}
+          tickets={account.deliveryTickets || []}
+        />
+        {(account.statusHistory || []).length === 0 ? (
+          <p className="text-[13px] text-ams-muted">No status changes recorded yet.</p>
+        ) : (
+          <ul className="space-y-3">
+            {(account.statusHistory || []).map((h) => (
+              <HistoryEventItem key={h.id} event={h} />
+            ))}
+          </ul>
+        )}
+      </DetailDialog>
     </div>
   );
 }
@@ -921,7 +1056,7 @@ export default function AccountsPage() {
       {!isBusiness && pendingDisconnects.length > 0 && (
         <div className="mb-4 rounded-lg border border-ams-warn/40 bg-ams-warn/10 px-4 py-3">
           <p className="text-[13px] font-semibold text-ams-warn">
-            {pendingDisconnects.length} disconnect report{pendingDisconnects.length === 1 ? '' : 's'} from business — action needed
+            {pendingDisconnects.length} pending confirmation{pendingDisconnects.length === 1 ? '' : 's'} — action needed
           </p>
           <ul className="mt-2 space-y-2">
             {pendingDisconnects.map((a) => (

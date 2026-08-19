@@ -4,6 +4,7 @@ import {
   DEMO_ACCOUNT_SEED, DEMO_REG_LOGS, TICKETS_SEED,
 } from './wireframe-data';
 import { serializeAccountNotes, parseOperatorMeta } from './account-operator-meta';
+import { openAnomalyEvent, closeAnomalyEvent, finalizeAnomaly, aggregateAnomalyKpis } from './anomaly-event';
 import { buildBanRecords, aggregateBanStats } from './ban-analytics';
 import { serializeRecoveryNotes, recoveryOnBanDefaults, parseRecoveryMeta } from './account-recovery-meta';
 import {
@@ -723,15 +724,17 @@ export function getMockResponse(config) {
     if (!prev) throw new Error('Account not found');
     demoAccounts = demoAccounts.map((a) => {
       if (a.id !== id) return a;
-      return {
+      const next = {
         ...a,
         ...body,
         notes: body.notes ?? a.notes,
         updated_at: new Date().toISOString(),
       };
+      if (body.ip_id == null) next.ip_id = a.ip_id;
+      return next;
     });
     const row = demoAccounts.find((a) => a.id === id);
-    if (body.ip_id !== undefined) syncIpAssignment(prev.ip_id, body.ip_id);
+    if (body.ip_id) syncIpAssignment(prev.ip_id, body.ip_id);
     if (body.device_id !== undefined) syncDeviceBinding(prev.device_id, body.device_id, id);
     if (body.status && body.status !== prev.status) {
       pushStatusHistory(id, prev.status, body.status, body.reason || 'Status updated');
@@ -776,26 +779,29 @@ export function getMockResponse(config) {
     const body = typeof config.data === 'string' ? JSON.parse(config.data) : (config.data || {});
     const current = demoAccounts.find((a) => a.id === id);
     if (!current) throw new Error('Account not found');
-    if (current.status !== 'IN_USE') {
-      return { ...enrichAccount(current), _skipped: true, reason: 'not_in_use' };
+    if (current.status !== 'IN_USE' && current.status !== 'NURTURING') {
+      return { ...enrichAccount(current), _skipped: true, reason: 'not_keep_alive' };
     }
     const meta = parseOperatorMeta(current);
     const reportNote = (body.note || '').trim()
       || 'Auto-detected by AMS: FeedFlow slot offline / logged out';
-    const report = meta.disconnect_report || {
-      reported_at: new Date().toISOString(),
-      reported_by: 'AMS Engine',
+    const opened = openAnomalyEvent(meta, {
+      fromStatus: current.status,
+      reportedBy: 'AMS Engine',
       note: reportNote,
       source: 'engine_health',
       slot: body.slot == null ? null : Number(body.slot),
-    };
-    const notes = serializeAccountNotes({ ...meta, disconnect_report: report });
+    });
+    const notes = serializeAccountNotes({ ...meta, ...opened });
+    const nextStatus = current.status === 'IN_USE' ? 'LOGGED_OUT' : current.status;
     demoAccounts = demoAccounts.map((a) => (
       a.id === id
-        ? { ...a, status: 'LOGGED_OUT', notes, updated_at: new Date().toISOString() }
+        ? { ...a, status: nextStatus, notes, updated_at: new Date().toISOString() }
         : a
     ));
-    pushStatusHistory(id, current.status, 'LOGGED_OUT', reportNote);
+    if (nextStatus !== current.status) {
+      pushStatusHistory(id, current.status, nextStatus, `[pending] ${reportNote}`);
+    }
     return enrichAccount(demoAccounts.find((a) => a.id === id));
   }
 
@@ -809,12 +815,13 @@ export function getMockResponse(config) {
     if (meta.disconnect_report) {
       return { ...enrichAccount(current), _alreadyReported: true };
     }
-    const report = {
-      reported_at: new Date().toISOString(),
-      reported_by: DEMO_PROFILE.full_name,
+    const opened = openAnomalyEvent(meta, {
+      fromStatus: current.status,
+      reportedBy: DEMO_PROFILE.full_name,
       note: (body.note || '').trim(),
-    };
-    const notes = serializeAccountNotes({ ...meta, disconnect_report: report });
+      source: 'business',
+    });
+    const notes = serializeAccountNotes({ ...meta, ...opened });
     demoAccounts = demoAccounts.map((a) => (
       a.id === id ? { ...a, notes, updated_at: new Date().toISOString() } : a
     ));
@@ -829,6 +836,21 @@ export function getMockResponse(config) {
     const meta = parseOperatorMeta(current);
     if (!meta.disconnect_report) throw new Error('No pending disconnect report for this account');
     const outcome = body.outcome;
+    const closed = closeAnomalyEvent(meta, {
+      outcome,
+      reason: body.reason || outcome,
+      restrictKind: (outcome === 'restrict_scan' || outcome === 'restrict_chat_new') ? outcome : null,
+    });
+    if (outcome === 'false_positive') {
+      const fromStatus = meta.disconnect_report.from_status || current.status;
+      const nextStatus = fromStatus === 'NURTURING' || fromStatus === 'IN_USE' ? fromStatus : current.status;
+      const notes = serializeAccountNotes({ ...meta, ...closed, business_notice: undefined });
+      demoAccounts = demoAccounts.map((a) => (
+        a.id === id ? { ...a, status: nextStatus, notes, updated_at: new Date().toISOString() } : a
+      ));
+      pushStatusHistory(id, current.status, nextStatus, `[false_positive] ${body.reason || outcome}`);
+      return enrichAccount(demoAccounts.find((a) => a.id === id));
+    }
     if (outcome === 'logged_out' || outcome === 'banned') {
       const toStatus = outcome === 'logged_out' ? 'LOGGED_OUT' : 'BANNED';
       if (current.status !== toStatus) {
@@ -839,6 +861,7 @@ export function getMockResponse(config) {
       }
       const nextMeta = {
         ...meta,
+        ...closed,
         disconnect_report: undefined,
       };
       delete nextMeta.disconnect_report;
@@ -853,9 +876,7 @@ export function getMockResponse(config) {
           ? { ...a, status: toStatus, notes, updated_at: new Date().toISOString() }
           : a
       ));
-      if (current.status !== toStatus) {
-        pushStatusHistory(id, current.status, toStatus, body.reason || outcome);
-      }
+      pushStatusHistory(id, current.status, toStatus, body.reason || outcome);
       return enrichAccount(demoAccounts.find((a) => a.id === id));
     }
     const restrictLabel = outcome === 'restrict_scan'
@@ -863,7 +884,7 @@ export function getMockResponse(config) {
       : 'Restricted Chat New Contact';
     const nextMeta = {
       ...meta,
-      disconnect_report: undefined,
+      ...closed,
       restrict_kind: outcome,
       ...(outcome === 'restrict_scan'
         ? {
@@ -947,15 +968,20 @@ export function getMockResponse(config) {
       throw new Error(`Invalid state transition: ${current.status} → BANNED`);
     }
     const banReason = `[${body.stage}] ${body.reason}${body.source ? ` · ${body.source}` : ''}`;
+    const meta = parseOperatorMeta(current);
+    const closed = finalizeAnomaly(meta, {
+      outcome: 'banned',
+      reason: banReason,
+      fromStatus: current.status,
+      source: body.source || 'ban_form',
+    });
+    let notes = serializeAccountNotes({ ...meta, ...closed, business_notice: undefined });
+    notes = serializeRecoveryNotes(notes, recoveryOnBanDefaults(body.stage, body.reason));
     demoAccounts = demoAccounts.map((a) => (
-      a.id === id ? { ...a, status: 'BANNED', updated_at: new Date().toISOString() } : a
+      a.id === id ? { ...a, status: 'BANNED', notes, updated_at: new Date().toISOString() } : a
     ));
     pushStatusHistory(id, current.status, 'BANNED', banReason);
     bumpDemoIpRisk(current.ip_id);
-    const recNotes = serializeRecoveryNotes(current.notes || '', recoveryOnBanDefaults(body.stage, body.reason));
-    demoAccounts = demoAccounts.map((a) => (
-      a.id === id ? { ...a, status: 'BANNED', notes: recNotes, updated_at: new Date().toISOString() } : a
-    ));
     return enrichAccount(demoAccounts.find((a) => a.id === id));
   }
 
@@ -963,14 +989,38 @@ export function getMockResponse(config) {
     const siteKey = params.site || params.site_key || 'all';
     const records = demoBanRecords();
     const stats = aggregateBanStats(records, { siteKey });
-    const poolSize = demoAccounts.filter((a) => a.status !== 'RECYCLED').length;
+    const pool = demoAccounts.filter((a) => a.status !== 'RECYCLED');
+    const range = (params.from && params.to)
+      ? { from: params.from, to: params.to }
+      : null;
+    const inDateRange = (iso, r) => {
+      if (!iso || !r) return true;
+      const t = new Date(iso).getTime();
+      return t >= new Date(r.from).getTime() && t <= new Date(r.to).getTime();
+    };
+    const anomalyKpis = aggregateAnomalyKpis(
+      pool.map((a) => ({ ...a, _meta: parseOperatorMeta(a) })),
+      { range, siteKey, inDateRange },
+    );
+    const poolSize = pool.length;
     const overallPct = poolSize > 0
-      ? Math.round((stats.total / poolSize) * 1000) / 10
+      ? Math.round((anomalyKpis.bannedTotal / poolSize) * 1000) / 10
       : 0;
     const flaggedIps = demoIps
       .filter((ip) => (ip.risk_count || 0) >= stats.badIpThreshold || ip.status === 'FLAGGED')
       .slice(0, 10);
-    return { ...stats, overallPct, poolSize, flaggedIps };
+    return {
+      ...stats,
+      byStage: anomalyKpis.byStage.length ? anomalyKpis.byStage : stats.byStage,
+      total: anomalyKpis.bannedTotal,
+      overallPct,
+      poolSize,
+      flaggedIps,
+      pendingBacklog: anomalyKpis.pendingBacklog,
+      restrictTotal: anomalyKpis.restrictTotal,
+      logoutTotal: anomalyKpis.logoutTotal,
+      falsePositiveTotal: anomalyKpis.falsePositiveTotal,
+    };
   }
 
   if (method === 'GET' && url === 'bans') {

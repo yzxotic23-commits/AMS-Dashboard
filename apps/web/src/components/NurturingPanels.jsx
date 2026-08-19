@@ -285,19 +285,17 @@ export default function NurturingPanels() {
     setBusy(true);
     try {
       const ipRow = freeIps.find((ip) => ip.id === scanIpId);
-      // Engine proxy is optional — if operator leaves it empty, keep the IP bound at register.
-      // Writing ip_id: null here was wiping registration IPs (audit: ASSIGNMENT_CHANGE → '—').
-      const nextIpId = ipRow?.id || scanRow.ip_id || null;
-      const nextIp = ipRow?.ip_address || scanRow.ip || '';
+      // Engine proxy is optional. Never write ip_id: null — ledger IP stays the registration bind.
+      const nextIpId = ipRow?.id || scanRow.ip_id || scanRow.reference_ip_id || null;
+      const nextIp = ipRow?.ip_address || scanRow.ip || scanRow.reference_ip_address || '';
       await patchAccount.mutateAsync({
         id: scanRow.id,
         row: scanRow,
         patch: {
-          ip: nextIp,
-          ip_id: nextIpId,
           nurturing_phase: 'auto',
           linked_override: true,
           wsaf_slot: scanSlot,
+          ...(nextIpId ? { ip: nextIp, ip_id: nextIpId } : {}),
         },
         extra: {
           wsaf_slot: scanSlot,

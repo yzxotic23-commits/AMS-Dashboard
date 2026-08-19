@@ -91,9 +91,11 @@ export function useAccountMutations() {
         wsaf_slot: merged.wsaf_slot,
         device_id: merged.device_id ?? null,
         sim_id: merged.sim_id ?? null,
-        ip_id: merged.ip_id ?? null,
         notes: extra.notes ?? buildMetaPatch(row, patch),
       };
+      const requestedIp = extra.ip_id !== undefined ? extra.ip_id : patch.ip_id;
+      if (requestedIp) body.ip_id = requestedIp;
+      else delete body.ip_id;
       const res = await api.patch(`/accounts/${id}`, body);
       return accountToOperatorRow(res.data);
     },

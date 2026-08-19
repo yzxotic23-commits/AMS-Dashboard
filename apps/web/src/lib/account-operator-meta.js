@@ -91,6 +91,9 @@ export function accountToOperatorRow(account) {
     human_note: meta.human_note || '',
     restrict_kind: meta.restrict_kind || null,
     disconnect_report: meta.disconnect_report || null,
+    anomaly_history: meta.anomaly_history || [],
+    last_anomaly: meta.last_anomaly || null,
+    disconnect_count: Number(meta.disconnect_count || meta.disconnect_report?.disconnect_count || 0),
     business_notice: meta.business_notice || null,
     reference_ip_id: meta.reference_ip_id || account.ip_id || null,
     reference_ip_address: meta.reference_ip_address || ipJoin?.ip_address || '',
@@ -104,6 +107,11 @@ export function accountToOperatorRow(account) {
       || '',
     _notes: account.notes || '',
   };
+}
+
+/** IP shown on the resource ledger: first registration bind, not the optional engine proxy. */
+export function ledgerIp(account) {
+  return String(account?.reference_ip_address || account?.ip || '').trim();
 }
 
 function inferSiteFromIp(ip) {
@@ -147,9 +155,14 @@ export function buildMetaPatch(row, patch) {
     brand: row.brand,
     restrict_kind: row.restrict_kind,
     disconnect_report: row.disconnect_report,
+    anomaly_history: row.anomaly_history,
+    last_anomaly: row.last_anomaly,
+    disconnect_count: row.disconnect_count,
     business_notice: row.business_notice,
     ...patch,
   };
+  next.reference_ip_id = row.reference_ip_id || next.reference_ip_id || null;
+  next.reference_ip_address = row.reference_ip_address || next.reference_ip_address || '';
   return serializeAccountNotes(
     {
       site_key: next.site_key,
@@ -161,6 +174,9 @@ export function buildMetaPatch(row, patch) {
       human_note: next.human_note,
       restrict_kind: next.restrict_kind || undefined,
       disconnect_report: next.disconnect_report || undefined,
+      anomaly_history: next.anomaly_history?.length ? next.anomaly_history : undefined,
+      last_anomaly: next.last_anomaly || undefined,
+      disconnect_count: next.disconnect_count || undefined,
       business_notice: next.business_notice || undefined,
       reference_ip_id: next.reference_ip_id,
       reference_ip_address: next.reference_ip_address,

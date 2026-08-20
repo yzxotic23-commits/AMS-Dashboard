@@ -422,40 +422,36 @@ export default function GovernancePage() {
       </DashSection>
 
       <DashSection title="Collaboration · Tickets">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <KpiPanel
-            title="Pending review"
-            value={tkStats?.tkPending ?? 0}
-            hint={!liveEnd
-              ? `Queue at end of range${snapshotSuffix}`
-              : 'Tickets waiting for operator review'}
-            tone={(tkStats?.tkPending || 0) > 0 ? 'warn' : undefined}
-          />
-          <KpiPanel
-            title="Avg. handling time"
-            value={tkStats?.avgHandlingTime ?? '—'}
-            hint="Submitted → first operator action"
-          />
-          <KpiPanel
-            title="Backlog (>30 min)"
-            value={tkStats?.backlogOver30 ?? 0}
-            hint="Still pending after 30 minutes"
-            tone={(tkStats?.backlogOver30 || 0) > 0 ? 'danger' : undefined}
-          />
-        </div>
-        <div className="mt-3 grid gap-3 lg:grid-cols-2">
-          <div className="grid grid-cols-2 gap-3">
-            <KpiPanel
-              title="Completed"
-              value={tkStats?.tkDone ?? 0}
-              hint="Delivered in this range"
-            />
-            <KpiPanel
-              title="Rejected"
-              value={tkStats?.tkReject ?? 0}
-              hint="Returned to business"
-              tone={(tkStats?.tkReject || 0) > 0 ? 'danger' : undefined}
-            />
+        <div className="grid gap-3 lg:grid-cols-2">
+          <div className="dash-panel">
+            <h4 className="dash-panel-title">Ticket Processing</h4>
+            <div className="dash-stat-row">
+              <span>Pending review</span>
+              <span>{tkStats?.tkPending ?? 0}</span>
+            </div>
+            <div className="dash-stat-row">
+              <span>Backlog (&gt;30 min)</span>
+              <span>{tkStats?.backlogOver30 ?? 0}</span>
+            </div>
+            <div className="dash-stat-row">
+              <span>Completed</span>
+              <span>{tkStats?.tkDone ?? 0}</span>
+            </div>
+            <div className="dash-stat-row">
+              <span>Rejected</span>
+              <span className={(tkStats?.tkReject || 0) > 0 ? 'text-ams-danger' : undefined}>
+                {tkStats?.tkReject ?? 0}
+              </span>
+            </div>
+            <div className="dash-stat-row">
+              <span>Avg. handling time</span>
+              <span>{tkStats?.avgHandlingTime ?? '—'}</span>
+            </div>
+            {!liveEnd && (
+              <p className="mt-2 text-[11px] text-ams-faint">
+                Pending &amp; backlog reflect queue state at end of selected range{snapshotSuffix}.
+              </p>
+            )}
           </div>
           <div className="dash-panel">
             <h4 className="dash-panel-title">Reject reasons</h4>

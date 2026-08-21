@@ -4,6 +4,7 @@ export const TELCO_OPTIONS = [
   'Tunetalk',
   'Celcom',
   'Digi',
+  'Hotlink',
   'Maxis',
   'U Mobile',
   'Unifi',

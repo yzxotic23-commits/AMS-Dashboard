@@ -7,10 +7,20 @@ import { useTickets } from '../hooks/useTickets';
 import { pendingOperatorTickets, pendingBusinessConfirmTickets } from '../lib/ticket-pending';
 import { formatDurationShort } from '../lib/ticket-timing';
 import { profileStaffScope, accountInStaffScope } from '../lib/account-staff';
+import {
+  bindAudioUnlock,
+  playTicketAlertSound,
+  ensureNotificationPermission,
+  notificationPermission,
+  showDesktopNotification,
+  setPendingTitleFlash,
+  clearPendingTitleFlash,
+} from '../lib/alert-notify';
 import Toast from './Toast';
 
 const MUTE_KEY = 'ams.ticketAlertMuted';
-const CHIME_INTERVAL_MS = 10_000;
+const CHIME_INTERVAL_MS = 8_000;
+const DESKTOP_NUDGE_MS = 25_000;
 
 function formatAgo(value) {
   if (!value) return '';
@@ -28,35 +38,29 @@ function readMuted() {
   }
 }
 
-function playTone(ctx, { freq, at, dur, type = 'sine', peak = 0.22 }) {
-  const start = ctx.currentTime + at;
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-  osc.type = type;
-  osc.frequency.value = freq;
-  gain.gain.setValueAtTime(0.0001, start);
-  gain.gain.linearRampToValueAtTime(peak, start + 0.012);
-  gain.gain.linearRampToValueAtTime(0.0001, start + dur);
-  osc.connect(gain);
-  gain.connect(ctx.destination);
-  osc.start(start);
-  osc.stop(start + dur + 0.02);
-}
-
-/** Soft rising chime for new delivery tickets. */
-function playTicketAlertSound() {
-  try {
-    const Ctx = window.AudioContext || window.webkitAudioContext;
-    if (!Ctx) return;
-    const ctx = new Ctx();
-    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
-    playTone(ctx, { freq: 523.25, at: 0, dur: 0.22, type: 'triangle', peak: 0.18 });
-    playTone(ctx, { freq: 659.25, at: 0.12, dur: 0.28, type: 'triangle', peak: 0.2 });
-    playTone(ctx, { freq: 783.99, at: 0.24, dur: 0.4, type: 'triangle', peak: 0.16 });
-    setTimeout(() => ctx.close().catch(() => {}), 1000);
-  } catch {
-    /* autoplay blocked or AudioContext unavailable */
+function notifyDesktopTickets({ isBusiness, fresh, pendingCount, onOpen }) {
+  const title = isBusiness ? 'AMS · Confirm live' : 'AMS · Delivery ticket';
+  let body;
+  if (fresh?.length === 1) {
+    const t = fresh[0];
+    body = isBusiness
+      ? `${t.account_name || 'Account'} is live — confirm delivery`
+      : `New ticket #${t.ticket_number || t.id} · ${t.account_name || 'account'}`;
+  } else if (fresh?.length > 1) {
+    body = isBusiness
+      ? `${fresh.length} tickets awaiting your confirm`
+      : `${fresh.length} new delivery tickets awaiting review`;
+  } else {
+    body = isBusiness
+      ? `${pendingCount} awaiting your confirm`
+      : `${pendingCount} ticket${pendingCount === 1 ? '' : 's'} awaiting IP review`;
   }
+  showDesktopNotification({
+    title,
+    body,
+    tag: isBusiness ? 'ams-ticket-business' : 'ams-ticket-resource',
+    onClick: onOpen,
+  });
 }
 
 /** Header alert: operator reviews new tickets; business confirms go-live. */
@@ -72,6 +76,7 @@ export default function TicketBell() {
   const [toast, setToast] = useState('');
   const [muted, setMuted] = useState(readMuted);
   const [tick, setTick] = useState(0);
+  const [notifPerm, setNotifPerm] = useState(notificationPermission);
   const rootRef = useRef(null);
   const knownIdsRef = useRef(null);
 
@@ -84,7 +89,34 @@ export default function TicketBell() {
     return rows.filter((t) => accountInStaffScope(t, staffScope));
   }, [tickets, canSee, isBusiness, site, staffScope]);
 
-  // Toast only when a new pending ticket appears.
+  useEffect(() => {
+    bindAudioUnlock();
+  }, []);
+
+  useEffect(() => () => clearPendingTitleFlash(), []);
+
+  // Title flash + desktop nudge while backlog exists (works with tab in background).
+  useEffect(() => {
+    if (!canSee) return undefined;
+    const label = isBusiness ? 'confirm' : 'ticket';
+    setPendingTitleFlash(pending.length, label);
+
+    if (muted || pending.length === 0) return undefined;
+
+    const nudge = () => {
+      if (typeof document !== 'undefined' && !document.hidden) return;
+      notifyDesktopTickets({
+        isBusiness,
+        pendingCount: pending.length,
+        onOpen: () => navigate('/tickets'),
+      });
+    };
+
+    const id = setInterval(nudge, DESKTOP_NUDGE_MS);
+    return () => clearInterval(id);
+  }, [pending.length, canSee, muted, isBusiness, navigate]);
+
+  // Toast + sound + desktop notification when a new pending ticket appears.
   useEffect(() => {
     if (!canSee) return;
     const ids = new Set(pending.map((t) => t.id));
@@ -94,34 +126,46 @@ export default function TicketBell() {
     }
     const fresh = pending.filter((t) => !knownIdsRef.current.has(t.id));
     knownIdsRef.current = ids;
+    if (!fresh.length) return;
+
     if (fresh.length === 1) {
       const t = fresh[0];
       setToast(isBusiness
         ? `${t.account_name || 'Account'} is live — confirm delivery`
         : `New delivery ticket #${t.ticket_number || t.id} · ${t.account_name || 'account'}`);
-    } else if (fresh.length > 1) {
+    } else {
       setToast(isBusiness
         ? `${fresh.length} tickets awaiting your confirm`
         : `${fresh.length} new delivery tickets awaiting review`);
     }
-  }, [pending, canSee, isBusiness]);
 
-  // Repeat soft chime while any ticket is still pending (HWBO-style), until In Progress / cleared.
+    if (!muted) {
+      playTicketAlertSound();
+      notifyDesktopTickets({
+        isBusiness,
+        fresh,
+        pendingCount: pending.length,
+        onOpen: () => navigate('/tickets'),
+      });
+    }
+  }, [pending, canSee, isBusiness, muted, navigate]);
+
+  // Repeat chime while pending (also try when tab becomes visible again).
   useEffect(() => {
     if (!canSee || muted || pending.length === 0) return undefined;
 
-    const chimeIfVisible = () => {
-      if (typeof document !== 'undefined' && document.hidden) return;
+    const chime = () => {
       playTicketAlertSound();
     };
 
-    chimeIfVisible();
-    const id = setInterval(chimeIfVisible, CHIME_INTERVAL_MS);
+    if (typeof document === 'undefined' || !document.hidden) chime();
+    const id = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      chime();
+    }, CHIME_INTERVAL_MS);
 
     function onVis() {
-      if (!document.hidden && pending.length > 0 && !muted) {
-        playTicketAlertSound();
-      }
+      if (!document.hidden && pending.length > 0 && !muted) chime();
     }
     document.addEventListener('visibilitychange', onVis);
 
@@ -131,7 +175,6 @@ export default function TicketBell() {
     };
   }, [pending.length, canSee, muted]);
 
-  // Refresh waiting ages while panel is open / pending exists.
   useEffect(() => {
     if (!canSee || pending.length === 0) return undefined;
     const id = setInterval(() => setTick((n) => n + 1), 30_000);
@@ -176,6 +219,20 @@ export default function TicketBell() {
     });
   }
 
+  async function enableDesktopAlerts() {
+    bindAudioUnlock();
+    playTicketAlertSound();
+    const perm = await ensureNotificationPermission();
+    setNotifPerm(perm);
+    if (perm === 'granted' && count > 0 && !muted) {
+      notifyDesktopTickets({
+        isBusiness,
+        pendingCount: count,
+        onOpen: openTicket,
+      });
+    }
+  }
+
   return (
     <>
       <div className="relative" ref={rootRef}>
@@ -188,7 +245,10 @@ export default function TicketBell() {
               : `${count} delivery tickets awaiting review`)
             : (isBusiness ? 'No tickets to confirm' : 'No delivery tickets pending')}
           aria-expanded={open}
-          onClick={() => setOpen((v) => !v)}
+          onClick={() => {
+            bindAudioUnlock();
+            setOpen((v) => !v);
+          }}
         >
           <Ticket size={18} strokeWidth={1.75} />
           {count > 0 && <span className="header-bell-dot" aria-hidden />}
@@ -249,23 +309,45 @@ export default function TicketBell() {
                 })}
               </ul>
             )}
-            <div className={`flex items-center gap-2 border-t border-ams-line px-3 py-2 ${isBusiness ? 'justify-end' : 'justify-between'}`}>
-              {!isBusiness && (
+            <div className="flex flex-col gap-1.5 border-t border-ams-line px-3 py-2">
+              {notifPerm === 'default' && (
                 <button
                   type="button"
-                  className="text-[12px] font-medium text-ams-accent hover:underline"
-                  onClick={openTicket}
+                  className="text-left text-[12px] font-medium text-ams-accent hover:underline"
+                  onClick={enableDesktopAlerts}
                 >
-                  Open Delivery tickets
+                  Enable desktop alerts (works in background)
                 </button>
               )}
-              <button
-                type="button"
-                className="text-[12px] font-medium text-ams-muted hover:text-ams-ink hover:underline"
-                onClick={toggleMute}
-              >
-                {muted ? 'Unmute alerts' : 'Mute alerts'}
-              </button>
+              {notifPerm === 'denied' && (
+                <p className="text-[11px] text-ams-faint">
+                  Desktop alerts blocked in browser settings — allow notifications for this site.
+                </p>
+              )}
+              {notifPerm === 'granted' && (
+                <p className="text-[11px] text-ams-faint">Desktop alerts on · title flash while pending</p>
+              )}
+              {notifPerm === 'unsupported' && (
+                <p className="text-[11px] text-ams-faint">This browser does not support desktop notifications.</p>
+              )}
+              <div className={`flex items-center gap-2 ${isBusiness ? 'justify-end' : 'justify-between'}`}>
+                {!isBusiness && (
+                  <button
+                    type="button"
+                    className="text-[12px] font-medium text-ams-accent hover:underline"
+                    onClick={openTicket}
+                  >
+                    Open Delivery tickets
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="text-[12px] font-medium text-ams-muted hover:text-ams-ink hover:underline"
+                  onClick={toggleMute}
+                >
+                  {muted ? 'Unmute alerts' : 'Mute alerts'}
+                </button>
+              </div>
             </div>
           </div>
         )}

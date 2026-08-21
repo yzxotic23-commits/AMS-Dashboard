@@ -324,9 +324,6 @@ export default function TicketBell() {
                   Desktop alerts blocked in browser settings — allow notifications for this site.
                 </p>
               )}
-              {notifPerm === 'granted' && (
-                <p className="text-[11px] text-ams-faint">Desktop alerts on · title flash while pending</p>
-              )}
               {notifPerm === 'unsupported' && (
                 <p className="text-[11px] text-ams-faint">This browser does not support desktop notifications.</p>
               )}

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LayoutDashboard } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { bindAudioUnlock } from '../lib/alert-notify';
 
 export default function LoginPage() {
   const { signIn } = useAuth();
@@ -13,6 +14,7 @@ export default function LoginPage() {
 
   async function handleSubmit(e) {
     e.preventDefault();
+    bindAudioUnlock();
     setError('');
     setLoading(true);
     try {

@@ -158,11 +158,8 @@ export default function TicketBell() {
       playTicketAlertSound();
     };
 
-    if (typeof document === 'undefined' || !document.hidden) chime();
-    const id = setInterval(() => {
-      if (typeof document !== 'undefined' && document.hidden) return;
-      chime();
-    }, CHIME_INTERVAL_MS);
+    chime();
+    const id = setInterval(chime, CHIME_INTERVAL_MS);
 
     function onVis() {
       if (!document.hidden && pending.length > 0 && !muted) chime();

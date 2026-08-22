@@ -7,7 +7,10 @@ import { AuthProvider } from './context/AuthContext';
 import { SiteProvider } from './context/SiteContext';
 import { GovernanceDateProvider } from './context/GovernanceDateContext';
 import { getWebConfig } from './lib/supabase';
+import { bindAudioUnlock } from './lib/alert-notify';
 import './index.css';
+
+bindAudioUnlock();
 
 function ConfigError({ message }) {
   return (

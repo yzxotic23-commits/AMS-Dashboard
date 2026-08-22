@@ -2,6 +2,8 @@
 
 let sharedAudioCtx = null;
 let audioUnlockBound = false;
+let pendingChime = false;
+let audioUnlocked = false;
 const BASE_TITLE_FALLBACK = 'AMS';
 let baseTitle = null;
 let titleFlashTimer = null;
@@ -31,19 +33,42 @@ export function getSharedAudioContext() {
   if (sharedAudioCtx.state === 'suspended') {
     sharedAudioCtx.resume().catch(() => {});
   }
+  if (sharedAudioCtx.state === 'running') audioUnlocked = true;
   return sharedAudioCtx;
 }
 
-/** Call once so later chimes work even after tab was backgrounded. */
+function flushPendingChime() {
+  if (!pendingChime) return;
+  pendingChime = false;
+  playTicketAlertSound();
+}
+
+async function unlockAudioFromGesture() {
+  try {
+    const ctx = getSharedAudioContext();
+    if (ctx?.state === 'suspended') await ctx.resume();
+    if (ctx?.state === 'running') audioUnlocked = true;
+  } catch {
+    /* autoplay still blocked */
+  }
+  if (audioUnlocked) flushPendingChime();
+}
+
+/** Call once so later chimes work even after tab was backgrounded. Bind as early as main.jsx (login click counts). */
 export function bindAudioUnlock() {
   if (typeof window === 'undefined' || audioUnlockBound) return;
   audioUnlockBound = true;
   const unlock = () => {
-    const ctx = getSharedAudioContext();
-    if (ctx?.state === 'suspended') ctx.resume().catch(() => {});
+    unlockAudioFromGesture();
   };
   window.addEventListener('pointerdown', unlock, { capture: true });
+  window.addEventListener('mousedown', unlock, { capture: true });
+  window.addEventListener('click', unlock, { capture: true });
+  window.addEventListener('touchstart', unlock, { capture: true });
   window.addEventListener('keydown', unlock, { capture: true });
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) unlockAudioFromGesture();
+  });
 }
 
 function playTone(ctx, { freq, at, dur, type = 'triangle', peak = 0.2 }) {
@@ -61,16 +86,28 @@ function playTone(ctx, { freq, at, dur, type = 'triangle', peak = 0.2 }) {
   osc.stop(start + dur + 0.03);
 }
 
-/** Louder triple chime — tries shared AudioContext first. */
+/** Louder triple chime — queues until AudioContext is running (after any user gesture). */
 export function playTicketAlertSound() {
   try {
-    const ctx = getSharedAudioContext();
-    if (!ctx) return false;
+    if (!sharedAudioCtx || sharedAudioCtx.state !== 'running') {
+      pendingChime = true;
+      if (sharedAudioCtx?.state === 'suspended') {
+        sharedAudioCtx.resume().then(() => {
+          if (sharedAudioCtx?.state === 'running') {
+            audioUnlocked = true;
+            flushPendingChime();
+          }
+        }).catch(() => {});
+      }
+      return false;
+    }
+    const ctx = sharedAudioCtx;
     playTone(ctx, { freq: 523.25, at: 0, dur: 0.2, peak: 0.22 });
     playTone(ctx, { freq: 659.25, at: 0.14, dur: 0.26, peak: 0.24 });
     playTone(ctx, { freq: 830.61, at: 0.3, dur: 0.36, peak: 0.2 });
     return true;
   } catch {
+    pendingChime = true;
     return false;
   }
 }

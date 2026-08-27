@@ -3091,27 +3091,25 @@
     @apply block;
   }
   .shot-upload {
-    @apply flex w-full cursor-pointer flex-col items-stretch rounded-card border border-dashed border-ams-line px-3 py-3 text-center transition-colors;
+    @apply flex w-full cursor-default flex-col items-stretch rounded-card border border-dashed border-ams-line px-3 py-3 text-center transition-colors;
     background-color: var(--ams-surface);
   }
-  .shot-upload:has(.shot-upload-inner:hover),
-  .shot-upload--drag {
+  .shot-upload--drag,
+  .shot-upload--focus {
     @apply border-ams-blue;
   }
-  .shot-upload--drag .shot-upload-inner {
+  .shot-upload--drag .shot-upload-inner,
+  .shot-upload--focus .shot-upload-inner {
     background-color: #eff6ff;
   }
   .shot-upload-drop-overlay {
-    @apply absolute inset-3 z-[5] flex items-center justify-center rounded-md text-[13px] font-semibold text-ams-blue;
+    @apply absolute inset-2 z-[5] flex items-center justify-center rounded-md text-[13px] font-semibold text-ams-blue;
     background-color: rgb(239 246 255 / 0.92);
     border: 1px dashed var(--ams-blue, #2563eb);
   }
   .shot-upload-inner {
-    @apply flex min-h-[15rem] flex-col items-center justify-center gap-1 rounded-md px-3 py-4 transition-colors;
+    @apply flex min-h-[12rem] flex-col items-center justify-center gap-1 rounded-md px-3 py-4 transition-colors;
     background-color: var(--ams-surface-muted);
-  }
-  .shot-upload-inner:hover {
-    background-color: #eff6ff;
   }
   .shot-upload:focus-visible {
     @apply outline-none ring-2 ring-ams-blue ring-offset-2;
@@ -3121,6 +3119,16 @@
   }
   .shot-upload-hint {
     @apply text-[11px] text-ams-faint;
+  }
+  .shot-upload-browse {
+    @apply mt-1.5 cursor-pointer rounded-md border border-ams-line bg-white px-3 py-1 text-[12px] font-medium text-ams-blue transition-colors;
+  }
+  .shot-upload-browse:hover {
+    background-color: #eff6ff;
+    border-color: var(--ams-blue, #2563eb);
+  }
+  .shot-upload-browse:focus-visible {
+    @apply outline-none ring-2 ring-ams-blue ring-offset-1;
   }
   .shot-upload-caption {
     @apply mt-2 cursor-default text-[11px] leading-snug text-ams-faint;
@@ -3133,11 +3141,11 @@
     @apply border-ams-line;
   }
   .shot-upload-preview {
-    @apply relative flex min-h-[15rem] w-full items-center justify-center p-3;
+    @apply relative flex min-h-[12rem] w-full items-center justify-center p-3;
     background-color: var(--ams-surface-muted);
   }
   .shot-upload-img {
-    @apply block max-h-[14rem] w-full rounded-md object-contain;
+    @apply block max-h-[12rem] w-full rounded-md object-contain;
     box-shadow: 0 1px 3px rgb(0 0 0 / 0.08);
   }
   .shot-upload-remove {

@@ -223,14 +223,14 @@ function DeliveryTicketFormFields({
           </div>
         )}
 
-        <label className="drawer-field">
+        <div className="drawer-field">
           <span className="drawer-label">Upload IP setup screenshot</span>
           <ScreenshotUpload
             value={screenshotBase64}
             onChange={onScreenshotChange}
             onError={onScreenshotError}
           />
-        </label>
+        </div>
 
         <div className="drawer-locked">
           <span className="drawer-locked-label">

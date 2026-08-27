@@ -1,18 +1,40 @@
-import { useId, useRef } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { ImagePlus, X } from 'lucide-react';
-import { readScreenshotFile, SCREENSHOT_ACCEPT } from '../lib/screenshot-file';
+import {
+  imageFileFromClipboard,
+  imageFileFromList,
+  readScreenshotFile,
+  SCREENSHOT_ACCEPT,
+} from '../lib/screenshot-file';
+
+function isTypingTarget(el) {
+  if (!el || !(el instanceof Element)) return false;
+  const tag = el.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+  return Boolean(el.closest('input, textarea, select, [contenteditable="true"]'));
+}
 
 export default function ScreenshotUpload({
   value,
   onChange,
   onError,
   label = 'Upload IP setup screenshot',
-  hint = 'JPEG, PNG, or WebP · max 4 MB',
+  hint = 'Click, paste (Ctrl/Cmd+V), or drag & drop · JPEG, PNG, WebP · max 4 MB',
   caption = 'As evidence for operator review',
 }) {
   const inputId = useId();
   const inputRef = useRef(null);
   const blockOpenRef = useRef(false);
+  const [dragging, setDragging] = useState(false);
+  const dragDepthRef = useRef(0);
+  const onChangeRef = useRef(onChange);
+  const onErrorRef = useRef(onError);
+  onChangeRef.current = onChange;
+  onErrorRef.current = onError;
+
+  function reportError(err) {
+    (onErrorRef.current || ((msg) => window.alert(msg)))(err?.message || 'Could not load screenshot');
+  }
 
   function openFilePicker() {
     if (blockOpenRef.current) return;
@@ -23,7 +45,7 @@ export default function ScreenshotUpload({
     e.preventDefault();
     e.stopPropagation();
     blockOpenRef.current = true;
-    onChange('');
+    onChangeRef.current('');
     window.setTimeout(() => {
       blockOpenRef.current = false;
     }, 300);
@@ -32,10 +54,10 @@ export default function ScreenshotUpload({
   async function handleFile(file) {
     try {
       const dataUrl = await readScreenshotFile(file);
-      onChange(dataUrl);
+      onChangeRef.current(dataUrl);
     } catch (err) {
-      onChange('');
-      throw err;
+      onChangeRef.current('');
+      reportError(err);
     }
   }
 
@@ -43,16 +65,62 @@ export default function ScreenshotUpload({
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
-    try {
-      await handleFile(file);
-    } catch (err) {
-      onChange('');
-      (onError || ((msg) => window.alert(msg)))(err.message || 'Could not load screenshot');
-    }
+    await handleFile(file);
   }
 
+  function onDragEnter(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    dragDepthRef.current += 1;
+    setDragging(true);
+  }
+
+  function onDragOver(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+  }
+
+  function onDragLeave(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+    if (dragDepthRef.current === 0) setDragging(false);
+  }
+
+  async function onDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    dragDepthRef.current = 0;
+    setDragging(false);
+    const file = imageFileFromList(e.dataTransfer?.files);
+    if (!file) {
+      reportError(new Error('Drop a JPEG, PNG, or WebP image'));
+      return;
+    }
+    await handleFile(file);
+  }
+
+  useEffect(() => {
+    function onPaste(e) {
+      if (isTypingTarget(e.target) || isTypingTarget(document.activeElement)) return;
+      const file = imageFileFromClipboard(e.clipboardData);
+      if (!file) return;
+      e.preventDefault();
+      handleFile(file);
+    }
+    document.addEventListener('paste', onPaste);
+    return () => document.removeEventListener('paste', onPaste);
+  }, []);
+
   return (
-    <div className="shot-upload-field">
+    <div
+      className={`shot-upload-field${dragging ? ' shot-upload-field--dragging' : ''}`}
+      onDragEnter={onDragEnter}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+    >
       <input
         ref={inputRef}
         id={inputId}
@@ -62,7 +130,7 @@ export default function ScreenshotUpload({
         onChange={onPickFile}
       />
       {value ? (
-        <div className="shot-upload shot-upload--filled">
+        <div className={`shot-upload shot-upload--filled${dragging ? ' shot-upload--drag' : ''}`}>
           <div className="shot-upload-preview">
             <img src={value} alt="IP setup screenshot preview" className="shot-upload-img" />
             <button
@@ -74,6 +142,11 @@ export default function ScreenshotUpload({
             >
               <X size={12} strokeWidth={2.5} />
             </button>
+            {dragging && (
+              <div className="shot-upload-drop-overlay" aria-hidden>
+                Drop to replace
+              </div>
+            )}
           </div>
           <button
             type="button"
@@ -86,13 +159,15 @@ export default function ScreenshotUpload({
       ) : (
         <button
           type="button"
-          className="shot-upload"
+          className={`shot-upload${dragging ? ' shot-upload--drag' : ''}`}
           onClick={openFilePicker}
           aria-labelledby={inputId}
         >
           <div className="shot-upload-inner">
             <ImagePlus size={20} strokeWidth={1.75} className="text-ams-faint" />
-            <span className="shot-upload-prompt">Click to upload screenshot</span>
+            <span className="shot-upload-prompt">
+              {dragging ? 'Drop screenshot here' : 'Click, paste, or drop screenshot'}
+            </span>
             <span className="shot-upload-hint">{hint}</span>
           </div>
           {caption && <p className="shot-upload-caption">{caption}</p>}

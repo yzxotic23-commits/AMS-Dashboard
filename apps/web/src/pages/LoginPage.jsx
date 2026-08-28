@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { LayoutDashboard } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { bindAudioUnlock } from '../lib/alert-notify';
+import { formatApiError } from '../lib/format-api-error';
 
 export default function LoginPage() {
   const { signIn } = useAuth();
@@ -21,7 +22,7 @@ export default function LoginPage() {
       await signIn(username.trim(), password);
       navigate('/');
     } catch (err) {
-      setError(err.message);
+      setError(formatApiError(err, 'Sign in failed — check username/password or try again'));
     } finally {
       setLoading(false);
     }

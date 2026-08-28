@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { getSupabase } from './supabase';
+import { formatApiError } from './format-api-error';
 
 function resolveApiOrigin() {
   if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL.replace(/\/$/, '');
@@ -41,7 +42,7 @@ api.interceptors.response.use(
       window.location.href = '/login';
       return new Promise(() => {});
     }
-    const message = err.response?.data?.error || err.message;
+    const message = formatApiError(err, err.message || 'Request failed');
     return Promise.reject(new Error(message));
   },
 );

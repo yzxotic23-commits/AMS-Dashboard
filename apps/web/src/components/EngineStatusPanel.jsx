@@ -1,7 +1,10 @@
-import { Activity, AlertCircle, ExternalLink, MessageSquare, RefreshCw, Wifi, WifiOff, Zap } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Activity, AlertCircle, ChevronLeft, ChevronRight, ExternalLink, MessageSquare, RefreshCw, Wifi, WifiOff, Zap } from 'lucide-react';
 import IconTooltip from './IconTooltip';
 import { useEngineStatus } from '../hooks/useEngineStatus';
 import { useFeedFlowRefresh } from '../hooks/useFeedFlowRefresh';
+
+const SLOT_PAGE_SIZE = 10;
 
 const SLOT_STATE_CLASS = {
   online: 'engine-slot-bubble--online',
@@ -79,6 +82,7 @@ function SlotBubble({ slot }) {
 export default function EngineStatusPanel() {
   const { data, isLoading, isError, isFetching } = useEngineStatus();
   const { refresh, refreshing } = useFeedFlowRefresh();
+  const [slotPage, setSlotPage] = useState(0);
 
   const reachable = data?.reachable === true;
   const boot = data?.boot;
@@ -87,6 +91,16 @@ export default function EngineStatusPanel() {
   const engine = data?.engine;
   const feeding = data?.feeding?.summary;
   const slots = data?.slots || [];
+
+  const slotPages = Math.max(1, Math.ceil(slots.length / SLOT_PAGE_SIZE));
+  const safePage = Math.min(slotPage, slotPages - 1);
+  const visibleSlots = useMemo(() => {
+    const start = safePage * SLOT_PAGE_SIZE;
+    return slots.slice(start, start + SLOT_PAGE_SIZE);
+  }, [slots, safePage]);
+  const hasMoreSlots = slots.length > SLOT_PAGE_SIZE;
+  const showLeadingEllipsis = hasMoreSlots && safePage > 0;
+  const showTrailingEllipsis = hasMoreSlots && safePage < slotPages - 1;
 
   // Prefer engine.slotsOnline; fall back to counting connected/authSaved slots
   // so AMS stays in sync when preview sockets are intentionally offline.
@@ -206,23 +220,68 @@ export default function EngineStatusPanel() {
 
           {slots.length > 0 && (
             <div className="engine-slots">
-              <div className="engine-slots-head">
+              <div className="engine-slots-row">
                 <div className="engine-slots-label">
                   <Activity size={13} />
                   Slots
                   <span className="engine-slots-count">{slots.length}</span>
                 </div>
+                <div className="engine-slots-bubbles" role="list" aria-label="Engine slot status">
+                  {showLeadingEllipsis && (
+                    <button
+                      type="button"
+                      className="engine-slots-ellipsis"
+                      aria-label="Previous slots"
+                      onClick={() => setSlotPage((p) => Math.max(0, Math.min(p, slotPages - 1) - 1))}
+                    >
+                      …
+                    </button>
+                  )}
+                  {visibleSlots.map((s) => (
+                    <SlotBubble key={s.slot} slot={s} />
+                  ))}
+                  {showTrailingEllipsis && (
+                    <button
+                      type="button"
+                      className="engine-slots-ellipsis"
+                      aria-label="Next slots"
+                      onClick={() => setSlotPage((p) => Math.min(slotPages - 1, Math.min(p, slotPages - 1) + 1))}
+                    >
+                      …
+                    </button>
+                  )}
+                </div>
+                {hasMoreSlots && (
+                  <div className="engine-slots-pager">
+                    <button
+                      type="button"
+                      className="engine-slots-pager-btn"
+                      aria-label="Previous page"
+                      disabled={safePage <= 0}
+                      onClick={() => setSlotPage((p) => Math.max(0, Math.min(p, slotPages - 1) - 1))}
+                    >
+                      <ChevronLeft size={14} strokeWidth={2} />
+                    </button>
+                    <span className="engine-slots-pager-label">
+                      {safePage + 1}/{slotPages}
+                    </span>
+                    <button
+                      type="button"
+                      className="engine-slots-pager-btn"
+                      aria-label="Next page"
+                      disabled={safePage >= slotPages - 1}
+                      onClick={() => setSlotPage((p) => Math.min(slotPages - 1, Math.min(p, slotPages - 1) + 1))}
+                    >
+                      <ChevronRight size={14} strokeWidth={2} />
+                    </button>
+                  </div>
+                )}
                 <div className="engine-slots-legend">
                   <span><i className="engine-legend-dot engine-legend-dot--online" /> Online</span>
                   <span><i className="engine-legend-dot engine-legend-dot--linking" /> Linking</span>
                   <span><i className="engine-legend-dot engine-legend-dot--feeding" /> Feeding</span>
                   <span><i className="engine-legend-dot engine-legend-dot--offline" /> Offline</span>
                 </div>
-              </div>
-              <div className="engine-slots-bubbles" role="list" aria-label="Engine slot status">
-                {slots.map((s) => (
-                  <SlotBubble key={s.slot} slot={s} />
-                ))}
               </div>
             </div>
           )}

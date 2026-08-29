@@ -412,9 +412,6 @@
   .engine-slots {
     @apply border-t border-ams-line px-4 py-3;
   }
-  .engine-slots-head {
-    @apply mb-2.5 flex flex-wrap items-center justify-between gap-x-4 gap-y-2;
-  }
   .engine-slots-row {
     @apply flex flex-wrap items-center gap-x-4 gap-y-2.5;
   }
@@ -425,11 +422,30 @@
     @apply rounded-full bg-ams-surface-muted px-1.5 py-px text-[10px] font-bold normal-case tracking-normal text-ams-faint;
   }
   .engine-slots-bubbles {
-    display: grid;
-    grid-template-columns: repeat(16, 1.25rem);
-    gap: 0.2rem;
-    width: max-content;
-    max-width: 100%;
+    @apply flex min-w-0 flex-1 flex-wrap items-center gap-px;
+  }
+  .engine-slots-ellipsis {
+    @apply inline-flex h-5 min-w-[1.25rem] shrink-0 items-center justify-center rounded-md border-0 bg-transparent px-0.5 text-[12px] font-semibold leading-none text-ams-faint;
+  }
+  .engine-slots-ellipsis:hover {
+    background-color: var(--ams-surface-muted);
+    color: var(--ams-muted);
+  }
+  .engine-slots-pager {
+    @apply flex shrink-0 items-center gap-0.5;
+  }
+  .engine-slots-pager-btn {
+    @apply inline-flex h-6 w-6 items-center justify-center rounded-md border-0 bg-transparent text-ams-muted;
+  }
+  .engine-slots-pager-btn:hover:not(:disabled) {
+    background-color: var(--ams-surface-muted);
+    color: var(--ams-ink);
+  }
+  .engine-slots-pager-btn:disabled {
+    @apply cursor-not-allowed opacity-35;
+  }
+  .engine-slots-pager-label {
+    @apply min-w-[2.25rem] text-center text-[10px] font-semibold tabular-nums text-ams-faint;
   }
   .engine-slot-hit {
     @apply inline-flex h-5 w-5 shrink-0 cursor-default items-center justify-center rounded-md border-0 bg-transparent p-0;
@@ -515,20 +531,15 @@
     @apply italic text-white/45;
   }
 
-  @media (max-width: 900px) {
-    .engine-slots-bubbles {
-      grid-template-columns: repeat(12, 1.25rem);
-    }
-  }
   @media (max-width: 640px) {
-    .engine-slots-head {
+    .engine-slots-row {
       @apply flex-col items-stretch;
     }
     .engine-slots-bubbles {
-      grid-template-columns: repeat(8, 1.25rem);
+      @apply w-full;
     }
     .engine-slots-legend {
-      @apply justify-between gap-x-2;
+      @apply w-full justify-between gap-x-2 border-t border-ams-line pt-2;
     }
   }
 

@@ -10,7 +10,9 @@ export const ACCOUNT_STATUSES = [
 export const VALID_TRANSITIONS = {
   REGISTERING: ['NURTURING', 'RECYCLED'],
   NURTURING: ['AVAILABLE', 'BANNED', 'RECYCLED'],
-  AVAILABLE: ['IN_USE', 'NURTURING', 'RECYCLED'],
+  // Standby / not-yet-scanned: R&M must still mark Ban or Restrict when the phone
+  // shows a platform ban before Frontline requests the account again.
+  AVAILABLE: ['IN_USE', 'NURTURING', 'RECYCLED', 'BANNED', 'LOGGED_OUT'],
   IN_USE: ['LOGGED_OUT', 'BANNED', 'AVAILABLE'],
   // BANNED allowed so R&M can confirm ban after engine auto-logout / disconnect report.
   LOGGED_OUT: ['NURTURING', 'RECOVERING', 'RECYCLED', 'BANNED', 'IN_USE', 'AVAILABLE'],

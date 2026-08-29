@@ -113,6 +113,13 @@
   .btn-danger:hover {
     opacity: 0.92;
   }
+  .btn-warn {
+    background-color: var(--ams-warn);
+    color: #fff;
+  }
+  .btn-warn:hover {
+    opacity: 0.92;
+  }
   .btn-outline-danger {
     border: 1px solid #f5c4c3;
     background-color: var(--ams-surface);
@@ -130,12 +137,49 @@
     border-color: #f5c4c3;
     color: var(--ams-danger);
   }
+  .btn-outline-warn {
+    border: 1px solid color-mix(in srgb, var(--ams-warn) 45%, white);
+    background-color: var(--ams-surface);
+    color: var(--ams-warn);
+    box-shadow: var(--ams-shadow-card);
+  }
+  .btn-outline-warn:hover {
+    background-color: color-mix(in srgb, var(--ams-warn) 12%, white);
+    border-color: color-mix(in srgb, var(--ams-warn) 55%, white);
+    color: #b8860b;
+  }
+  .btn-outline-warn:disabled:hover,
+  .btn-outline-warn[disabled]:hover {
+    background-color: var(--ams-surface);
+    border-color: color-mix(in srgb, var(--ams-warn) 45%, white);
+    color: var(--ams-warn);
+  }
   .btn-ghost {
     color: var(--ams-muted);
   }
   .btn-ghost:hover {
     background-color: var(--ams-hover);
     color: var(--ams-ink);
+  }
+  .btn-text-danger {
+    color: var(--ams-danger);
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+  }
+  .btn-text-danger:hover {
+    background-color: #fdecea;
+    color: #c81e1a;
+  }
+  .btn-text-warn {
+    color: var(--ams-warn);
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+  }
+  .btn-text-warn:hover {
+    background-color: color-mix(in srgb, var(--ams-warn) 14%, white);
+    color: #b8860b;
   }
   .btn:disabled,
   .btn[disabled] {
@@ -1758,6 +1802,13 @@
   .table-icon-btn--danger:hover:not(:disabled) {
     background-color: #fdecea;
     color: var(--ams-danger);
+  }
+  .table-icon-btn--warn {
+    color: var(--ams-warn);
+  }
+  .table-icon-btn--warn:hover:not(:disabled) {
+    background-color: color-mix(in srgb, var(--ams-warn) 14%, white);
+    color: var(--ams-warn);
   }
   .table-icon-btn--accent:hover:not(:disabled) {
     background-color: #fff0e8;

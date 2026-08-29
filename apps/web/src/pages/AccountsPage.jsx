@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Search } from 'lucide-react';
+import { AlertTriangle, Ban, Search } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import PageHead from '../components/PageHead';
 import DetailDialog from '../components/DetailDialog';
+import Drawer from '../components/Drawer';
+import Toast from '../components/Toast';
 import { useSite } from '../context/SiteContext';
 import { useAuth } from '../context/AuthContext';
 import { SITES, getSiteChipClass } from '../lib/sites';
@@ -243,12 +245,34 @@ const RESOLVE_OUTCOMES = [
   ['logged_out', 'Logged out (not ban)'],
 ];
 
+const STANDBY_RESTRICT_KINDS = [
+  {
+    id: 'restrict_scan',
+    label: 'Restricted Scan',
+    hint: 'Cannot scan / re-link WhatsApp during the restriction period.',
+  },
+  {
+    id: 'restrict_chat_new',
+    label: 'Restricted Chat New Contact',
+    hint: 'Can still scan; chat limited to existing contacts only.',
+  },
+];
+
+const STANDBY_BAN_REASONS = [
+  'Banned on phone — platform review / Recovery',
+  'Number rejected by platform',
+  'Verification failed',
+  'Device / SIM issue',
+  'Other',
+];
+
 function AccountDetail({ accountId, onBack, staffOptions = [] }) {
   const { profile } = useAuth();
   const isBusinessUser = profile?.role === 'business';
   const { data: account, isLoading } = useAccountDetail(accountId);
   const {
     patchAccount, reportDisconnect, resolveDisconnect, returnStandby, ackNotice,
+    banAccount, markStrict,
   } = useAccountMutations();
   const canSetStaff = profile?.role === 'admin' || profile?.role === 'operator';
   const [staffDraft, setStaffDraft] = useState('');
@@ -262,6 +286,11 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
   const [standbyReason, setStandbyReason] = useState('');
   const [standbyToast, setStandbyToast] = useState('');
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [standbyDrawer, setStandbyDrawer] = useState(null); // 'banned' | 'restrict'
+  const [standbyOutcome, setStandbyOutcome] = useState('restrict_scan');
+  const [standbyBanReason, setStandbyBanReason] = useState(STANDBY_BAN_REASONS[0]);
+  const [standbyUpdateToast, setStandbyUpdateToast] = useState('');
+  const [standbyUpdateBusy, setStandbyUpdateBusy] = useState(false);
 
   useEffect(() => {
     setStaffDraft(account?.staff || '');
@@ -370,6 +399,50 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
     }
   }
 
+  async function submitStandbyPhoneUpdate() {
+    if (standbyUpdateBusy) return;
+    const outcome = standbyDrawer === 'banned' ? 'banned' : standbyOutcome;
+    setStandbyUpdateBusy(true);
+    try {
+      if (outcome === 'banned') {
+        await banAccount.mutateAsync({
+          id: account.id,
+          stage: 'manual',
+          reason: standbyBanReason,
+          source: 'standby_phone_check',
+        });
+        setStandbyUpdateToast('Marked Banned — open Recovery to start review.');
+      } else {
+        await markStrict.mutateAsync({ id: account.id, kind: outcome });
+        setStandbyUpdateToast(
+          outcome === 'restrict_chat_new'
+            ? 'Marked Restricted Chat — hidden from Delivery requests.'
+            : 'Marked Restricted Scan — hidden from Delivery requests.',
+        );
+      }
+      setStandbyDrawer(null);
+    } catch (e) {
+      setStandbyUpdateToast(e?.response?.data?.error || e.message || 'Failed to update status');
+    } finally {
+      setStandbyUpdateBusy(false);
+      setTimeout(() => setStandbyUpdateToast(''), 4200);
+    }
+  }
+
+  async function clearStandbyRestrict() {
+    if (standbyUpdateBusy) return;
+    setStandbyUpdateBusy(true);
+    try {
+      await markStrict.mutateAsync({ id: account.id, kind: 'active' });
+      setStandbyUpdateToast('Restriction cleared — requestable on Standby again.');
+    } catch (e) {
+      setStandbyUpdateToast(e?.response?.data?.error || e.message || 'Failed to clear restriction');
+    } finally {
+      setStandbyUpdateBusy(false);
+      setTimeout(() => setStandbyUpdateToast(''), 4200);
+    }
+  }
+
   async function dismissNotice() {
     try {
       await ackNotice.mutateAsync({ id: account.id });
@@ -410,12 +483,57 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
   if (nurture) infoRows.push(['Nurturing', `Day ${nurture.day}/${nurture.max} · ${nurture.remaining} left`]);
   if (engineStatus) infoRows.push(['Engine status', engineStatus]);
 
+  const canUpdateStandbyPhone = !isBusinessUser
+    && (account.status === 'AVAILABLE' || account.status === 'LOGGED_OUT')
+    && !account.disconnect_report;
+
   return (
     <div>
-      <div className="mb-6 flex items-center gap-3">
+      <div className="mb-6 flex flex-wrap items-center gap-3">
         <button type="button" className="btn btn-secondary btn-sm" onClick={onBack}>‹ Back</button>
         <h1 className="text-[22px] font-bold">{account.account_name}</h1>
         <StatusPill status={account.status} restrictKind={account.restrict_kind} />
+        {canUpdateStandbyPhone && (
+          <div className="ml-auto flex items-center gap-2">
+            {account.restrict_kind ? (
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                disabled={standbyUpdateBusy || markStrict.isPending}
+                onClick={clearStandbyRestrict}
+              >
+                Clear restriction
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className="btn btn-outline-danger btn-sm inline-flex items-center gap-1.5"
+                  disabled={standbyUpdateBusy || banAccount.isPending}
+                  onClick={() => {
+                    setStandbyBanReason(STANDBY_BAN_REASONS[0]);
+                    setStandbyDrawer('banned');
+                  }}
+                >
+                  <Ban size={14} strokeWidth={2} />
+                  Ban
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-outline-warn btn-sm inline-flex items-center gap-1.5"
+                  disabled={standbyUpdateBusy || markStrict.isPending}
+                  onClick={() => {
+                    setStandbyOutcome('restrict_scan');
+                    setStandbyDrawer('restrict');
+                  }}
+                >
+                  <AlertTriangle size={14} strokeWidth={2} />
+                  Restrict
+                </button>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {ipMismatch && (
@@ -577,7 +695,7 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
               </thead>
               <tbody>
                 {anomalyEvents.map((ev, i) => (
-                  <tr key={`${eventLogoutAt(ev) || i}-${ev.confirmation_status || ev.outcome || i}`} className="border-b border-ams-line/70">
+                  <tr key={`${eventLogoutAt(ev) || i}-${ev.confirmation_status || ev.outcome || i}`} className="border-b border-ams-line last:border-b-0">
                     <td className="px-4 py-2 font-mono text-[12px]">
                       {eventLogoutAt(ev) ? new Date(eventLogoutAt(ev)).toLocaleString() : '—'}
                     </td>
@@ -741,6 +859,115 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
           </ul>
         )}
       </DetailDialog>
+
+      <Drawer
+        open={standbyDrawer === 'banned'}
+        title="Mark Banned"
+        onClose={() => setStandbyDrawer(null)}
+        footer={(
+          <>
+            <button type="button" className="btn btn-ghost" onClick={() => setStandbyDrawer(null)}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="btn btn-danger"
+              disabled={standbyUpdateBusy || banAccount.isPending}
+              onClick={submitStandbyPhoneUpdate}
+            >
+              {standbyUpdateBusy ? 'Saving…' : 'Confirm Ban'}
+            </button>
+          </>
+        )}
+      >
+        <div className="space-y-4">
+          <p className="text-[12.5px] leading-relaxed text-ams-muted">
+            Removes this account from Frontline Standby requests and sends it to Recovery.
+          </p>
+          <div className="rounded-lg border border-ams-line bg-ams-surface-muted px-3 py-2">
+            <div className="text-[11px] font-medium uppercase tracking-wide text-ams-faint">Account</div>
+            <div className="text-sm font-semibold text-ams-ink">{account.account_name}</div>
+          </div>
+          <label className="drawer-field">
+            <span className="drawer-label">Ban reason</span>
+            <select
+              className="input h-10 min-h-10 w-full py-0 text-[13px] leading-normal"
+              value={standbyBanReason}
+              onChange={(e) => setStandbyBanReason(e.target.value)}
+            >
+              {STANDBY_BAN_REASONS.map((r) => (
+                <option key={r} value={r}>{r}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </Drawer>
+
+      <Drawer
+        open={standbyDrawer === 'restrict'}
+        title="Mark Restrict"
+        onClose={() => setStandbyDrawer(null)}
+        footer={(
+          <>
+            <button type="button" className="btn btn-ghost" onClick={() => setStandbyDrawer(null)}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={standbyUpdateBusy || markStrict.isPending || !standbyOutcome}
+              onClick={submitStandbyPhoneUpdate}
+            >
+              {standbyUpdateBusy ? 'Saving…' : 'Confirm Restrict'}
+            </button>
+          </>
+        )}
+      >
+        <div className="space-y-4">
+          <p className="text-[12.5px] leading-relaxed text-ams-muted">
+            Choose the restriction shown on the phone. Account stays Standby but is hidden from
+            Frontline Delivery until cleared.
+          </p>
+          <div className="rounded-lg border border-ams-line bg-ams-surface-muted px-3 py-2">
+            <div className="text-[11px] font-medium uppercase tracking-wide text-ams-faint">Account</div>
+            <div className="text-sm font-semibold text-ams-ink">{account.account_name}</div>
+          </div>
+          <fieldset className="space-y-2">
+            <legend className="mb-1 text-[12px] font-semibold text-ams-ink">Restriction type</legend>
+            {STANDBY_RESTRICT_KINDS.map((opt) => {
+              const selected = standbyOutcome === opt.id;
+              return (
+                <label
+                  key={opt.id}
+                  className={`flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-3 text-[13px] ${
+                    selected
+                      ? 'border-ams-accent bg-ams-accent/5 text-ams-ink'
+                      : 'border-ams-line bg-ams-surface text-ams-muted hover:border-ams-accent/40'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    className="ams-check mt-0.5 shrink-0"
+                    name="standby-restrict"
+                    value={opt.id}
+                    checked={selected}
+                    disabled={standbyUpdateBusy}
+                    onChange={() => setStandbyOutcome(opt.id)}
+                  />
+                  <span>
+                    <span className="block font-semibold text-ams-ink">{opt.label}</span>
+                    <span className="mt-0.5 block text-[12px] leading-relaxed text-ams-muted">
+                      {opt.hint}
+                    </span>
+                  </span>
+                </label>
+              );
+            })}
+          </fieldset>
+        </div>
+      </Drawer>
+
+      <Toast open={!!standbyUpdateToast} message={standbyUpdateToast} onClose={() => setStandbyUpdateToast('')} />
     </div>
   );
 }

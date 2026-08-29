@@ -206,16 +206,11 @@ export default function EngineStatusPanel() {
 
           {slots.length > 0 && (
             <div className="engine-slots">
-              <div className="engine-slots-row">
+              <div className="engine-slots-head">
                 <div className="engine-slots-label">
                   <Activity size={13} />
                   Slots
                   <span className="engine-slots-count">{slots.length}</span>
-                </div>
-                <div className="engine-slots-bubbles" role="list" aria-label="Engine slot status">
-                  {slots.map((s) => (
-                    <SlotBubble key={s.slot} slot={s} />
-                  ))}
                 </div>
                 <div className="engine-slots-legend">
                   <span><i className="engine-legend-dot engine-legend-dot--online" /> Online</span>
@@ -223,6 +218,11 @@ export default function EngineStatusPanel() {
                   <span><i className="engine-legend-dot engine-legend-dot--feeding" /> Feeding</span>
                   <span><i className="engine-legend-dot engine-legend-dot--offline" /> Offline</span>
                 </div>
+              </div>
+              <div className="engine-slots-bubbles" role="list" aria-label="Engine slot status">
+                {slots.map((s) => (
+                  <SlotBubble key={s.slot} slot={s} />
+                ))}
               </div>
             </div>
           )}

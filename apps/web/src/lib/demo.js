@@ -359,6 +359,9 @@ function enrichDemoTicket(ticket) {
     device_name: meta.device_name || account?.devices?.device_name || '—',
     account_name: meta.account_display || account?.account_name || '—',
     phone_number: meta.phone_display || account?.phone_number || '—',
+    owner: account?.owner || '',
+    staff: account?.staff || '',
+    account_type: account?.account_type || 'personal',
     ip_gate_review_id: meta.ip_gate_review_id || null,
     screenshot_url,
     submitted_at: meta.submitted_at || ticket.created_at || null,
@@ -398,6 +401,7 @@ function ticketStatsFromRows(rows) {
 
 let demoTickets = buildSeedTickets();
 let demoIpGateReviews = buildSeedIpGateReviews(demoTickets);
+let demoUsageEvents = [];
 
 function enrichAccount(a) {
   syncDemoIpsFromSeed();
@@ -958,6 +962,14 @@ export function getMockResponse(config) {
     return enrichAccount(demoAccounts.find((a) => a.id === id));
   }
 
+  if (method === 'GET' && /^accounts\/[^/]+\/usage$/.test(url)) {
+    const id = url.split('/')[1];
+    const events = demoUsageEvents
+      .filter((e) => e.account_id === id)
+      .sort((a, b) => new Date(b.occurred_at) - new Date(a.occurred_at));
+    return { data: events };
+  }
+
   if (method === 'POST' && /^accounts\/[^/]+\/ban$/.test(url)) {
     const id = url.split('/')[1];
     const body = typeof config.data === 'string' ? JSON.parse(config.data) : config.data;
@@ -1184,9 +1196,15 @@ export function getMockResponse(config) {
     const siteKey = params.site || params.site_key;
     const rows = demoAccounts
       .filter((a) => {
-        if (a.status !== 'AVAILABLE' && a.status !== 'LOGGED_OUT') return false;
         const meta = parseOperatorMeta(a);
         if (meta.restrict_kind) return false;
+        const shared = String(meta.account_type || '').toLowerCase() === 'brand_shared';
+        if (a.status === 'AVAILABLE' || a.status === 'LOGGED_OUT') return true;
+        if (shared && a.status === 'IN_USE') return true;
+        return false;
+      })
+      .filter((a) => {
+        const meta = parseOperatorMeta(a);
         if (siteKey && siteKey !== 'all' && meta.site_key !== siteKey) return false;
         return true;
       })
@@ -1205,6 +1223,9 @@ export function getMockResponse(config) {
           siteKey: meta.site_key || 'my',
           owner: meta.owner || '',
           staff: String(meta.staff || '').trim(),
+          account_type: String(meta.account_type || '').toLowerCase() === 'brand_shared'
+            ? 'brand_shared'
+            : 'personal',
           bind_proxy: ip ? {
             ip_address: ip.ip_address || '',
             port: String(ip.port || '8080'),
@@ -1237,10 +1258,12 @@ export function getMockResponse(config) {
     const body = typeof config.data === 'string' ? JSON.parse(config.data) : config.data;
     const account = demoAccounts.find((a) => a.id === body.account_id);
     if (!account) throw new Error('Account not found');
-    if (account.status !== 'AVAILABLE' && account.status !== 'LOGGED_OUT') {
+    const opMetaCheck = parseOperatorMeta({ notes: account.notes });
+    const shared = String(opMetaCheck.account_type || '').toLowerCase() === 'brand_shared';
+    if (account.status !== 'AVAILABLE' && account.status !== 'LOGGED_OUT'
+      && !(shared && account.status === 'IN_USE')) {
       throw new Error('Account must be Standby or Logged out to request a scan');
     }
-    const opMetaCheck = parseOperatorMeta({ notes: account.notes });
     if (opMetaCheck.restrict_kind) {
       throw new Error('Restricted accounts must return to Standby before a new scan request');
     }
@@ -1289,6 +1312,18 @@ export function getMockResponse(config) {
     demoTickets.unshift(ticket);
     const review = demoIpGateReviews.find((r) => r.id === reviewId);
     if (review) review.ticket_id = ticket.id;
+    if (shared) {
+      demoUsageEvents.unshift({
+        id: `usage-${Date.now()}`,
+        account_id: account.id,
+        actor_id: DEMO_PROFILE.id,
+        actor_name: DEMO_PROFILE.full_name,
+        action: 'request',
+        ticket_id: ticket.id,
+        occurred_at: new Date().toISOString(),
+        metadata: { ticket_number: ticket.ticket_number },
+      });
+    }
     pushStatusHistory(
       account.id,
       account.status,

@@ -104,6 +104,7 @@ export function useTicketMutations() {
     qc.invalidateQueries({ queryKey: ['tickets', 'standby-accounts'] });
     qc.invalidateQueries({ queryKey: ['ip-gate'] });
     qc.invalidateQueries({ queryKey: ['accounts'] });
+    qc.invalidateQueries({ queryKey: ['accounts', 'usage'] });
   };
 
   const create = useMutation({

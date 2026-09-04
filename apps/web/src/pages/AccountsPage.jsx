@@ -6,6 +6,7 @@ import PageHead from '../components/PageHead';
 import DetailDialog from '../components/DetailDialog';
 import Drawer from '../components/Drawer';
 import Toast from '../components/Toast';
+import SegControl from '../components/SegControl';
 import { useSite } from '../context/SiteContext';
 import { useAuth } from '../context/AuthContext';
 import { SITES, getSiteChipClass } from '../lib/sites';
@@ -26,12 +27,23 @@ import { liveSlotConnection } from '../lib/engine-slot';
 import { profileStaffScope, accountInStaffScope } from '../lib/account-staff';
 import { ledgerIp } from '../lib/account-operator-meta';
 import {
+  accountTypeLabel,
+  isBrandSharedAccount,
+  ACCOUNT_TYPE_BRAND_SHARED,
+  ACCOUNT_TYPE_PERSONAL,
+} from '../lib/account-type';
+import {
   collectAnomalyEvents,
   eventLogoutAt,
   stageLabel,
   anomalyStatusLabel,
 } from '../lib/anomaly-event';
 import api from '../lib/api';
+
+function staffDisplay(account) {
+  if (isBrandSharedAccount(account)) return accountTypeLabel(ACCOUNT_TYPE_BRAND_SHARED);
+  return account?.staff || '—';
+}
 
 const LEDGER_PAGE_SIZE = 5;
 const BUSINESS_PAGE_SIZE = 10;
@@ -104,6 +116,119 @@ function HistoryEventItem({ event }) {
         {' · '}
         {new Date(event.changed_at).toLocaleString()}
       </p>
+    </li>
+  );
+}
+
+const USAGE_ACTION_META = {
+  request: { label: 'Request', pill: 'badge-accent' },
+  confirm: { label: 'Confirm live', pill: 'badge-success' },
+  disconnect_report: { label: 'Disconnect report', pill: 'badge-warn' },
+  return_standby: { label: 'Return to Standby', pill: 'badge-default' },
+  go_live: { label: 'Go live', pill: 'badge-accent' },
+};
+
+function usageActionMeta(action) {
+  const key = String(action || '').trim().toLowerCase();
+  return USAGE_ACTION_META[key] || {
+    label: key ? key.replace(/_/g, ' ') : 'Event',
+    pill: 'badge-default',
+  };
+}
+
+function formatUsageWhen(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+const USAGE_PREVIEW = 4;
+const USAGE_PAGE_SIZE = 5;
+
+function UsageHistoryTable({ events, compact = false }) {
+  const [page, setPage] = useState(1);
+  const pageSize = compact ? USAGE_PREVIEW : USAGE_PAGE_SIZE;
+
+  useEffect(() => {
+    setPage(1);
+  }, [events.length, compact, pageSize]);
+
+  const totalPages = Math.max(1, Math.ceil(events.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const start = (safePage - 1) * pageSize;
+  const rows = events.slice(start, start + pageSize);
+  const pageStart = events.length ? start + 1 : 0;
+  const pageEnd = Math.min(start + pageSize, events.length);
+  const showPager = events.length > pageSize;
+
+  return (
+    <div>
+      <div className={compact ? '' : 'overflow-hidden rounded-lg border border-ams-line'}>
+        <div className="grid grid-cols-[9rem_minmax(0,1fr)_7.5rem] items-center gap-x-3 border-b border-ams-line bg-ams-surface-muted/50 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-ams-faint sm:grid-cols-[10rem_minmax(0,1fr)_8.5rem]">
+          <span>Type</span>
+          <span>Staff</span>
+          <span className="text-right">When</span>
+        </div>
+        <ul>
+          {rows.map((ev) => (
+            <UsageEventItem key={ev.id} event={ev} fullWhen={!compact} />
+          ))}
+        </ul>
+      </div>
+      {showPager ? (
+        <div className={`tk-pager ${compact ? 'mt-0 border-t border-ams-line px-3 py-2.5' : 'mt-3'}`}>
+          <p className="tk-pager-meta text-center sm:text-left">
+            Showing {pageStart}–{pageEnd} of {events.length} events
+          </p>
+          <div className="tk-pager-actions">
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              disabled={safePage <= 1}
+              onClick={() => setPage(safePage - 1)}
+            >
+              Previous
+            </button>
+            <span className="tk-pager-page">
+              Page {safePage} / {totalPages}
+            </span>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              disabled={safePage >= totalPages}
+              onClick={() => setPage(safePage + 1)}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function UsageEventItem({ event, fullWhen = false }) {
+  const meta = usageActionMeta(event.action);
+  return (
+    <li className="grid grid-cols-[9rem_minmax(0,1fr)_7.5rem] items-center gap-x-3 border-b border-ams-line px-3 py-2.5 last:border-0 sm:grid-cols-[10rem_minmax(0,1fr)_8.5rem]">
+      <span className={`badge ${meta.pill} w-fit max-w-full truncate`}>{meta.label}</span>
+      <span className="truncate text-[13px] font-semibold text-ams-ink">
+        {event.actor_name || '—'}
+      </span>
+      <time
+        className="text-right text-[12px] tabular-nums text-ams-muted"
+        title={event.occurred_at ? new Date(event.occurred_at).toLocaleString() : undefined}
+      >
+        {fullWhen && event.occurred_at
+          ? new Date(event.occurred_at).toLocaleString()
+          : formatUsageWhen(event.occurred_at)}
+      </time>
     </li>
   );
 }
@@ -232,7 +357,7 @@ function AcctRow({ account, onOpen, showSiteBubble = false, slotLabel, extra = f
       <div className="font-mono text-[12px]">{account.phone_number || '—'}</div>
       <div className="font-mono text-[12px]">{ledgerIp(account) || '—'}</div>
       <div className="text-[12.5px] text-ams-muted">{resolveAccountBrand(account) || '—'}</div>
-      <div className="rl-col-staff">{account.staff || '—'}</div>
+      <div className="rl-col-staff">{staffDisplay(account)}</div>
     </div>
   );
 }
@@ -276,6 +401,7 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
   } = useAccountMutations();
   const canSetStaff = profile?.role === 'admin' || profile?.role === 'operator';
   const [staffDraft, setStaffDraft] = useState('');
+  const [typeDraft, setTypeDraft] = useState(ACCOUNT_TYPE_PERSONAL);
   const [staffToast, setStaffToast] = useState('');
   const [reportNote, setReportNote] = useState('');
   const [reportOpen, setReportOpen] = useState(false);
@@ -286,15 +412,26 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
   const [standbyReason, setStandbyReason] = useState('');
   const [standbyToast, setStandbyToast] = useState('');
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [usageOpen, setUsageOpen] = useState(false);
   const [standbyDrawer, setStandbyDrawer] = useState(null); // 'banned' | 'restrict'
   const [standbyOutcome, setStandbyOutcome] = useState('restrict_scan');
   const [standbyBanReason, setStandbyBanReason] = useState(STANDBY_BAN_REASONS[0]);
   const [standbyUpdateToast, setStandbyUpdateToast] = useState('');
   const [standbyUpdateBusy, setStandbyUpdateBusy] = useState(false);
 
+  const { data: usageEvents = [], isLoading: usageLoading } = useQuery({
+    queryKey: ['accounts', 'usage', accountId],
+    queryFn: async () => {
+      const res = await api.get(`/accounts/${accountId}/usage`, { params: { limit: 80 } });
+      return res.data?.data || [];
+    },
+    enabled: Boolean(accountId) && Boolean(account) && isBrandSharedAccount(account),
+  });
+
   useEffect(() => {
     setStaffDraft(account?.staff || '');
-  }, [account?.id, account?.staff]);
+    setTypeDraft(isBrandSharedAccount(account) ? ACCOUNT_TYPE_BRAND_SHARED : ACCOUNT_TYPE_PERSONAL);
+  }, [account?.id, account?.staff, account?.account_type]);
 
   const { data: bridge } = useQuery({
     queryKey: ['bridge', 'summary'],
@@ -346,6 +483,29 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
       setTimeout(() => setStaffToast(''), 3200);
     } catch (e) {
       setStaffToast(e.message || 'Failed to save staff');
+      setTimeout(() => setStaffToast(''), 4200);
+    }
+  }
+
+  async function saveAccountType(nextType) {
+    const next = nextType === ACCOUNT_TYPE_BRAND_SHARED
+      ? ACCOUNT_TYPE_BRAND_SHARED
+      : ACCOUNT_TYPE_PERSONAL;
+    setTypeDraft(next);
+    if (next === (account.account_type || ACCOUNT_TYPE_PERSONAL)) return;
+    try {
+      await patchAccount.mutateAsync({
+        id: account.id,
+        row: account,
+        patch: { account_type: next },
+      });
+      setStaffToast(next === ACCOUNT_TYPE_BRAND_SHARED
+        ? 'Type set to Brand-wide / Shared'
+        : 'Type set to Personal');
+      setTimeout(() => setStaffToast(''), 3200);
+    } catch (e) {
+      setTypeDraft(isBrandSharedAccount(account) ? ACCOUNT_TYPE_BRAND_SHARED : ACCOUNT_TYPE_PERSONAL);
+      setStaffToast(e.message || 'Failed to save type');
       setTimeout(() => setStaffToast(''), 4200);
     }
   }
@@ -469,7 +629,6 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
   infoRows.push(
     ['Brand', resolveAccountBrand(account) || '—'],
     ['Owner (registered by)', account.owner || '—'],
-    ['Staff', account.staff || '—'],
     ['Device', account.device || '—'],
     ['Site', SITES[account.siteKey]?.name || account.siteKey],
     ['IP (registration)', ledgerIp(account) || '—'],
@@ -746,50 +905,86 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
         <div className="card">
           <div className="border-b border-ams-line px-4 py-3 text-sm font-semibold">Account Info</div>
           <div className="space-y-0 p-4 text-[13.5px]">
-            <div className="mb-1 flex items-center justify-between gap-4 border-b border-ams-line py-3 pl-3" style={{ boxShadow: 'inset 3px 0 0 var(--ams-accent)' }}>
-              <div className="shrink-0">
-                <div className="text-[13px] font-semibold text-ams-ink">Staff</div>
-                <div className="text-[11px] text-ams-faint">Business assignee</div>
-              </div>
-              {canSetStaff ? (
-                <div className="min-w-0 flex-1 max-w-sm">
-                  <div className="flex items-center gap-2">
-                    <input
-                      className="input h-9 min-w-0 flex-1 border-ams-ink/20 bg-white text-[13px] shadow-sm ring-1 ring-ams-accent/25 placeholder:text-ams-faint"
-                      list="account-staff-suggestions"
-                      value={staffDraft}
-                      onChange={(e) => setStaffDraft(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          saveStaff();
-                        }
-                      }}
-                      placeholder="Type staff name…"
-                      autoComplete="off"
-                      aria-label="Staff name"
-                    />
-                    <datalist id="account-staff-suggestions">
-                      {staffOptions.map((name) => (
-                        <option key={name} value={name} />
-                      ))}
-                    </datalist>
-                    <button
-                      type="button"
-                      className="btn btn-primary btn-sm shrink-0"
-                      disabled={patchAccount.isPending || staffDraft.trim() === (account.staff || '')}
-                      onClick={saveStaff}
-                    >
-                      {patchAccount.isPending ? 'Saving…' : 'Save'}
-                    </button>
+            <div className="mb-3 rounded-lg border border-ams-line bg-ams-surface-muted/50 px-3.5 py-3">
+              <div className="grid gap-3 sm:grid-cols-2 sm:gap-4">
+                <div className="min-w-0">
+                  <div className="mb-1.5">
+                    <div className="text-[12px] font-semibold text-ams-ink">Staff</div>
+                    <div className="text-[10.5px] leading-snug text-ams-faint">
+                      {isBrandSharedAccount(account) ? 'Brand-wide · no individual assignee' : 'Business assignee for Delivery'}
+                    </div>
                   </div>
-                  {staffToast ? (
-                    <p className="mt-1.5 text-right text-[11px] text-ams-muted">{staffToast}</p>
-                  ) : null}
+                  {canSetStaff && !isBrandSharedAccount(account) ? (
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          className="input h-9 min-w-0 flex-1 bg-white text-[13px] shadow-sm"
+                          list="account-staff-suggestions"
+                          value={staffDraft}
+                          onChange={(e) => setStaffDraft(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              saveStaff();
+                            }
+                          }}
+                          placeholder="Type staff name…"
+                          autoComplete="off"
+                          aria-label="Staff name"
+                        />
+                        <datalist id="account-staff-suggestions">
+                          {staffOptions.map((name) => (
+                            <option key={name} value={name} />
+                          ))}
+                        </datalist>
+                        <button
+                          type="button"
+                          className="btn btn-primary btn-sm shrink-0"
+                          disabled={patchAccount.isPending || staffDraft.trim() === (account.staff || '')}
+                          onClick={saveStaff}
+                        >
+                          {patchAccount.isPending ? '…' : 'Save'}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex h-9 items-center rounded-lg border border-ams-line bg-white px-3 text-[13px] font-semibold text-ams-ink">
+                      {staffDisplay(account)}
+                    </div>
+                  )}
                 </div>
-              ) : (
-                <span className="font-semibold">{account.staff || '—'}</span>
-              )}
+
+                <div className="min-w-0">
+                  <div className="mb-1.5">
+                    <div className="text-[12px] font-semibold text-ams-ink">Access type</div>
+                    <div className="text-[10.5px] leading-snug text-ams-faint">
+                      Personal = one staff · Shared = whole Brand
+                    </div>
+                  </div>
+                  {canSetStaff ? (
+                    <div className="[&>div]:flex [&>div]:w-full [&>div>button]:min-w-0 [&>div>button]:flex-1">
+                      <SegControl
+                        size="sm"
+                        value={typeDraft}
+                        onChange={(v) => {
+                          if (!patchAccount.isPending) saveAccountType(v);
+                        }}
+                        options={[
+                          { value: ACCOUNT_TYPE_PERSONAL, label: 'Personal' },
+                          { value: ACCOUNT_TYPE_BRAND_SHARED, label: 'Shared' },
+                        ]}
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex h-9 items-center rounded-lg border border-ams-line bg-white px-3 text-[13px] font-semibold text-ams-ink">
+                      {accountTypeLabel(account.account_type)}
+                    </div>
+                  )}
+                </div>
+              </div>
+              {staffToast ? (
+                <p className="mt-2 text-right text-[11px] text-ams-muted">{staffToast}</p>
+              ) : null}
             </div>
             {infoRows.map(([k, v]) => (
               <div key={k} className="flex justify-between gap-4 border-b border-ams-line py-2.5 last:border-0">
@@ -839,6 +1034,41 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
         </div>
       </div>
 
+      {isBrandSharedAccount(account) && (
+        <div className="card mt-4 overflow-hidden">
+          <div className="flex items-center justify-between gap-3 border-b border-ams-line px-4 py-3">
+            <div className="min-w-0">
+              <div className="text-sm font-semibold text-ams-ink">Usage history</div>
+              <p className="mt-0.5 text-[12px] text-ams-faint">
+                Who held this Brand-shared account — append-only
+              </p>
+            </div>
+            {usageEvents.length > 0 && (
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm shrink-0"
+                onClick={() => setUsageOpen(true)}
+              >
+                Full history
+              </button>
+            )}
+          </div>
+          <div className="p-4">
+            {usageLoading ? (
+              <p className="text-[13px] text-ams-muted">Loading usage…</p>
+            ) : usageEvents.length === 0 ? (
+              <p className="rounded-lg border border-dashed border-ams-line bg-ams-surface-muted/40 px-4 py-5 text-center text-[13px] text-ams-muted">
+                No usage events yet. Requests, confirms, and disconnect reports will appear here.
+              </p>
+            ) : (
+              <div className="overflow-hidden rounded-lg border border-ams-line">
+                <UsageHistoryTable events={usageEvents} compact />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <DetailDialog
         open={historyOpen}
         title={`Status history · ${account.account_name}`}
@@ -857,6 +1087,18 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
               <HistoryEventItem key={h.id} event={h} />
             ))}
           </ul>
+        )}
+      </DetailDialog>
+
+      <DetailDialog
+        open={usageOpen}
+        title={`Usage history · ${account.account_name}`}
+        onClose={() => setUsageOpen(false)}
+      >
+        {usageEvents.length === 0 ? (
+          <p className="text-[13px] text-ams-muted">No usage events recorded yet.</p>
+        ) : (
+          <UsageHistoryTable events={usageEvents} />
         )}
       </DetailDialog>
 
@@ -1002,11 +1244,18 @@ export default function AccountsPage() {
 
   const staffOptions = useMemo(() => {
     const names = new Set();
+    let hasShared = false;
     visibleAccounts.forEach((a) => {
+      if (isBrandSharedAccount(a)) {
+        hasShared = true;
+        return;
+      }
       const s = String(a.staff || '').trim();
       if (s) names.add(s);
     });
-    return [...names].sort((a, b) => a.localeCompare(b));
+    const list = [...names].sort((a, b) => a.localeCompare(b));
+    if (hasShared) list.unshift(accountTypeLabel(ACCOUNT_TYPE_BRAND_SHARED));
+    return list;
   }, [visibleAccounts]);
 
   const pendingDisconnects = useMemo(() => {
@@ -1057,7 +1306,7 @@ export default function AccountsPage() {
         if (fBrand && resolveAccountBrand(a) !== fBrand) return false;
         if (!matchesLedgerStatusFilter(a, fSt)) return false;
         if (q) {
-          const hay = `${a.account_name} ${a.phone_number} ${a.staff}`.toLowerCase();
+          const hay = `${a.account_name} ${a.phone_number} ${a.staff} ${staffDisplay(a)}`.toLowerCase();
           if (!hay.includes(q)) return false;
         }
         return true;
@@ -1074,6 +1323,7 @@ export default function AccountsPage() {
     const sortedDevices = filterDevicesBySite([...ledgerDevices].sort(compareDeviceNames), site);
 
     const hasActiveFilter = Boolean(q || fBrand || fStaff || fSt);
+    const sharedStaffLabel = accountTypeLabel(ACCOUNT_TYPE_BRAND_SHARED);
 
     sortedDevices.forEach((device) => {
       const name = String(device.device_name || '').toUpperCase();
@@ -1093,10 +1343,16 @@ export default function AccountsPage() {
 
       function acctMatch(a) {
         if (fBrand && resolveAccountBrand(a) !== fBrand) return false;
-        if (fStaff && a.staff !== fStaff) return false;
+        if (fStaff) {
+          if (fStaff === sharedStaffLabel) {
+            if (!isBrandSharedAccount(a)) return false;
+          } else if (isBrandSharedAccount(a) || a.staff !== fStaff) {
+            return false;
+          }
+        }
         if (!matchesLedgerStatusFilter(a, fSt)) return false;
         if (q) {
-          const hay = `${a.account_name} ${a.phone_number} ${a.staff} ${device.device_name}`.toLowerCase();
+          const hay = `${a.account_name} ${a.phone_number} ${a.staff} ${staffDisplay(a)} ${device.device_name}`.toLowerCase();
           if (!hay.includes(q)) return false;
         }
         return true;
@@ -1117,10 +1373,16 @@ export default function AccountsPage() {
       if (a.device_id) return false;
       if (site !== 'all' && a.siteKey !== site) return false;
       if (fBrand && resolveAccountBrand(a) !== fBrand) return false;
-      if (fStaff && a.staff !== fStaff) return false;
+      if (fStaff) {
+        if (fStaff === sharedStaffLabel) {
+          if (!isBrandSharedAccount(a)) return false;
+        } else if (isBrandSharedAccount(a) || a.staff !== fStaff) {
+          return false;
+        }
+      }
       if (!matchesLedgerStatusFilter(a, fSt)) return false;
       if (q) {
-        const hay = `${a.account_name} ${a.phone_number} ${a.staff}`.toLowerCase();
+        const hay = `${a.account_name} ${a.phone_number} ${a.staff} ${staffDisplay(a)}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -1293,7 +1555,9 @@ export default function AccountsPage() {
                     <span className="font-semibold text-ams-ink">{a.account_name}</span>
                     <span className="text-ams-muted">
                       {' · '}
-                      {a.staff ? `Staff · ${a.staff}` : (a.disconnect_report.reported_by || 'Business')}
+                      {a.staff || isBrandSharedAccount(a)
+                        ? `Staff · ${staffDisplay(a)}`
+                        : (a.disconnect_report.reported_by || 'Business')}
                       {' · '}
                       {new Date(a.disconnect_report.reported_at).toLocaleString()}
                     </span>

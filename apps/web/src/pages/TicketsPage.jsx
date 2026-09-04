@@ -22,6 +22,7 @@ import {
 } from '../lib/ticket-delivery';
 import { ticketTimingInfo } from '../lib/ticket-timing';
 import { profileStaffScope, accountInStaffScope } from '../lib/account-staff';
+import { isBrandSharedAccount, accountTypeLabel } from '../lib/account-type';
 
 const GROUPS = [
   { key: 'act', tabLabel: 'Needs action' },
@@ -321,7 +322,9 @@ function TicketCard({
 
   const siteChip = getSiteChipClass(ticket.site_key);
   const hubOwner = (ticket.owner || ticket.customer_name || '').trim();
-  const staffName = (ticket.staff || '').trim();
+  const staffName = isBrandSharedAccount(ticket)
+    ? accountTypeLabel('brand_shared')
+    : (ticket.staff || '').trim();
   const accountLabel = ticket.account_name || '—';
   const headline = role === 'operator' && hubOwner ? hubOwner : accountLabel;
 
@@ -336,7 +339,9 @@ function TicketCard({
           </div>
           {role === 'business' && (
             <p className="tk-staff-line">
-              {staffName ? `Staff · ${staffName}` : 'Staff · Unassigned'}
+              {isBrandSharedAccount(ticket)
+                ? staffName
+                : (staffName ? `Staff · ${staffName}` : 'Staff · Unassigned')}
             </p>
           )}
           {role === 'operator' && hubOwner && accountLabel && accountLabel !== '—' && (
@@ -458,7 +463,7 @@ export default function TicketsPage() {
   const staffScope = useMemo(() => profileStaffScope(profile), [profile]);
   const standby = useMemo(
     () => available
-      .filter((a) => String(a.staff || '').trim())
+      .filter((a) => isBrandSharedAccount(a) || String(a.staff || '').trim())
       .filter((a) => accountInStaffScope(a, staffScope)),
     [available, staffScope],
   );
@@ -1004,7 +1009,13 @@ export default function TicketsPage() {
               screenshotBase64={screenshotBase64}
               onScreenshotChange={setScreenshotBase64}
               onScreenshotError={showToast}
-              selectedStaff={(selectedRow?.staff || '').trim()}
+              selectedStaff={
+                selectedRow
+                  ? (isBrandSharedAccount(selectedRow)
+                    ? accountTypeLabel('brand_shared')
+                    : (selectedRow.staff || '').trim())
+                  : ''
+              }
               showStaffFilters={profile?.role !== 'business'}
             />
           </form>
@@ -1041,7 +1052,13 @@ export default function TicketsPage() {
             onScreenshotError={showToast}
             rejectReason={resubmitTicket?.reject_reason}
             showAccountPicker={false}
-            selectedStaff={(resubmitTicket?.staff || '').trim()}
+            selectedStaff={
+              resubmitTicket
+                ? (isBrandSharedAccount(resubmitTicket)
+                  ? accountTypeLabel('brand_shared')
+                  : (resubmitTicket.staff || '').trim())
+                : ''
+            }
           />
         </form>
       </Drawer>

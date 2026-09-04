@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, Search } from 'lucide-react';
+import { accountTypeLabel, isBrandSharedAccount } from '../lib/account-type';
 
 function phoneDigits(account) {
   if (account?.phone_number) return String(account.phone_number);
@@ -9,6 +10,7 @@ function phoneDigits(account) {
 }
 
 function staffLabel(account) {
+  if (isBrandSharedAccount(account)) return accountTypeLabel('brand_shared');
   return String(account?.staff || '').trim() || 'Unassigned';
 }
 
@@ -59,10 +61,12 @@ export default function StandbyAccountPicker({
         const hay = [
           a.account_name,
           a.staff,
+          staffLabel(a),
           a.owner,
           a.brand,
           a.phone_number,
           a.sim,
+          a.account_type,
         ].map((x) => String(x || '').toLowerCase()).join(' ');
         return hay.includes(q);
       })

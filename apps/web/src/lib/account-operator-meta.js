@@ -101,6 +101,9 @@ export function accountToOperatorRow(account) {
     engine_status: meta.engine_status || null,
     owner: normalizeHubOwner(meta.owner),
     staff: String(meta.staff || '').trim(),
+    account_type: String(meta.account_type || '').trim().toLowerCase() === 'brand_shared'
+      ? 'brand_shared'
+      : 'personal',
     brand: inferBrandFromDevice(deviceJoin?.device_name)
       || meta.brand
       || inferBrand(account.account_name)
@@ -152,6 +155,7 @@ export function buildMetaPatch(row, patch) {
     engine_status: row.engine_status,
     owner: row.owner,
     staff: row.staff,
+    account_type: row.account_type,
     brand: row.brand,
     restrict_kind: row.restrict_kind,
     disconnect_report: row.disconnect_report,
@@ -184,6 +188,7 @@ export function buildMetaPatch(row, patch) {
       engine_status: next.engine_status,
       owner: next.owner || undefined,
       staff: next.staff || undefined,
+      ...(next.account_type === 'brand_shared' ? { account_type: 'brand_shared' } : {}),
       brand: next.brand || undefined,
     },
     next.human_note || '',

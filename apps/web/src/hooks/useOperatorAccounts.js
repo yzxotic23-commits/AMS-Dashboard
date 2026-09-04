@@ -80,6 +80,7 @@ export function useAccountMutations() {
     qc.invalidateQueries({ queryKey: ['devices'] });
     qc.invalidateQueries({ queryKey: ['bans'] });
     qc.invalidateQueries({ queryKey: ['audit'] });
+    qc.invalidateQueries({ queryKey: ['accounts', 'usage'] });
   };
 
   const patchAccount = useMutation({

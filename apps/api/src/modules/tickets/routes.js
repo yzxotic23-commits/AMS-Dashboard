@@ -26,6 +26,12 @@ import {
   resolveAccountBrand,
 } from '../../lib/accountBrand.js';
 import { accountInStaffScope, profileStaffScope } from '../../lib/accountStaff.js';
+import { isBrandSharedAccount, resolveAccountType } from '../../lib/accountType.js';
+import {
+  appendAccountUsageEvent,
+  assertSharedSessionCap,
+  usageActorFromReq,
+} from '../../lib/accountUsage.js';
 
 const BACKLOG_MS = 30 * 60 * 1000;
 
@@ -205,6 +211,7 @@ function enrichRow(ticket, account, screenshotUrl = null, requesterName = '') {
     account_name: accountName,
     owner: hubOwner,
     staff: String(opMeta.staff || '').trim(),
+    account_type: resolveAccountType(account || { notes: '' }),
     customer_name: hubOwner,
     requester_name: requesterName || '',
     phone_number: account?.phone_number || account?.sims?.phone_number || '—',
@@ -285,7 +292,7 @@ router.get('/', async (req, res, next) => {
       const row = enrichRow(t, account, null, requesterMap.get(t.requester_id) || '');
       if (siteKey && siteKey !== 'all' && row.site_key !== siteKey) continue;
       if (!accountInBrandScope(account, brandScope)) continue;
-      if (!accountInStaffScope({ notes: account?.notes, staff: row.staff }, staffScope)) continue;
+      if (!accountInStaffScope(account || { staff: row.staff }, staffScope)) continue;
       rows.push(row);
     }
     res.json({ data: await attachScreenshotUrls(rows) });
@@ -311,7 +318,7 @@ router.get('/stats', async (req, res, next) => {
       const row = enrichRow(t, account, null, requesterMap.get(t.requester_id) || '');
       if (siteKey && siteKey !== 'all' && row.site_key !== siteKey) continue;
       if (!accountInBrandScope(account, brandScope)) continue;
-      if (!accountInStaffScope({ notes: account?.notes, staff: row.staff }, staffScope)) continue;
+      if (!accountInStaffScope(account || { staff: row.staff }, staffScope)) continue;
       rows.push(row);
     }
 
@@ -411,6 +418,7 @@ function standbyAccountRow(account) {
     siteKey: inferSiteKey(meta, ip),
     owner: resolveHubOwner(account, meta) || '',
     staff: String(meta.staff || '').trim(),
+    account_type: resolveAccountType(account),
     bind_proxy: proxyFromIp(ip),
     status: account.status,
   };
@@ -420,7 +428,10 @@ function canRequestDelivery(account) {
   if (!account) return false;
   const meta = parseOperatorMeta(account);
   if (meta.restrict_kind) return false;
-  return account.status === 'AVAILABLE' || account.status === 'LOGGED_OUT';
+  if (account.status === 'AVAILABLE' || account.status === 'LOGGED_OUT') return true;
+  // Brand-shared: allow additional concurrent requests while already In Use (cap = 4).
+  if (isBrandSharedAccount(account) && account.status === 'IN_USE') return true;
+  return false;
 }
 
 // GET /tickets/standby-accounts — standby pool for new delivery tickets (must be before /:id routes)
@@ -431,7 +442,7 @@ router.get('/standby-accounts', async (req, res, next) => {
     const { data, error } = await supabaseAdmin
       .from('accounts')
       .select(ACCOUNT_SELECT_TICKET)
-      .in('status', ['AVAILABLE', 'LOGGED_OUT'])
+      .in('status', ['AVAILABLE', 'LOGGED_OUT', 'IN_USE'])
       .order('updated_at', { ascending: false })
       .limit(400);
     if (error) throw error;
@@ -463,7 +474,9 @@ router.post('/', async (req, res, next) => {
     const account = await loadAccount(body.account_id);
     if (!canRequestDelivery(account)) {
       return res.status(400).json({
-        error: 'Account must be Standby or Logged out (not Restricted) to request a scan',
+        error: isBrandSharedAccount(account)
+          ? 'Account is not available for a Brand-shared scan request'
+          : 'Account must be Standby or Logged out (not Restricted) to request a scan',
       });
     }
     const brandScope = profileBrandScope(req.profile);
@@ -472,6 +485,14 @@ router.post('/', async (req, res, next) => {
     }
     if (!accountInStaffScope(account, profileStaffScope(req.profile))) {
       return res.status(403).json({ error: 'This account is assigned to another staff member' });
+    }
+    if (isBrandSharedAccount(account)) {
+      try {
+        await assertSharedSessionCap(account.id, { extraRequesterId: req.user.id });
+      } catch (capErr) {
+        if (capErr.status === 409) return res.status(409).json({ error: capErr.message });
+        throw capErr;
+      }
     }
     const opMeta = parseOperatorMeta(account);
     const hubOwner = resolveHubOwner(account, opMeta);
@@ -534,6 +555,18 @@ router.post('/', async (req, res, next) => {
       req,
     });
 
+    if (isBrandSharedAccount(account)) {
+      const actor = usageActorFromReq(req);
+      await appendAccountUsageEvent({
+        accountId: account.id,
+        actorId: actor.actorId,
+        actorName: actor.actorName,
+        action: 'request',
+        ticketId: ticket.id,
+        metadata: { ticket_number: ticket.ticket_number },
+      });
+    }
+
     const [enriched] = await attachScreenshotUrls([
       enrichRow(ticket, account, null, requesterLabel(req, account)),
     ]);
@@ -580,6 +613,14 @@ router.post('/:id/go-live', async (req, res, next) => {
     if (meta.review_match !== true) {
       return res.status(400).json({ error: 'Mark IP as match before go-live' });
     }
+    if (isBrandSharedAccount(account)) {
+      try {
+        await assertSharedSessionCap(account.id, { extraRequesterId: ticket.requester_id });
+      } catch (capErr) {
+        if (capErr.status === 409) return res.status(409).json({ error: capErr.message });
+        throw capErr;
+      }
+    }
     meta.delivery_stage = 'posted';
     meta.reject_reason = '';
     meta.in_progress_at = new Date().toISOString();
@@ -593,13 +634,16 @@ router.post('/:id/go-live', async (req, res, next) => {
       }).eq('id', meta.ip_gate_review_id);
     }
 
-    assertTransition(account.status, 'IN_USE');
-    const goLivePatch = { status: 'IN_USE' };
-    if (account.status === 'LOGGED_OUT') {
-      goLivePatch.notes = mergeOperatorNotes(account.notes, { disconnect_report: null });
-      goLivePatch.wsaf_slot = null;
+    const alreadyInUse = account.status === 'IN_USE';
+    if (!alreadyInUse) {
+      assertTransition(account.status, 'IN_USE');
+      const goLivePatch = { status: 'IN_USE' };
+      if (account.status === 'LOGGED_OUT') {
+        goLivePatch.notes = mergeOperatorNotes(account.notes, { disconnect_report: null });
+        goLivePatch.wsaf_slot = null;
+      }
+      await supabaseAdmin.from('accounts').update(goLivePatch).eq('id', account.id);
     }
-    await supabaseAdmin.from('accounts').update(goLivePatch).eq('id', account.id);
 
     const { data: standbyRows } = await supabaseAdmin
       .from('account_status_history')
@@ -617,13 +661,16 @@ router.post('/:id/go-live', async (req, res, next) => {
     const fromStatus = account.status;
     const rescan = fromStatus === 'LOGGED_OUT';
     const dayLabel = standbyDays === 1 ? '1 day' : `${standbyDays} days`;
+    const sharedExtra = alreadyInUse && isBrandSharedAccount(account);
     await supabaseAdmin.from('account_status_history').insert({
       account_id: account.id,
       from_status: fromStatus,
       to_status: 'IN_USE',
-      reason: rescan
-        ? `Go-live ticket #${ticket.ticket_number} — Logged out → In Use (re-scan)`
-        : `Go-live ticket #${ticket.ticket_number} — Standby ${dayLabel} → In Use (business scan)`,
+      reason: sharedExtra
+        ? `Go-live ticket #${ticket.ticket_number} — additional Brand-shared session`
+        : rescan
+          ? `Go-live ticket #${ticket.ticket_number} — Logged out → In Use (re-scan)`
+          : `Go-live ticket #${ticket.ticket_number} — Standby ${dayLabel} → In Use (business scan)`,
       changed_by: req.profile?.id || req.user.id,
     });
 
@@ -797,6 +844,17 @@ router.post('/:id/resubmit', async (req, res, next) => {
     const [enriched] = await attachScreenshotUrls([
       enrichRow(updated, account, null, requesterLabel(req, account)),
     ]);
+    if (isBrandSharedAccount(account)) {
+      const actor = usageActorFromReq(req);
+      await appendAccountUsageEvent({
+        accountId: account.id,
+        actorId: actor.actorId,
+        actorName: actor.actorName,
+        action: 'request',
+        ticketId: ticket.id,
+        metadata: { ticket_number: ticket.ticket_number, resubmit: true },
+      });
+    }
     res.json(enriched);
   } catch (e) {
     next(e);
@@ -844,6 +902,18 @@ router.post('/:id/confirm', async (req, res, next) => {
       userId: req.user.id,
       req,
     });
+
+    if (isBrandSharedAccount(account)) {
+      const actor = usageActorFromReq(req);
+      await appendAccountUsageEvent({
+        accountId: account.id,
+        actorId: actor.actorId,
+        actorName: actor.actorName,
+        action: 'confirm',
+        ticketId: ticket.id,
+        metadata: { ticket_number: ticket.ticket_number },
+      });
+    }
 
     res.json(enrichRow(updated, account, null, requesterLabel(req, account)));
   } catch (e) {

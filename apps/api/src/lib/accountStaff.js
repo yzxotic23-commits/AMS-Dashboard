@@ -1,4 +1,5 @@
 import { parseOperatorMeta } from './accountMeta.js';
+import { isBrandSharedAccount } from './accountType.js';
 
 function norm(value) {
   return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
@@ -20,9 +21,14 @@ export function accountStaffName(account) {
   return String(account.staff || '').trim();
 }
 
+/**
+ * Business visibility by Staff assignment.
+ * Brand-shared accounts skip Staff match (Brand ACL applied separately).
+ */
 export function accountInStaffScope(account, staffScope) {
   if (!staffScope) return true;
   if (!staffScope.length) return false;
+  if (isBrandSharedAccount(account)) return true;
   const staff = norm(accountStaffName(account));
   return Boolean(staff && staffScope.includes(staff));
 }

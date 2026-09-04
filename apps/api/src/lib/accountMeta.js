@@ -39,5 +39,8 @@ export function mergeOperatorNotes(currentNotes, metaPatch = {}, humanNote) {
   ['restrict_kind', 'disconnect_report', 'business_notice', 'anomaly_history', 'last_anomaly'].forEach((key) => {
     if (next[key] == null) delete next[key];
   });
+  // Default personal — omit flag; only persist brand_shared.
+  if (!next.account_type || next.account_type === 'personal') delete next.account_type;
+  else next.account_type = 'brand_shared';
   return serializeAccountNotes(next, note);
 }

@@ -28,6 +28,12 @@ import { postWsafAuditRecord } from '../../lib/wsafBridge.js';
 import { accountInBrandScope, profileBrandScope } from '../../lib/accountBrand.js';
 import { accountInStaffScope, profileStaffScope } from '../../lib/accountStaff.js';
 import { parseTicketMeta } from '../../lib/ticketMeta.js';
+import { isBrandSharedAccount } from '../../lib/accountType.js';
+import {
+  appendAccountUsageEvent,
+  listAccountUsageEvents,
+  usageActorFromReq,
+} from '../../lib/accountUsage.js';
 
 const MS_DAY = 86_400_000;
 
@@ -1011,6 +1017,17 @@ router.post('/:id/report-disconnect', async (req, res, next) => {
       .single();
     if (error) throw error;
 
+    if (isBrandSharedAccount(current)) {
+      const actor = usageActorFromReq(req);
+      await appendAccountUsageEvent({
+        accountId: current.id,
+        actorId: actor.actorId,
+        actorName: actor.actorName,
+        action: 'disconnect_report',
+        metadata: { note: opened.disconnect_report?.note || '' },
+      });
+    }
+
     await writeAudit({
       entityType: 'account',
       entityId: data.id,
@@ -1228,6 +1245,10 @@ router.post('/:id/return-standby', async (req, res, next) => {
     const label = STRICT_KIND_LABEL[meta.restrict_kind] || 'Restricted';
     const note = (reason || '').trim()
       || `${label} period ended — returned to Standby for re-delivery`;
+    const shared = isBrandSharedAccount(current);
+    const noticeBody = shared
+      ? `Restriction ended. ${current.account_name} is back on Standby — any Brand member can open Delivery tickets to request a new scan.`
+      : `Restriction ended. ${current.account_name} is back on Standby — open Delivery tickets to request a new scan.`;
     const notices = mergeOperatorNotes(current.notes, {
       restrict_kind: null,
       disconnect_report: null,
@@ -1235,9 +1256,20 @@ router.post('/:id/return-standby', async (req, res, next) => {
         type: 'returned_standby',
         at: new Date().toISOString(),
         title: `${current.account_name || 'Account'} is ready to scan again`,
-        body: `Restriction ended. ${current.account_name} is back on Standby — open Delivery tickets to request a new scan.`,
+        body: noticeBody,
       },
     }, note);
+
+    if (shared) {
+      const actor = usageActorFromReq(req);
+      await appendAccountUsageEvent({
+        accountId: current.id,
+        actorId: actor.actorId,
+        actorName: actor.actorName,
+        action: 'return_standby',
+        metadata: { reason: note },
+      });
+    }
 
     const { data, error } = await supabaseAdmin
       .from('accounts')
@@ -1272,6 +1304,33 @@ router.post('/:id/return-standby', async (req, res, next) => {
     });
 
     res.json(data);
+  } catch (e) {
+    next(e);
+  }
+});
+
+// GET /accounts/:id/usage — append-only usage ledger (Brand-shared)
+router.get('/:id/usage', async (req, res, next) => {
+  try {
+    const { data: current, error: fetchErr } = await supabaseAdmin
+      .from('accounts')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+    if (fetchErr) throw fetchErr;
+
+    const brandScope = profileBrandScope(req.profile);
+    if (brandScope) {
+      if (!accountInBrandScope(current, brandScope)
+        || !accountInStaffScope(current, profileStaffScope(req.profile))) {
+        return res.status(404).json({ error: 'Account not found' });
+      }
+    }
+
+    const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 50));
+    const events = await listAccountUsageEvents(current.id, { limit });
+    res.set('Cache-Control', 'no-store');
+    res.json({ data: events });
   } catch (e) {
     next(e);
   }

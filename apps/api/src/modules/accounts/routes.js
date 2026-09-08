@@ -131,6 +131,25 @@ async function filterDeliveredForBusiness(rows, profile) {
   return candidates.filter((r) => delivered.has(r.id));
 }
 
+/** Load an account with device embed so brand ACL can resolve SGD-M24-… → M24SG. */
+async function loadAccountById(id, select = ACCOUNT_SELECT) {
+  const { data, error } = await supabaseAdmin
+    .from('accounts')
+    .select(select)
+    .eq('id', id)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+function businessCannotAccess(account, profile) {
+  if (profile?.role !== 'business') return false;
+  const brandScope = profileBrandScope(profile);
+  if (!accountInBrandScope(account, brandScope)) return true;
+  if (!accountInStaffScope(account, profileStaffScope(profile))) return true;
+  return false;
+}
+
 const createSchema = z.object({
   account_name: z.string().min(1),
   phone_number: z.string().optional().nullable(),
@@ -349,22 +368,14 @@ router.get('/', async (req, res, next) => {
 // GET /accounts/:id
 router.get('/:id', async (req, res, next) => {
   try {
-    const { data, error } = await supabaseAdmin
-      .from('accounts')
-      .select(ACCOUNT_SELECT_FULL)
-      .eq('id', req.params.id)
-      .single();
-    if (error) throw error;
+    const data = await loadAccountById(req.params.id, ACCOUNT_SELECT_FULL);
+    if (!data) return res.status(404).json({ error: 'Account not found' });
 
     // Business is brand-scoped — block lookup of accounts outside their assigned brands.
     // Notices (review result / returned to Standby) stay readable even if status left IN_USE.
     const brandScope = profileBrandScope(req.profile);
     if (brandScope) {
-      if (!accountInBrandScope(data, brandScope)) {
-        return res.status(404).json({ error: 'Account not found' });
-      }
-      const staffScope = profileStaffScope(req.profile);
-      if (!accountInStaffScope(data, staffScope)) {
+      if (businessCannotAccess(data, req.profile)) {
         return res.status(404).json({ error: 'Account not found' });
       }
       const notice = parseOperatorMeta(data).business_notice;
@@ -973,22 +984,11 @@ router.post('/:id/engine-disconnect', async (req, res, next) => {
 router.post('/:id/report-disconnect', async (req, res, next) => {
   try {
     const { note } = reportDisconnectSchema.parse(req.body);
-    const { data: current, error: fetchErr } = await supabaseAdmin
-      .from('accounts')
-      .select('*')
-      .eq('id', req.params.id)
-      .single();
-    if (fetchErr) throw fetchErr;
+    const current = await loadAccountById(req.params.id);
+    if (!current) return res.status(404).json({ error: 'Account not found' });
 
-    if (req.profile?.role === 'business') {
-      const brandScope = profileBrandScope(req.profile);
-      if (!accountInBrandScope(current, brandScope)) {
-        return res.status(404).json({ error: 'Account not found' });
-      }
-      const staffScope = profileStaffScope(req.profile);
-      if (!accountInStaffScope(current, staffScope)) {
-        return res.status(404).json({ error: 'Account not found' });
-      }
+    if (businessCannotAccess(current, req.profile)) {
+      return res.status(404).json({ error: 'Account not found' });
     }
     if (current.status !== 'IN_USE') {
       return res.status(400).json({ error: 'Only accounts currently In Use can be reported as disconnected' });
@@ -1312,19 +1312,11 @@ router.post('/:id/return-standby', async (req, res, next) => {
 // GET /accounts/:id/usage — append-only usage ledger (Brand-shared)
 router.get('/:id/usage', async (req, res, next) => {
   try {
-    const { data: current, error: fetchErr } = await supabaseAdmin
-      .from('accounts')
-      .select('*')
-      .eq('id', req.params.id)
-      .single();
-    if (fetchErr) throw fetchErr;
+    const current = await loadAccountById(req.params.id);
+    if (!current) return res.status(404).json({ error: 'Account not found' });
 
-    const brandScope = profileBrandScope(req.profile);
-    if (brandScope) {
-      if (!accountInBrandScope(current, brandScope)
-        || !accountInStaffScope(current, profileStaffScope(req.profile))) {
-        return res.status(404).json({ error: 'Account not found' });
-      }
+    if (businessCannotAccess(current, req.profile)) {
+      return res.status(404).json({ error: 'Account not found' });
     }
 
     const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 50));
@@ -1339,19 +1331,11 @@ router.get('/:id/usage', async (req, res, next) => {
 // POST /accounts/:id/ack-notice — business dismisses a status notice
 router.post('/:id/ack-notice', async (req, res, next) => {
   try {
-    const { data: current, error: fetchErr } = await supabaseAdmin
-      .from('accounts')
-      .select('*')
-      .eq('id', req.params.id)
-      .single();
-    if (fetchErr) throw fetchErr;
+    const current = await loadAccountById(req.params.id);
+    if (!current) return res.status(404).json({ error: 'Account not found' });
 
-    if (req.profile?.role === 'business') {
-      const brandScope = profileBrandScope(req.profile);
-      if (!accountInBrandScope(current, brandScope)
-        || !accountInStaffScope(current, profileStaffScope(req.profile))) {
-        return res.status(404).json({ error: 'Account not found' });
-      }
+    if (businessCannotAccess(current, req.profile)) {
+      return res.status(404).json({ error: 'Account not found' });
     }
 
     const notes = mergeOperatorNotes(current.notes, { business_notice: null });

@@ -27,12 +27,17 @@ export function inferBrandFromDevice(deviceName) {
   return tradingBrandFromDeviceCode(deviceName);
 }
 
+function deviceNameFromAccount(account) {
+  const joined = Array.isArray(account.devices) ? account.devices[0] : account.devices;
+  return account.device
+    || account.device_name
+    || joined?.device_name
+    || '';
+}
+
 export function resolveAccountBrand(account) {
   if (!account) return '';
-  const deviceName = account.device
-    || account.device_name
-    || account.devices?.device_name
-    || '';
+  const deviceName = deviceNameFromAccount(account);
   // Device code is source of truth when bound — stored meta.brand goes stale after device moves.
   const fromDevice = inferBrandFromDevice(deviceName);
   if (fromDevice) return fromDevice;

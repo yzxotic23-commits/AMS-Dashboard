@@ -13,12 +13,18 @@ function inferBrandFromName(accountName) {
 }
 
 /** Cost-attribution brand: device code first (stays in sync with Device Ledger), then meta/name. */
+function deviceNameFromAccount(account) {
+  const joined = Array.isArray(account.devices) ? account.devices[0] : account.devices;
+  const nested = Array.isArray(account.device) ? account.device[0] : account.device;
+  return account.device_name
+    || joined?.device_name
+    || nested?.device_name
+    || '';
+}
+
 export function resolveAccountBrand(account) {
   if (!account) return '';
-  const deviceName = account.device_name
-    || account.devices?.device_name
-    || account.device?.device_name
-    || '';
+  const deviceName = deviceNameFromAccount(account);
   const fromDevice = tradingBrandFromDeviceCode(deviceName);
   if (fromDevice) return fromDevice;
   const meta = parseOperatorMeta(account);

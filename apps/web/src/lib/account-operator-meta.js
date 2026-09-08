@@ -55,7 +55,7 @@ function inferSiteFromDevice(deviceName) {
 export function accountToOperatorRow(account) {
   const meta = parseOperatorMeta(account);
   const simJoin = account.sims || null;
-  const deviceJoin = account.devices || null;
+  const deviceJoin = Array.isArray(account.devices) ? (account.devices[0] || null) : (account.devices || null);
   const ipJoin = normalizeIpJoin(account.ips);
   return {
     id: account.id,

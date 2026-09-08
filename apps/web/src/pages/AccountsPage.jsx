@@ -45,6 +45,147 @@ function staffDisplay(account) {
   return account?.staff || '—';
 }
 
+const STAFF_FILTER_UNASSIGNED = '__unassigned__';
+const STAFF_FILTER_SHARED = accountTypeLabel(ACCOUNT_TYPE_BRAND_SHARED);
+
+function staffAssignmentKey(account) {
+  if (isBrandSharedAccount(account)) return STAFF_FILTER_SHARED;
+  const name = String(account?.staff || '').trim();
+  return name || STAFF_FILTER_UNASSIGNED;
+}
+
+function staffAssignmentLabel(key) {
+  return key === STAFF_FILTER_UNASSIGNED ? 'Unassigned' : key;
+}
+
+const MISSING_BRAND = '-';
+
+function ledgerBrandLabel(account) {
+  const brand = resolveAccountBrand(account) || String(account?.brand || '').trim().toUpperCase();
+  return brand || MISSING_BRAND;
+}
+
+function isMissingBrand(brand) {
+  return !brand || brand === '-' || brand === '—';
+}
+
+function accountMatchesStaffFilter(account, fStaff) {
+  if (!fStaff) return true;
+  return staffAssignmentKey(account) === fStaff;
+}
+
+function accountInLedgerSite(account, site) {
+  if (site === 'all') return true;
+  return account.siteKey === site || account.siteKey === 'all';
+}
+
+const STAFF_SUMMARY_PAGE_SIZE = 8;
+
+function StaffAssignmentSummary({ rows, total, selectedStaff, selectedBrand, onSelect }) {
+  const [page, setPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(rows.length / STAFF_SUMMARY_PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pageStart = rows.length ? (safePage - 1) * STAFF_SUMMARY_PAGE_SIZE : 0;
+  const pageRows = rows.slice(pageStart, pageStart + STAFF_SUMMARY_PAGE_SIZE);
+  const pageEnd = Math.min(pageStart + pageRows.length, rows.length);
+
+  useEffect(() => {
+    setPage(1);
+  }, [rows]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  if (!rows.length && total === 0) return null;
+  return (
+    <div className="rl-staff-summary">
+      <div className="rl-staff-summary-head">
+        <p className="rl-staff-summary-title">Staff assignment</p>
+        <p className="rl-staff-summary-hint">Click a row to filter the ledger by staff and brand</p>
+      </div>
+      <div className="data-table-wrap rl-staff-summary-table">
+        <table className="data-table data-table--staff-summary">
+          <thead>
+            <tr>
+              <th>Staff</th>
+              <th>Brand</th>
+              <th className="col-center">Accounts</th>
+            </tr>
+          </thead>
+          <tbody>
+            {pageRows.map((row) => {
+              const selected = selectedStaff === row.staffKey
+                && (!selectedBrand || selectedBrand === row.brand);
+              return (
+                <tr
+                  key={`${row.staffKey}::${row.brand}`}
+                  role="button"
+                  tabIndex={0}
+                  className={selected ? 'row-selected' : undefined}
+                  aria-pressed={selected}
+                  onClick={() => onSelect(row)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onSelect(row);
+                    }
+                  }}
+                >
+                  <td>
+                    <span className={row.staffKey === STAFF_FILTER_UNASSIGNED && row.count > 0
+                      ? 'rl-staff-summary-unassigned'
+                      : undefined}
+                    >
+                      {row.label}
+                    </span>
+                  </td>
+                  <td className="text-ams-muted">{row.brand}</td>
+                  <td className="col-center font-semibold tabular-nums">{row.count}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+          <tfoot>
+            <tr>
+              <th colSpan={2}>Total</th>
+              <th className="col-center tabular-nums">{total}</th>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      {rows.length > STAFF_SUMMARY_PAGE_SIZE && (
+        <div className="tk-pager rl-staff-summary-pager">
+          <p className="tk-pager-meta">
+            Showing {pageStart + 1}–{pageEnd} of {rows.length} rows
+          </p>
+          <div className="tk-pager-actions">
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              disabled={safePage <= 1}
+              onClick={() => setPage(safePage - 1)}
+            >
+              Previous
+            </button>
+            <span className="tk-pager-page">
+              Page {safePage} / {totalPages}
+            </span>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              disabled={safePage >= totalPages}
+              onClick={() => setPage(safePage + 1)}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const LEDGER_PAGE_SIZE = 5;
 const BUSINESS_PAGE_SIZE = 10;
 
@@ -394,7 +535,7 @@ const STANDBY_BAN_REASONS = [
 function AccountDetail({ accountId, onBack, staffOptions = [] }) {
   const { profile } = useAuth();
   const isBusinessUser = profile?.role === 'business';
-  const { data: account, isLoading } = useAccountDetail(accountId);
+  const { data: account, isLoading, isError, error } = useAccountDetail(accountId);
   const {
     patchAccount, reportDisconnect, resolveDisconnect, returnStandby, ackNotice,
     banAccount, markStrict,
@@ -449,6 +590,15 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
       new Date(eventLogoutAt(b) || 0).getTime() - new Date(eventLogoutAt(a) || 0).getTime()
     ));
   }, [account]);
+
+  if (isError) {
+    return (
+      <div className="py-10 text-center">
+        <p className="text-sm text-ams-warn">{error?.message || 'Account not found'}</p>
+        <button type="button" className="btn btn-secondary btn-sm mt-4" onClick={onBack}>‹ Back</button>
+      </div>
+    );
+  }
 
   if (isLoading || !account) {
     return <p className="py-10 text-center text-sm text-ams-faint">Loading account…</p>;
@@ -749,16 +899,17 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
             {reportOpen ? (
               <div className="space-y-2">
                 <p className="text-[13px] font-semibold text-ams-ink">Report this account as disconnected/logged out</p>
-                <textarea
-                  className="input min-h-[70px] w-full text-[13px]"
-                  placeholder="Optional note (e.g. when it logged out, what happened)…"
-                  value={reportNote}
-                  onChange={(e) => setReportNote(e.target.value)}
-                />
                 <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    className="input h-9 min-w-0 flex-1 py-0 text-[13px]"
+                    placeholder="Optional note (e.g. when it logged out, what happened)…"
+                    value={reportNote}
+                    onChange={(e) => setReportNote(e.target.value)}
+                  />
                   <button
                     type="button"
-                    className="btn btn-primary btn-sm"
+                    className="btn btn-primary btn-sm shrink-0"
                     disabled={reportDisconnect.isPending}
                     onClick={submitReport}
                   >
@@ -766,7 +917,7 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
                   </button>
                   <button
                     type="button"
-                    className="btn btn-secondary btn-sm"
+                    className="btn btn-secondary btn-sm shrink-0"
                     onClick={() => { setReportOpen(false); setReportNote(''); }}
                   >
                     Cancel
@@ -1244,19 +1395,71 @@ export default function AccountsPage() {
 
   const staffOptions = useMemo(() => {
     const names = new Set();
-    let hasShared = false;
     visibleAccounts.forEach((a) => {
-      if (isBrandSharedAccount(a)) {
-        hasShared = true;
-        return;
-      }
+      if (isBrandSharedAccount(a)) return;
       const s = String(a.staff || '').trim();
       if (s) names.add(s);
     });
-    const list = [...names].sort((a, b) => a.localeCompare(b));
-    if (hasShared) list.unshift(accountTypeLabel(ACCOUNT_TYPE_BRAND_SHARED));
-    return list;
+    return [...names].sort((a, b) => a.localeCompare(b));
   }, [visibleAccounts]);
+
+  const staffFilterOptions = useMemo(() => {
+    const list = [STAFF_FILTER_UNASSIGNED, ...staffOptions];
+    if (visibleAccounts.some((a) => isBrandSharedAccount(a))) {
+      list.splice(1, 0, STAFF_FILTER_SHARED);
+    }
+    return list;
+  }, [staffOptions, visibleAccounts]);
+
+  const staffAssignmentSummary = useMemo(() => {
+    const counts = new Map();
+    let total = 0;
+    visibleAccounts.forEach((a) => {
+      if (!accountInLedgerSite(a, site)) return;
+      if (fBrand && resolveAccountBrand(a) !== fBrand) return;
+      if (!matchesLedgerStatusFilter(a, fSt)) return;
+      const staffKey = staffAssignmentKey(a);
+      const brand = ledgerBrandLabel(a);
+      const key = `${staffKey}\t${brand}`;
+      counts.set(key, (counts.get(key) || 0) + 1);
+      total += 1;
+    });
+
+    const rank = (staffKey) => {
+      if (staffKey === STAFF_FILTER_UNASSIGNED) return 2;
+      if (staffKey === STAFF_FILTER_SHARED) return 1;
+      return 0;
+    };
+
+    const rows = [...counts.entries()].map(([key, count]) => {
+      const [staffKey, brand] = key.split('\t');
+      return {
+        staffKey,
+        brand,
+        label: staffAssignmentLabel(staffKey),
+        count,
+      };
+    }).sort((a, b) => {
+      const missing = Number(isMissingBrand(a.brand)) - Number(isMissingBrand(b.brand));
+      if (missing !== 0) return missing;
+      const byType = rank(a.staffKey) - rank(b.staffKey);
+      if (byType !== 0) return byType;
+      const byStaff = a.label.localeCompare(b.label);
+      if (byStaff !== 0) return byStaff;
+      return a.brand.localeCompare(b.brand);
+    });
+
+    if (!rows.some((row) => row.staffKey === STAFF_FILTER_UNASSIGNED)) {
+      rows.push({
+        staffKey: STAFF_FILTER_UNASSIGNED,
+        brand: MISSING_BRAND,
+        label: 'Unassigned',
+        count: 0,
+      });
+    }
+
+    return { rows, total };
+  }, [visibleAccounts, site, fBrand, fSt]);
 
   const pendingDisconnects = useMemo(() => {
     if (isBusiness) return [];
@@ -1323,7 +1526,6 @@ export default function AccountsPage() {
     const sortedDevices = filterDevicesBySite([...ledgerDevices].sort(compareDeviceNames), site);
 
     const hasActiveFilter = Boolean(q || fBrand || fStaff || fSt);
-    const sharedStaffLabel = accountTypeLabel(ACCOUNT_TYPE_BRAND_SHARED);
 
     sortedDevices.forEach((device) => {
       const name = String(device.device_name || '').toUpperCase();
@@ -1341,25 +1543,20 @@ export default function AccountsPage() {
           return String(a.account_name || '').localeCompare(String(b.account_name || ''));
         });
 
+      const devHit = q && device.device_name.toLowerCase().includes(q);
+
       function acctMatch(a) {
         if (fBrand && resolveAccountBrand(a) !== fBrand) return false;
-        if (fStaff) {
-          if (fStaff === sharedStaffLabel) {
-            if (!isBrandSharedAccount(a)) return false;
-          } else if (isBrandSharedAccount(a) || a.staff !== fStaff) {
-            return false;
-          }
-        }
+        if (!accountMatchesStaffFilter(a, fStaff)) return false;
         if (!matchesLedgerStatusFilter(a, fSt)) return false;
-        if (q) {
+        if (q && !devHit) {
           const hay = `${a.account_name} ${a.phone_number} ${a.staff} ${staffDisplay(a)} ${device.device_name}`.toLowerCase();
           if (!hay.includes(q)) return false;
         }
         return true;
       }
 
-      const devHit = q && device.device_name.toLowerCase().includes(q);
-      const matched = devHit ? deviceAccounts : deviceAccounts.filter(acctMatch);
+      const matched = deviceAccounts.filter(acctMatch);
 
       if (hasActiveFilter && !devHit && matched.length === 0) return;
 
@@ -1373,13 +1570,7 @@ export default function AccountsPage() {
       if (a.device_id) return false;
       if (site !== 'all' && a.siteKey !== site) return false;
       if (fBrand && resolveAccountBrand(a) !== fBrand) return false;
-      if (fStaff) {
-        if (fStaff === sharedStaffLabel) {
-          if (!isBrandSharedAccount(a)) return false;
-        } else if (isBrandSharedAccount(a) || a.staff !== fStaff) {
-          return false;
-        }
-      }
+      if (!accountMatchesStaffFilter(a, fStaff)) return false;
       if (!matchesLedgerStatusFilter(a, fSt)) return false;
       if (q) {
         const hay = `${a.account_name} ${a.phone_number} ${a.staff} ${staffDisplay(a)}`.toLowerCase();
@@ -1611,7 +1802,9 @@ export default function AccountsPage() {
             aria-label="Filter by staff"
           >
             <option value="">All staff</option>
-            {staffOptions.map((o) => <option key={o} value={o}>{o}</option>)}
+            {staffFilterOptions.map((o) => (
+              <option key={o} value={o}>{staffAssignmentLabel(o)}</option>
+            ))}
           </select>
         </label>
         )}
@@ -1628,6 +1821,26 @@ export default function AccountsPage() {
           </select>
         </label>
       </div>
+
+      {!isBusiness && !isLoading && !loadFailed && (
+        <StaffAssignmentSummary
+          rows={staffAssignmentSummary.rows}
+          total={staffAssignmentSummary.total}
+          selectedStaff={fStaff}
+          selectedBrand={fBrand}
+          onSelect={(row) => {
+            const brandValue = isMissingBrand(row.brand) ? '' : row.brand;
+            const same = fStaff === row.staffKey && fBrand === brandValue;
+            if (same) {
+              setFStaff('');
+              setFBrand('');
+              return;
+            }
+            setFStaff(row.staffKey);
+            setFBrand(brandValue);
+          }}
+        />
+      )}
 
       {isLoading ? (
         <p className="py-10 text-center text-sm text-ams-faint">Loading ledger…</p>

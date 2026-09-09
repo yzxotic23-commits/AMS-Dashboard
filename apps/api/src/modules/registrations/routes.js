@@ -71,7 +71,7 @@ function buildPreparedQueue(sims, rmFlags) {
     const model = rmFlags[sk] || {};
     const { needIds } = rankPreparedNeedFlags(bySite[sk], {
       regDaily: model.regDaily ?? 0,
-      registering: model.registering ?? 0,
+      registeredToday: model.registeredToday ?? 0,
     });
     const note = model.needNote || 'RM supply: registration needed';
     grouped[sk] = bySite[sk]

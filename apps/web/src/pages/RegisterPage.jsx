@@ -53,8 +53,18 @@ const TABS = [
 ];
 
 function NeedBadge({ need }) {
-  if (!need) return <span className="badge badge-default">Not required</span>;
-  return <span className="badge badge-warn">Required</span>;
+  if (!need) {
+    return (
+      <span className="badge badge-default" title="Spare for today — you can still fill the result">
+        Not required
+      </span>
+    );
+  }
+  return (
+    <span className="badge badge-warn" title="Priority for today’s supply target">
+      Required
+    </span>
+  );
 }
 
 function DrawerSection({ title, children }) {
@@ -405,7 +415,7 @@ export default function RegisterPage() {
     <div>
       <PageHead
         title="Register"
-        description="Register prepared numbers and log each attempt. Rows that need action today are flagged automatically from supply and ban rate."
+        description="Register prepared numbers and log each attempt. Required flags the daily supply target — spare rows stay Not required, but you can still fill the result."
         actions={needCount > 0 ? (
           <div className="page-meta-bubble">
             <span className="font-semibold text-ams-warn">{needCount}</span>
@@ -491,15 +501,13 @@ export default function RegisterPage() {
                   <td className="col-remark">{row.note || <span className="col-muted">—</span>}</td>
                   <td className="col-action">
                     <div className="col-action-btns">
-                      {row.need ? (
-                        <button type="button" className="btn btn-primary btn-sm" onClick={() => openReg(row)}>
-                          Fill Result
-                        </button>
-                      ) : (
-                        <button type="button" className="btn btn-secondary btn-sm opacity-50" disabled>
-                          Not needed
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        className={row.need ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
+                        onClick={() => openReg(row)}
+                      >
+                        Fill Result
+                      </button>
                       <IconTooltip label="Delete from queue">
                         <button
                           type="button"

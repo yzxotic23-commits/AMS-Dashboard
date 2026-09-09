@@ -59,21 +59,34 @@ async function loadBanRecords(siteKey) {
   return filterSite(records, siteKey);
 }
 
+function startOfDayUtcPlus8() {
+  const offsetMs = 8 * 60 * 60 * 1000;
+  const local = new Date(Date.now() + offsetMs);
+  local.setUTCHours(0, 0, 0, 0);
+  return new Date(local.getTime() - offsetMs).toISOString();
+}
+
+function siteKeyOfMeta(metadata) {
+  return metadata?.site_key === 'pp' ? 'pp' : 'my';
+}
+
 async function loadRegistrationRates(siteKey) {
   const { data, error } = await supabaseAdmin
     .from('audit_logs')
-    .select('metadata')
+    .select('metadata, created_at')
     .eq('entity_type', 'account')
     .contains('metadata', { registration_log: true });
   if (error) throw error;
-  let rows = (data || []).map((r) => r.metadata).filter(Boolean);
+  const dayStart = startOfDayUtcPlus8();
+  let rows = (data || []).filter((r) => r.metadata);
   if (siteKey && siteKey !== 'all') {
-    rows = rows.filter((m) => (m.site_key || 'my') === siteKey);
+    rows = rows.filter((r) => siteKeyOfMeta(r.metadata) === siteKey);
   }
   const total = rows.length;
-  const failed = rows.filter((m) => m.result === 'fail').length;
-  if (total === 0) return { Fr: RM_DEFAULTS.Fr / 100, total: 0 };
-  return { Fr: failed / total, total };
+  const failed = rows.filter((r) => r.metadata.result === 'fail').length;
+  const registeredToday = rows.filter((r) => r.created_at >= dayStart).length;
+  if (total === 0) return { Fr: RM_DEFAULTS.Fr / 100, total: 0, registeredToday: 0 };
+  return { Fr: failed / total, total, registeredToday };
 }
 
 async function loadRecoveryRates(siteKey) {
@@ -158,7 +171,7 @@ export async function loadRmSupplyModel(siteKey = 'all') {
     const registering = counts.REGISTERING;
 
     const banRecords = await loadBanRecords(sk);
-    const { Fr, total: regAttempts } = await loadRegistrationRates(sk);
+    const { Fr, total: regAttempts, registeredToday } = await loadRegistrationRates(sk);
     const { R, Tr, completed: recCompleted, success: recSuccess } = await loadRecoveryRates(sk);
 
     const D = dailyBanRateOnPool(banRecords, inUse, 'IN_USE');
@@ -236,6 +249,7 @@ export async function loadRmSupplyModel(siteKey = 'all') {
       diagnosis,
       needNote: formatRmNeedNote({ regDaily: calc.regDaily, yield: calc.yield, inputs }),
       registering,
+      registeredToday,
     };
   }
 

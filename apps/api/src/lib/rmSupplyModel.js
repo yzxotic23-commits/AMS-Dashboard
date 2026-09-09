@@ -120,9 +120,13 @@ export function formatRmNeedNote({ regDaily, yield: yieldPct, inputs }) {
   return `RM supply: register ${regDaily}/day (in-use ban ${d}%, yield ${yieldPct}%)`;
 }
 
-/** Rank prepared numbers — top N get Needs Registration (FIFO). */
-export function rankPreparedNeedFlags(rows, { regDaily, registering }) {
-  const slots = Math.max(0, regDaily - (registering || 0));
+/**
+ * Rank prepared numbers — top remaining daily slots get Needs Registration (FIFO).
+ * `registeredToday` is today's attempt count (flow). Do not subtract REGISTERING
+ * inventory — that status can sit for days and would lock the whole queue.
+ */
+export function rankPreparedNeedFlags(rows, { regDaily, registeredToday = 0 }) {
+  const slots = Math.max(0, (Number(regDaily) || 0) - (Number(registeredToday) || 0));
   const sorted = [...rows].sort((a, b) => {
     const ta = new Date(a.created_at || 0).getTime();
     const tb = new Date(b.created_at || 0).getTime();

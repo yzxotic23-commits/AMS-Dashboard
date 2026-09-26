@@ -24,7 +24,8 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['"Plus Jakarta Sans"', 'Inter', 'ui-sans-serif', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+        sans: ['"Plus Jakarta Sans"', 'ui-sans-serif', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+        display: ['Michroma', '"Plus Jakarta Sans"', 'ui-sans-serif', 'sans-serif'],
       },
       borderRadius: {
         card: '14px',

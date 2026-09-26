@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Lock, LockOpen, Pencil, Plus, Trash2, UserPlus } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import PageHead from '../../components/PageHead';
 import DetailDialog from '../../components/DetailDialog';
+import ConfirmDialog from '../../components/ConfirmDialog';
 import IconTooltip from '../../components/IconTooltip';
 import Toast from '../../components/Toast';
 import { useAuth } from '../../context/AuthContext';
@@ -22,6 +23,8 @@ const SITE_OPTIONS = [
   { value: 'my', label: `${SITES.my.name} (MY)` },
   { value: 'pp', label: `${SITES.pp.name} (PP)` },
 ];
+
+const PAGE_SIZE_OPTIONS = [20, 50, 100];
 
 function roleLabel(role) {
   return ROLES.find((r) => r.value === role)?.label || role;
@@ -66,8 +69,14 @@ export default function UserManagementPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editUser, setEditUser] = useState(null);
   const [deleteUser, setDeleteUser] = useState(null);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
   const [toast, setToast] = useState('');
+  const [toastTone, setToastTone] = useState('default');
   const [form, setForm] = useState(EMPTY_FORM);
+  const [selected, setSelected] = useState(() => new Set());
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
 
   const isAdmin = profile?.role === 'admin';
   const isEdit = Boolean(editUser);
@@ -83,24 +92,33 @@ export default function UserManagementPage() {
     enabled: isAdmin,
   });
 
+  const showToast = useCallback((message, tone = 'default') => {
+    setToastTone(tone);
+    setToast(message);
+  }, []);
+
   const createMut = useMutation({
     mutationFn: (body) => api.post('/users', body).then((r) => r.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['users'] });
       closeDialog();
-      setToast('User account created');
+      showToast('User account created');
     },
-    onError: (err) => setToast(err.response?.data?.error || err.message || 'Create failed'),
+    onError: (err) => showToast(err.response?.data?.error || err.message || 'Create failed', 'error'),
   });
 
   const patchMut = useMutation({
     mutationFn: ({ id, body }) => api.patch(`/users/${id}`, body).then((r) => r.data),
-    onSuccess: () => {
+    onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ['users'] });
+      if (vars?.body && Object.keys(vars.body).length === 1 && 'is_active' in vars.body) {
+        showToast(vars.body.is_active ? 'Account unlocked' : 'Account locked');
+        return;
+      }
       closeDialog();
-      setToast('User updated');
+      showToast('User updated');
     },
-    onError: (err) => setToast(err.response?.data?.error || err.message || 'Update failed'),
+    onError: (err) => showToast(err.response?.data?.error || err.message || 'Update failed', 'error'),
   });
 
   const deleteMut = useMutation({
@@ -108,10 +126,74 @@ export default function UserManagementPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['users'] });
       setDeleteUser(null);
-      setToast('User deleted');
+      showToast('User deleted');
     },
-    onError: (err) => setToast(err.message || 'Delete failed'),
+    onError: (err) => showToast(err.response?.data?.error || err.message || 'Delete failed', 'error'),
   });
+
+  const total = users.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const pageStart = total ? (safePage - 1) * pageSize + 1 : 0;
+  const pageEnd = Math.min(safePage * pageSize, total);
+  const pageRows = useMemo(
+    () => users.slice((safePage - 1) * pageSize, safePage * pageSize),
+    [users, safePage, pageSize],
+  );
+
+  const pageSelectableIds = useMemo(
+    () => pageRows.filter((u) => u.id !== profile?.id).map((u) => u.id),
+    [pageRows, profile?.id],
+  );
+  const allSelectableIds = useMemo(
+    () => users.filter((u) => u.id !== profile?.id).map((u) => u.id),
+    [users, profile?.id],
+  );
+  const allPageSelected = pageSelectableIds.length > 0
+    && pageSelectableIds.every((id) => selected.has(id));
+  const somePageSelected = pageSelectableIds.some((id) => selected.has(id));
+  const selectedUsers = useMemo(
+    () => users.filter((u) => selected.has(u.id)),
+    [users, selected],
+  );
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  useEffect(() => {
+    setSelected((prev) => {
+      if (prev.size === 0) return prev;
+      const valid = new Set(allSelectableIds);
+      const next = new Set([...prev].filter((id) => valid.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [allSelectableIds]);
+
+  useEffect(() => {
+    setPage(1);
+    setSelected(new Set());
+  }, [pageSize]);
+
+  const toggleSelect = useCallback((id, on) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }, []);
+
+  const toggleSelectPage = useCallback((on) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      pageSelectableIds.forEach((id) => {
+        if (on) next.add(id);
+        else next.delete(id);
+      });
+      return next;
+    });
+  }, [pageSelectableIds]);
 
   function closeDialog() {
     setCreateOpen(false);
@@ -143,7 +225,7 @@ export default function UserManagementPage() {
   async function handleSubmit(e) {
     e.preventDefault();
     if (form.role === 'business' && form.brands.length === 0) {
-      setToast('Business users need at least one brand');
+      showToast('Business users need at least one brand', 'error');
       return;
     }
     const body = {
@@ -175,6 +257,52 @@ export default function UserManagementPage() {
     });
   }
 
+  async function bulkSetActive(isActive) {
+    if (selectedUsers.length === 0 || bulkBusy) return;
+    setBulkBusy(true);
+    let ok = 0;
+    let fail = 0;
+    for (const u of selectedUsers) {
+      try {
+        await api.patch(`/users/${u.id}`, { is_active: isActive });
+        ok += 1;
+      } catch {
+        fail += 1;
+      }
+    }
+    qc.invalidateQueries({ queryKey: ['users'] });
+    setBulkBusy(false);
+    if (fail) {
+      showToast(`${ok} updated, ${fail} failed`, 'error');
+    } else {
+      showToast(isActive ? `Unlocked ${ok} user${ok === 1 ? '' : 's'}` : `Locked ${ok} user${ok === 1 ? '' : 's'}`);
+    }
+  }
+
+  async function confirmBulkDelete() {
+    if (selectedUsers.length === 0 || bulkBusy) return;
+    setBulkBusy(true);
+    let ok = 0;
+    let fail = 0;
+    for (const u of selectedUsers) {
+      try {
+        await api.delete(`/users/${u.id}`);
+        ok += 1;
+      } catch {
+        fail += 1;
+      }
+    }
+    qc.invalidateQueries({ queryKey: ['users'] });
+    setSelected(new Set());
+    setBulkDeleteOpen(false);
+    setBulkBusy(false);
+    if (fail) {
+      showToast(`${ok} deleted, ${fail} failed`, 'error');
+    } else {
+      showToast(`Deleted ${ok} user${ok === 1 ? '' : 's'}`);
+    }
+  }
+
   const formSiteOptions = siteOptionsForRole();
   const dialogBusy = createMut.isPending || patchMut.isPending;
 
@@ -203,99 +331,237 @@ export default function UserManagementPage() {
       )}
 
       {!isLoading && !isError && (
-        <div className="card overflow-hidden">
-          <table className="data-table data-table--users w-full">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Username</th>
-                <th>Site</th>
-                <th>Role</th>
-                <th>Brands</th>
-                <th className="col-action">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((u) => {
-                const isSelf = u.id === profile?.id;
-                return (
-                  <tr key={u.id}>
-                    <td className="font-medium">{u.full_name}</td>
-                    <td className="font-mono text-sm">{u.username}</td>
-                    <td>
-                      <span className={getSiteChipClass(resolveSiteKey(u.site_key, u.role))}>
-                        {siteShortLabel(u.site_key, u.role)}
-                      </span>
-                    </td>
-                    <td>
-                      <span className={`badge ${u.role === 'admin' ? 'badge-accent' : 'badge-default'}`}>
-                        {roleLabel(u.role)}
-                      </span>
-                    </td>
-                    <td>
-                      {u.role === 'business' ? (
-                        <span className="flex flex-wrap gap-1">
-                          {normalizeBrands(u.brands).length ? normalizeBrands(u.brands).map((b) => (
-                            <span key={b} className="badge badge-accent">{b}</span>
-                          )) : (
-                            <span className="text-[12.5px] text-ams-faint">None</span>
-                          )}
-                        </span>
-                      ) : (
-                        <span className="text-[12.5px] text-ams-faint">—</span>
-                      )}
-                    </td>
-                    <td className="col-action">
-                      <div className="col-action-btns">
-                        <IconTooltip label={u.is_active ? 'Lock account' : 'Unlock account'}>
-                          <button
-                            type="button"
-                            className={`table-icon-btn${u.is_active ? '' : ' text-ams-danger'}`}
-                            disabled={isSelf || patchMut.isPending}
-                            aria-label={u.is_active ? 'Lock account' : 'Unlock account'}
-                            onClick={() => patchMut.mutate({
-                              id: u.id,
-                              body: { is_active: !u.is_active },
-                            })}
-                          >
-                            {u.is_active ? <LockOpen size={15} strokeWidth={2} /> : <Lock size={15} strokeWidth={2} />}
-                          </button>
-                        </IconTooltip>
-                        <IconTooltip label="Edit user">
-                          <button
-                            type="button"
-                            className="table-icon-btn"
-                            disabled={dialogBusy}
-                            aria-label="Edit user"
-                            onClick={() => openEdit(u)}
-                          >
-                            <Pencil size={15} strokeWidth={2} />
-                          </button>
-                        </IconTooltip>
-                        {!isSelf && (
-                          <IconTooltip label="Delete user">
-                            <button
-                              type="button"
-                              className="table-icon-btn table-icon-btn--danger"
-                              disabled={deleteMut.isPending}
-                              aria-label="Delete user"
-                              onClick={() => setDeleteUser(u)}
-                            >
-                              <Trash2 size={15} strokeWidth={2} />
-                            </button>
-                          </IconTooltip>
-                        )}
-                      </div>
-                    </td>
+        <>
+          <div className="ip-bulkbar mb-3">
+            <div className="ip-bulkbar-start">
+              <label className="ip-bulkbar-check">
+                <input
+                  type="checkbox"
+                  className="ams-check"
+                  checked={allPageSelected}
+                  ref={(el) => {
+                    if (el) el.indeterminate = somePageSelected && !allPageSelected;
+                  }}
+                  onChange={(e) => toggleSelectPage(e.target.checked)}
+                  disabled={pageSelectableIds.length === 0}
+                />
+                Select page
+              </label>
+              <span
+                className={`ip-bulkbar-meta${selected.size > 0 ? ' is-visible' : ''}`}
+                aria-hidden={selected.size === 0}
+              >
+                <span className="ip-bulkbar-count">{selected.size}</span>
+                selected
+              </span>
+              <div
+                className={`ip-bulkbar-actions${selected.size > 0 ? ' is-visible' : ''}`}
+                aria-hidden={selected.size === 0}
+              >
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  disabled={bulkBusy}
+                  onClick={() => bulkSetActive(true)}
+                  tabIndex={selected.size > 0 ? 0 : -1}
+                >
+                  Unlock
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  disabled={bulkBusy}
+                  onClick={() => bulkSetActive(false)}
+                  tabIndex={selected.size > 0 ? 0 : -1}
+                >
+                  Lock
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-danger btn-sm"
+                  disabled={bulkBusy}
+                  onClick={() => setBulkDeleteOpen(true)}
+                  tabIndex={selected.size > 0 ? 0 : -1}
+                >
+                  Bulk Delete
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => setSelected(new Set())}
+                  tabIndex={selected.size > 0 ? 0 : -1}
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="data-panel card overflow-hidden">
+            <div className="data-table-wrap">
+              <table className="data-table data-table--users w-full">
+                <thead>
+                  <tr>
+                    <th className="col-check">
+                      <input
+                        type="checkbox"
+                        className="ams-check"
+                        checked={allPageSelected}
+                        ref={(el) => {
+                          if (el) el.indeterminate = somePageSelected && !allPageSelected;
+                        }}
+                        onChange={(e) => toggleSelectPage(e.target.checked)}
+                        disabled={pageSelectableIds.length === 0}
+                        aria-label="Select page"
+                      />
+                    </th>
+                    <th>Name</th>
+                    <th>Username</th>
+                    <th>Site</th>
+                    <th>Role</th>
+                    <th>Brands</th>
+                    <th className="col-action">Actions</th>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          {users.length === 0 && (
-            <div className="empty-hint">No users yet. Add Operator accounts for Control Center pipeline, or other roles as needed.</div>
-          )}
-        </div>
+                </thead>
+                <tbody>
+                  {pageRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="empty-cell">
+                        No users yet. Add Operator accounts for Control Center pipeline, or other roles as needed.
+                      </td>
+                    </tr>
+                  ) : pageRows.map((u) => {
+                    const isSelf = u.id === profile?.id;
+                    const canSelect = !isSelf;
+                    return (
+                      <tr key={u.id}>
+                        <td className="col-check">
+                          <input
+                            type="checkbox"
+                            className="ams-check"
+                            checked={selected.has(u.id)}
+                            disabled={!canSelect}
+                            aria-label={`Select ${u.username}`}
+                            onChange={(e) => toggleSelect(u.id, e.target.checked)}
+                          />
+                        </td>
+                        <td className="font-medium">{u.full_name}</td>
+                        <td className="font-mono text-sm">{u.username}</td>
+                        <td>
+                          <span className={getSiteChipClass(resolveSiteKey(u.site_key, u.role))}>
+                            {siteShortLabel(u.site_key, u.role)}
+                          </span>
+                        </td>
+                        <td>
+                          <span className={`badge ${u.role === 'admin' ? 'badge-accent' : 'badge-default'}`}>
+                            {roleLabel(u.role)}
+                          </span>
+                        </td>
+                        <td>
+                          {u.role === 'business' ? (
+                            <span className="flex flex-wrap gap-1">
+                              {normalizeBrands(u.brands).length ? normalizeBrands(u.brands).map((b) => (
+                                <span key={b} className="badge badge-accent">{b}</span>
+                              )) : (
+                                <span className="text-[12.5px] text-ams-faint">None</span>
+                              )}
+                            </span>
+                          ) : (
+                            <span className="text-[12.5px] text-ams-faint">—</span>
+                          )}
+                        </td>
+                        <td className="col-action">
+                          <div className="col-action-btns">
+                            <IconTooltip label={u.is_active ? 'Lock account' : 'Unlock account'}>
+                              <button
+                                type="button"
+                                className={`table-icon-btn${u.is_active ? '' : ' text-ams-danger'}`}
+                                disabled={isSelf || patchMut.isPending || bulkBusy}
+                                aria-label={u.is_active ? 'Lock account' : 'Unlock account'}
+                                onClick={() => patchMut.mutate({
+                                  id: u.id,
+                                  body: { is_active: !u.is_active },
+                                })}
+                              >
+                                {u.is_active ? <LockOpen size={15} strokeWidth={2} /> : <Lock size={15} strokeWidth={2} />}
+                              </button>
+                            </IconTooltip>
+                            <IconTooltip label="Edit user">
+                              <button
+                                type="button"
+                                className="table-icon-btn"
+                                disabled={dialogBusy}
+                                aria-label="Edit user"
+                                onClick={() => openEdit(u)}
+                              >
+                                <Pencil size={15} strokeWidth={2} />
+                              </button>
+                            </IconTooltip>
+                            {!isSelf && (
+                              <IconTooltip label="Delete user">
+                                <button
+                                  type="button"
+                                  className="table-icon-btn table-icon-btn--danger"
+                                  disabled={deleteMut.isPending || bulkBusy}
+                                  aria-label="Delete user"
+                                  onClick={() => setDeleteUser(u)}
+                                >
+                                  <Trash2 size={15} strokeWidth={2} />
+                                </button>
+                              </IconTooltip>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {total > 0 && (
+              <div className="tk-pager px-4 pb-4">
+                <label className="tk-pager-size">
+                  <span>Rows</span>
+                  <select
+                    className="input tk-pager-size-select"
+                    value={pageSize}
+                    onChange={(e) => setPageSize(Number(e.target.value))}
+                    aria-label="Rows per page"
+                  >
+                    {PAGE_SIZE_OPTIONS.map((n) => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                  </select>
+                </label>
+                <div className="tk-pager-actions">
+                  <span className="tk-pager-meta">
+                    Showing {pageStart}–{pageEnd} of {total}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    disabled={safePage <= 1}
+                    onClick={() => setPage(safePage - 1)}
+                  >
+                    Previous
+                  </button>
+                  <span className="tk-pager-page">
+                    Page {safePage} / {totalPages}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    disabled={safePage >= totalPages}
+                    onClick={() => setPage(safePage + 1)}
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </>
       )}
 
       <DetailDialog
@@ -439,7 +705,22 @@ export default function UserManagementPage() {
         </p>
       </DetailDialog>
 
-      <Toast message={toast} onClear={() => setToast('')} />
+      <ConfirmDialog
+        open={bulkDeleteOpen}
+        title="Delete selected users?"
+        message={`Permanently delete ${selectedUsers.length} selected user${selectedUsers.length === 1 ? '' : 's'}? This cannot be undone.`}
+        confirmLabel={bulkBusy ? 'Deleting…' : 'Delete'}
+        danger
+        onConfirm={confirmBulkDelete}
+        onCancel={() => !bulkBusy && setBulkDeleteOpen(false)}
+      />
+
+      <Toast
+        open={!!toast}
+        message={toast}
+        tone={toastTone}
+        onClose={() => setToast('')}
+      />
     </div>
   );
 }

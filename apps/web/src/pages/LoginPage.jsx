@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutDashboard } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { bindAudioUnlock } from '../lib/alert-notify';
 import { formatApiError } from '../lib/format-api-error';
@@ -29,52 +28,91 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-ams-canvas px-4">
-      <div className="card w-full max-w-sm p-8">
-        <div className="mb-6 flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-ams-accent text-white">
-            <LayoutDashboard size={18} />
+    <div className="login-landing">
+      <aside className="login-landing__brand">
+        <div className="login-landing__stage">
+          <p className="login-landing__kicker">Account Management System</p>
+
+          <div className="login-landing__hero-stack">
+            <h1 className="login-landing__display">
+              <span className="login-landing__display-line">AMS</span>
+            </h1>
+            <div className="login-landing__hero-figure" aria-hidden>
+              <img
+                className="login-landing__hero-img"
+                src="/ams-login-hero.png"
+                alt=""
+                width={736}
+                height={736}
+                decoding="async"
+              />
+            </div>
           </div>
-          <div>
-            <h1 className="text-lg font-bold tracking-tight">AMS Platform</h1>
-            <p className="text-xs text-ams-muted">Account Management System</p>
+
+          <p className="login-landing__support">
+            Accounts, SIMs, and delivery — register through standby in one workflow.
+          </p>
+
+          <div className="login-landing__meta">
+            <div className="login-landing__chips">
+              <span className="login-landing__chip">Accounts</span>
+              <span className="login-landing__chip">SIM Ledger</span>
+            </div>
+            <div className="login-landing__stats">
+              <div className="login-landing__stat">
+                <strong>AMS</strong>
+                <span>Platform</span>
+              </div>
+              <div className="login-landing__stat">
+                <strong>24/7</strong>
+                <span>Ops desk</span>
+              </div>
+            </div>
           </div>
         </div>
+      </aside>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-ams-muted">Username</label>
+      <main className="login-landing__main">
+        <form className="login-landing__form" onSubmit={handleSubmit}>
+          <header className="login-landing__form-head">
+            <h2 className="login-landing__form-title">Welcome back</h2>
+            <p className="login-landing__form-sub">Sign in to continue to AMS.</p>
+          </header>
+
+          <label className="login-landing__field">
+            <span className="login-landing__label">Username</span>
             <input
               type="text"
-              className="input font-mono"
+              className="login-landing__input"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               autoComplete="username"
-              placeholder="admin"
+              placeholder="your.username"
               required
             />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-ams-muted">Password</label>
+          </label>
+
+          <label className="login-landing__field">
+            <span className="login-landing__label">Password</span>
             <input
               type="password"
-              className="input"
+              className="login-landing__input"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="current-password"
               required
             />
-          </div>
-          {error && <p className="text-xs text-ams-danger">{error}</p>}
-          <button type="submit" className="btn btn-primary w-full" disabled={loading}>
+          </label>
+
+          {error ? <p className="login-landing__error" role="alert">{error}</p> : null}
+
+          <button type="submit" className="login-landing__submit" disabled={loading}>
             {loading ? 'Signing in…' : 'Sign in'}
           </button>
-        </form>
 
-        <p className="mt-4 text-center text-[11px] text-ams-faint">
-          Contact admin if you need an account.
-        </p>
-      </div>
+          <p className="login-landing__hint">Need access? Ask your admin.</p>
+        </form>
+      </main>
     </div>
   );
 }

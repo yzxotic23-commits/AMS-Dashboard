@@ -81,6 +81,8 @@ export const toastCopy = {
   preparedDeleteBlocked: () => 'Cannot delete — number linked to an account',
 
   simTopUp: (phone, date) => `${phone} · top-up · ${date}`,
+  simDeleted: (phone) => `${phone} · removed from SIM ledger`,
+  simDeleteBlocked: () => 'Cannot delete — SIM is linked to an account',
 
   feedingStarted: () => 'Feeding · started',
   feedingStopped: () => 'Feeding · stopped',

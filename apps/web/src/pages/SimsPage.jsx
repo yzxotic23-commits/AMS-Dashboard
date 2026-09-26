@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tansta
 import { Search } from 'lucide-react';
 import PageHead from '../components/PageHead';
 import Drawer from '../components/Drawer';
+import ConfirmDialog from '../components/ConfirmDialog';
 import Toast from '../components/Toast';
 import SimTableRow from '../components/SimTableRow';
 import { useSite } from '../context/SiteContext';
@@ -59,16 +60,21 @@ function brandFromAccount(account) {
 
 /** Fill Bound Account / Brand when /sims omit them (stale API or empty embed). */
 function enrichSimFromAccounts(sim, bySimId, byPhone) {
+  const hardLinked = bySimId.has(sim.id);
   const hasAccount = sim.account_name && sim.account_name !== '—';
-  if (hasAccount && sim.brand) return sim;
+  if (hasAccount && sim.brand && (sim.account_linked || hardLinked)) {
+    return { ...sim, account_linked: Boolean(sim.account_linked || hardLinked) };
+  }
   const acc = bySimId.get(sim.id)
     || byPhone.get(phoneDigits(sim.phone_number))
     || null;
-  if (!acc) return sim;
+  if (!acc) return { ...sim, account_linked: Boolean(sim.account_linked || hardLinked) };
   return {
     ...sim,
     account_name: hasAccount ? sim.account_name : (acc.account_name || '—'),
     brand: sim.brand || brandFromAccount(acc),
+    // Phone soft-match is display-only; delete lock needs a real sim_id link.
+    account_linked: Boolean(sim.account_linked || hardLinked),
   };
 }
 
@@ -96,6 +102,8 @@ export default function SimsPage() {
   const [selected, setSelected] = useState(() => new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
   const [historySim, setHistorySim] = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [deleting, setDeleting] = useState(false);
   const [exceptionSim, setExceptionSim] = useState(null);
   const [exceptionReason, setExceptionReason] = useState('topup_failed');
   const [exceptionDetail, setExceptionDetail] = useState('');
@@ -296,6 +304,40 @@ export default function SimsPage() {
     setExceptionDetail('');
     setExceptionSim(row);
   }, []);
+
+  const requestDeleteSim = useCallback((row) => {
+    setDeleteConfirm({
+      id: row.id,
+      phone: row.phone_number,
+      title: 'Delete SIM from ledger?',
+      message: `Remove ${row.phone_number} from the SIM Card Ledger? Top-up history for this number will also be removed.`,
+    });
+  }, []);
+
+  async function confirmDeleteSim() {
+    if (!deleteConfirm?.id || deleting) return;
+    setDeleting(true);
+    try {
+      await api.delete(`/sims/${deleteConfirm.id}`);
+      setSelected((prev) => {
+        const next = new Set(prev);
+        next.delete(deleteConfirm.id);
+        return next;
+      });
+      qc.invalidateQueries({ queryKey: ['sims'] });
+      qc.invalidateQueries({ queryKey: ['sim-topups'] });
+      showToast(toastCopy.simDeleted(deleteConfirm.phone));
+      setDeleteConfirm(null);
+    } catch (e) {
+      const msg = e.response?.status === 409
+        ? toastCopy.simDeleteBlocked()
+        : (e.response?.data?.error || e.message || 'Delete failed');
+      showToast(msg, 'error');
+      setDeleteConfirm(null);
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   const handleAlign = useCallback(async (row) => {
     const syncRow = syncBySimId.get(row.id);
@@ -814,6 +856,7 @@ export default function SimsPage() {
                       onCharge={openCharge}
                       onHistory={openHistory}
                       onException={openException}
+                      onDelete={requestDeleteSim}
                       onStatusChange={submitStatus}
                       onRemarkSave={submitRemark}
                     />
@@ -1157,6 +1200,16 @@ export default function SimsPage() {
           </>
         )}
       </Drawer>
+
+      <ConfirmDialog
+        open={!!deleteConfirm}
+        title={deleteConfirm?.title || 'Delete SIM?'}
+        message={deleteConfirm?.message || ''}
+        confirmLabel={deleting ? 'Deleting…' : 'Delete'}
+        danger
+        onConfirm={confirmDeleteSim}
+        onCancel={() => !deleting && setDeleteConfirm(null)}
+      />
 
       <Toast open={!!toast} message={toast} tone={toastTone} onClose={() => setToast('')} />
     </div>

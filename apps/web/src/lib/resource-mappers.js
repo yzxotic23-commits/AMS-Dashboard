@@ -35,6 +35,7 @@ export function mapSimRow(row) {
     site,
     site_name: siteName,
     account_name: row.account_name || row.accounts?.account_name || '—',
+    account_linked: Boolean(row.account_linked),
     brand: row.brand || null,
     expiry_date: expiryDate,
     days_left: daysLeft,

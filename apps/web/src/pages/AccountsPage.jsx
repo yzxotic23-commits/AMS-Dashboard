@@ -1529,11 +1529,14 @@ export default function AccountsPage() {
 
     sortedDevices.forEach((device) => {
       const name = String(device.device_name || '').toUpperCase();
-      const siteKey = name.startsWith('PP')
-        ? 'pp'
-        : name.startsWith('SGD')
-          ? (site === 'pp' || site === 'my' ? site : 'all')
-          : 'my';
+      // Prefer devices.site_key so location can differ from MYR/PP name prefix.
+      const siteKey = (device.site_key === 'pp' || device.site_key === 'my')
+        ? device.site_key
+        : name.startsWith('PP')
+          ? 'pp'
+          : name.startsWith('SGD')
+            ? (site === 'pp' || site === 'my' ? site : 'all')
+            : 'my';
 
       const deviceAccounts = accounts
         .filter((a) => a.device_id === device.id)

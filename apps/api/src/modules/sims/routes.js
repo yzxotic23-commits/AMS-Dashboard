@@ -11,6 +11,7 @@ import {
   normalizeLedgerStatus,
   refundSimTopup,
   resolveBoundAccount,
+  isSimHardLinked,
   SIM_EXCEPTION_REASONS,
   SIM_LEDGER_STATUSES,
   SIM_TOPUP_CYCLE_OPTIONS,
@@ -618,11 +619,47 @@ router.patch('/:id', async (req, res, next) => {
 
 router.delete('/:id', async (req, res, next) => {
   try {
-    const { data: current } = await supabaseAdmin.from('sims').select('*').eq('id', req.params.id).single();
-    const { error } = await supabaseAdmin.from('sims').delete().eq('id', req.params.id);
+    const { id } = req.params;
+    const { data: current, error: loadErr } = await supabaseAdmin
+      .from('sims')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (loadErr) {
+      if (loadErr.code === 'PGRST116') return res.status(404).json({ error: 'SIM not found' });
+      throw loadErr;
+    }
+
+    if (current.current_account_id) {
+      const { data: linkedAccount } = await supabaseAdmin
+        .from('accounts')
+        .select('id')
+        .eq('id', current.current_account_id)
+        .maybeSingle();
+      if (linkedAccount) {
+        return res.status(409).json({ error: 'Cannot delete — SIM is linked to an account' });
+      }
+    }
+
+    const { count: accountRefs } = await supabaseAdmin
+      .from('accounts')
+      .select('id', { count: 'exact', head: true })
+      .eq('sim_id', id);
+    if (accountRefs > 0) {
+      return res.status(409).json({ error: 'Cannot delete — SIM is referenced by an account' });
+    }
+
+    const { error } = await supabaseAdmin.from('sims').delete().eq('id', id);
     if (error) throw error;
-    await writeAudit({ entityType: 'sim', entityId: req.params.id, action: 'DELETE', previousValue: current, userId: req.profile.id, req });
-    res.json({ ok: true });
+    await writeAudit({
+      entityType: 'sim',
+      entityId: id,
+      action: 'DELETE',
+      previousValue: current,
+      userId: req.profile.id,
+      req,
+    });
+    res.json({ ok: true, phone_number: current.phone_number });
   } catch (e) {
     next(e);
   }

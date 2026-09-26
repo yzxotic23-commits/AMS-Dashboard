@@ -1,6 +1,8 @@
 import { memo } from 'react';
+import { Trash2 } from 'lucide-react';
 import SimSyncPopover from './SimSyncPopover';
 import SimRemarkCell from './SimRemarkCell';
+import IconTooltip from './IconTooltip';
 import { SITES, getSiteChipClass } from '../lib/sites';
 import { daysLeftTagClass, formatDaysLeft, ledgerStatusLabel } from '../lib/sim-meta';
 
@@ -26,11 +28,13 @@ function SimTableRow({
   onCharge,
   onHistory,
   onException,
+  onDelete,
   onStatusChange,
   onRemarkSave,
 }) {
   const siteLabel = siteChipLabel(row);
   const stopped = row.ledger_status === 'stop_topup';
+  const linked = Boolean(row.account_linked);
 
   return (
     <tr>
@@ -122,6 +126,29 @@ function SimTableRow({
           <button type="button" className="btn btn-ghost btn-sm" onClick={() => onHistory(row)}>
             History{row.topup_count ? ` (${row.topup_count})` : ''}
           </button>
+          {linked ? (
+            <IconTooltip label="Linked to account — unlink first">
+              <button
+                type="button"
+                className="table-icon-btn table-icon-btn--danger opacity-40"
+                disabled
+                aria-label={`Delete ${row.phone_number} (linked)`}
+              >
+                <Trash2 size={15} strokeWidth={2} />
+              </button>
+            </IconTooltip>
+          ) : (
+            <IconTooltip label="Delete from SIM ledger">
+              <button
+                type="button"
+                className="table-icon-btn table-icon-btn--danger"
+                onClick={() => onDelete?.(row)}
+                aria-label={`Delete ${row.phone_number}`}
+              >
+                <Trash2 size={15} strokeWidth={2} />
+              </button>
+            </IconTooltip>
+          )}
         </div>
       </td>
     </tr>

@@ -334,6 +334,13 @@ export function resolveBoundAccount(sim, accountBySimId, accountByCurrentId, acc
     || null;
 }
 
+/** True only when SIM is actually linked (not phone soft-match for display). */
+export function isSimHardLinked(sim, accountBySimId = new Map(), accountByCurrentId = new Map()) {
+  if (sim.current_account_id && accountByCurrentId.has(sim.current_account_id)) return true;
+  if (accountBySimId.has(sim.id)) return true;
+  return false;
+}
+
 function inferBrandFromName(accountName) {
   const m = String(accountName || '').match(/^(SBMY|JMMY|STMY|PP)\b/i);
   return m ? m[1].toUpperCase() : '';
@@ -365,6 +372,7 @@ export function resolveAccountBrand(account) {
 export function mapSimRow(sim, accountBySimId = new Map(), accountByCurrentId = new Map(), accountByPhoneDigits = new Map(), topupCountBySimId = new Map()) {
   const { ledger } = parseSimNotesMeta(sim.notes);
   const bound = resolveBoundAccount(sim, accountBySimId, accountByCurrentId, accountByPhoneDigits);
+  const account_linked = isSimHardLinked(sim, accountBySimId, accountByCurrentId);
   const last_charged = sim.last_charged || ledger.last_charged || null;
   const last_cycle_days = sim.last_cycle_days || ledger.last_cycle_days || SIM_TOPUP_CYCLE_DAYS;
   const last_amount = sim.last_amount ?? ledger.last_amount ?? null;
@@ -390,6 +398,7 @@ export function mapSimRow(sim, accountBySimId = new Map(), accountByCurrentId = 
   return {
     ...sim,
     account_name: bound?.account_name || null,
+    account_linked,
     brand: resolveAccountBrand(bound) || null,
     last_charged,
     last_amount,

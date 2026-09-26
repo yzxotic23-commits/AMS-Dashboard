@@ -63,18 +63,31 @@ function enrichSimFromAccounts(sim, bySimId, byPhone) {
   const hardLinked = bySimId.has(sim.id);
   const hasAccount = sim.account_name && sim.account_name !== '—';
   if (hasAccount && sim.brand && (sim.account_linked || hardLinked)) {
-    return { ...sim, account_linked: Boolean(sim.account_linked || hardLinked) };
+    return {
+      ...sim,
+      account_linked: Boolean(sim.account_linked || hardLinked),
+      bound_account_id: sim.bound_account_id || bySimId.get(sim.id)?.id || null,
+    };
   }
   const acc = bySimId.get(sim.id)
     || byPhone.get(phoneDigits(sim.phone_number))
     || null;
-  if (!acc) return { ...sim, account_linked: Boolean(sim.account_linked || hardLinked) };
+  if (!acc) {
+    return {
+      ...sim,
+      account_linked: Boolean(sim.account_linked || hardLinked),
+      bound_account_id: sim.bound_account_id || null,
+    };
+  }
   return {
     ...sim,
     account_name: hasAccount ? sim.account_name : (acc.account_name || '—'),
     brand: sim.brand || brandFromAccount(acc),
     // Phone soft-match is display-only; delete lock needs a real sim_id link.
     account_linked: Boolean(sim.account_linked || hardLinked),
+    bound_account_id: hardLinked
+      ? (sim.bound_account_id || acc.id || null)
+      : (sim.bound_account_id || null),
   };
 }
 
@@ -104,6 +117,8 @@ export default function SimsPage() {
   const [historySim, setHistorySim] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [unlinkConfirm, setUnlinkConfirm] = useState(null);
+  const [unlinking, setUnlinking] = useState(false);
   const [exceptionSim, setExceptionSim] = useState(null);
   const [exceptionReason, setExceptionReason] = useState('topup_failed');
   const [exceptionDetail, setExceptionDetail] = useState('');
@@ -314,6 +329,26 @@ export default function SimsPage() {
     });
   }, []);
 
+  const requestUnlinkSim = useCallback((row) => {
+    const accountId = row.bound_account_id
+      || syncBySimId.get(row.id)?.account_id
+      || null;
+    if (!accountId) {
+      showToast('Cannot unlink — no bound account id found', 'error');
+      return;
+    }
+    setUnlinkConfirm({
+      id: row.id,
+      accountId,
+      phone: row.phone_number,
+      accountName: row.account_name && row.account_name !== '—' ? row.account_name : null,
+      title: 'Unlink SIM from account?',
+      message: row.account_name && row.account_name !== '—'
+        ? `Remove the binding between ${row.phone_number} and ${row.account_name}? The SIM stays in the ledger; only the account link is cleared.`
+        : `Remove the account binding for ${row.phone_number}? The SIM stays in the ledger; only the account link is cleared.`,
+    });
+  }, [syncBySimId]);
+
   async function confirmDeleteSim() {
     if (!deleteConfirm?.id || deleting) return;
     setDeleting(true);
@@ -336,6 +371,26 @@ export default function SimsPage() {
       setDeleteConfirm(null);
     } finally {
       setDeleting(false);
+    }
+  }
+
+  async function confirmUnlinkSim() {
+    if (!unlinkConfirm?.accountId || unlinking) return;
+    setUnlinking(true);
+    try {
+      await syncMut.mutateAsync({
+        accountId: unlinkConfirm.accountId,
+        action: 'unlink_sim',
+        sim_id: unlinkConfirm.id,
+      });
+      qc.invalidateQueries({ queryKey: ['sims-bound-accounts'] });
+      showToast(toastCopy.simUnlinked(unlinkConfirm.phone, unlinkConfirm.accountName));
+      setUnlinkConfirm(null);
+    } catch (e) {
+      showToast(e?.response?.data?.error || e.message || 'Unlink failed', 'error');
+      setUnlinkConfirm(null);
+    } finally {
+      setUnlinking(false);
     }
   }
 
@@ -857,6 +912,7 @@ export default function SimsPage() {
                       onHistory={openHistory}
                       onException={openException}
                       onDelete={requestDeleteSim}
+                      onUnlink={requestUnlinkSim}
                       onStatusChange={submitStatus}
                       onRemarkSave={submitRemark}
                     />
@@ -1209,6 +1265,15 @@ export default function SimsPage() {
         danger
         onConfirm={confirmDeleteSim}
         onCancel={() => !deleting && setDeleteConfirm(null)}
+      />
+
+      <ConfirmDialog
+        open={!!unlinkConfirm}
+        title={unlinkConfirm?.title || 'Unlink SIM?'}
+        message={unlinkConfirm?.message || ''}
+        confirmLabel={unlinking ? 'Unlinking…' : 'Unlink'}
+        onConfirm={confirmUnlinkSim}
+        onCancel={() => !unlinking && setUnlinkConfirm(null)}
       />
 
       <Toast open={!!toast} message={toast} tone={toastTone} onClose={() => setToast('')} />

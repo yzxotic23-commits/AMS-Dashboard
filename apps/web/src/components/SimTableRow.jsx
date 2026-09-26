@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { Trash2 } from 'lucide-react';
+import { Link2Off, Trash2 } from 'lucide-react';
 import SimSyncPopover from './SimSyncPopover';
 import SimRemarkCell from './SimRemarkCell';
 import IconTooltip from './IconTooltip';
@@ -29,6 +29,7 @@ function SimTableRow({
   onHistory,
   onException,
   onDelete,
+  onUnlink,
   onStatusChange,
   onRemarkSave,
 }) {
@@ -126,6 +127,18 @@ function SimTableRow({
           <button type="button" className="btn btn-ghost btn-sm" onClick={() => onHistory(row)}>
             History{row.topup_count ? ` (${row.topup_count})` : ''}
           </button>
+          {linked && (
+            <IconTooltip label="Unlink from account">
+              <button
+                type="button"
+                className="table-icon-btn"
+                onClick={() => onUnlink?.(row)}
+                aria-label={`Unlink ${row.phone_number}`}
+              >
+                <Link2Off size={15} strokeWidth={2} />
+              </button>
+            </IconTooltip>
+          )}
           {linked ? (
             <IconTooltip label="Linked to account — unlink first">
               <button

@@ -270,7 +270,7 @@ router.get('/phone-sync', async (req, res, next) => {
 });
 
 const syncSchema = z.object({
-  action: z.enum(['copy_sim_to_account', 'copy_account_to_sim', 'link_sim']),
+  action: z.enum(['copy_sim_to_account', 'copy_account_to_sim', 'link_sim', 'unlink_sim']),
   sim_id: z.string().uuid().optional(),
 });
 
@@ -291,7 +291,7 @@ router.post('/phone-sync/:accountId', async (req, res, next) => {
       const { data, error } = await supabaseAdmin.from('sims').select('*').eq('id', simId).single();
       if (error) throw error;
       sim = data;
-    } else if (body.action !== 'link_sim') {
+    } else if (body.action !== 'link_sim' && body.action !== 'unlink_sim') {
       return res.status(400).json({ error: 'sim_id required' });
     }
 

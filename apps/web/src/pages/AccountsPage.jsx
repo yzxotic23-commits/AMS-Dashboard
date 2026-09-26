@@ -6,11 +6,14 @@ import PageHead from '../components/PageHead';
 import DetailDialog from '../components/DetailDialog';
 import Drawer from '../components/Drawer';
 import Toast from '../components/Toast';
+import ConfirmDialog from '../components/ConfirmDialog';
 import SegControl from '../components/SegControl';
 import { useSite } from '../context/SiteContext';
 import { useAuth } from '../context/AuthContext';
 import { SITES, getSiteChipClass } from '../lib/sites';
 import { useAllAccounts, useAccountDetail, useAccountMutations } from '../hooks/useOperatorAccounts';
+import { usePhoneSyncMutation } from '../hooks/useSupply';
+import { toastCopy } from '../lib/operator-copy';
 import { statusMeta, resolveAccountBrand, BRAND_OPTIONS } from '../lib/account-status-labels';
 import {
   compareDeviceNames,
@@ -540,6 +543,7 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
     patchAccount, reportDisconnect, resolveDisconnect, returnStandby, ackNotice,
     banAccount, markStrict,
   } = useAccountMutations();
+  const unlinkSimMut = usePhoneSyncMutation();
   const canSetStaff = profile?.role === 'admin' || profile?.role === 'operator';
   const [staffDraft, setStaffDraft] = useState('');
   const [typeDraft, setTypeDraft] = useState(ACCOUNT_TYPE_PERSONAL);
@@ -559,6 +563,9 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
   const [standbyBanReason, setStandbyBanReason] = useState(STANDBY_BAN_REASONS[0]);
   const [standbyUpdateToast, setStandbyUpdateToast] = useState('');
   const [standbyUpdateBusy, setStandbyUpdateBusy] = useState(false);
+  const [unlinkSimOpen, setUnlinkSimOpen] = useState(false);
+  const [unlinkSimBusy, setUnlinkSimBusy] = useState(false);
+  const [unlinkSimToast, setUnlinkSimToast] = useState('');
 
   const { data: usageEvents = [], isLoading: usageLoading } = useQuery({
     queryKey: ['accounts', 'usage', accountId],
@@ -762,6 +769,26 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
     }
   }
 
+  async function confirmUnlinkSim() {
+    if (!account.sim_id || unlinkSimBusy) return;
+    setUnlinkSimBusy(true);
+    try {
+      await unlinkSimMut.mutateAsync({
+        accountId: account.id,
+        action: 'unlink_sim',
+        sim_id: account.sim_id,
+      });
+      setUnlinkSimOpen(false);
+      setUnlinkSimToast(toastCopy.accountSimUnlinked(account.sim));
+      setTimeout(() => setUnlinkSimToast(''), 4200);
+    } catch (e) {
+      setUnlinkSimToast(e?.response?.data?.error || e.message || 'Failed to unlink SIM');
+      setTimeout(() => setUnlinkSimToast(''), 4200);
+    } finally {
+      setUnlinkSimBusy(false);
+    }
+  }
+
   const restriction = restrictionMeta(account.restrict_kind);
   const statusLabel = account.restrict_kind
     ? restriction.label
@@ -786,9 +813,22 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
   if (ipMismatch) {
     infoRows.push(['Current IP (engine)', account.ip || '—']);
   }
-  infoRows.push(
-    ['SIM', account.sim || '—'],
-  );
+  const canUnlinkSim = !isBusinessUser && Boolean(account.sim_id);
+  infoRows.push([
+    'SIM',
+    canUnlinkSim ? (
+      <span className="inline-flex items-center justify-end gap-2">
+        <span>{account.sim || '—'}</span>
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm"
+          onClick={() => setUnlinkSimOpen(true)}
+        >
+          Unlink
+        </button>
+      </span>
+    ) : (account.sim || '—'),
+  ]);
   if (nurture) infoRows.push(['Nurturing', `Day ${nurture.day}/${nurture.max} · ${nurture.remaining} left`]);
   if (engineStatus) infoRows.push(['Engine status', engineStatus]);
 
@@ -1360,7 +1400,21 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
         </div>
       </Drawer>
 
+      <ConfirmDialog
+        open={unlinkSimOpen}
+        title="Unlink SIM from account?"
+        message={
+          account.sim
+            ? `Remove the binding to ${account.sim}? The SIM stays in the ledger; only this account link is cleared.`
+            : 'Remove the SIM binding from this account? The SIM stays in the ledger; only this account link is cleared.'
+        }
+        confirmLabel={unlinkSimBusy ? 'Unlinking…' : 'Unlink'}
+        onConfirm={confirmUnlinkSim}
+        onCancel={() => !unlinkSimBusy && setUnlinkSimOpen(false)}
+      />
+
       <Toast open={!!standbyUpdateToast} message={standbyUpdateToast} onClose={() => setStandbyUpdateToast('')} />
+      <Toast open={!!unlinkSimToast} message={unlinkSimToast} onClose={() => setUnlinkSimToast('')} />
     </div>
   );
 }

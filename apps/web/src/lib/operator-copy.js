@@ -83,6 +83,14 @@ export const toastCopy = {
   simTopUp: (phone, date) => `${phone} · top-up · ${date}`,
   simDeleted: (phone) => `${phone} · removed from SIM ledger`,
   simDeleteBlocked: () => 'Cannot delete — SIM is linked to an account',
+  simUnlinked: (phone, accountName) => (
+    accountName
+      ? `${phone} · unlinked from ${accountName}`
+      : `${phone} · SIM unlinked`
+  ),
+  accountSimUnlinked: (simLabel) => (
+    simLabel ? `SIM unlinked · ${simLabel}` : 'SIM unlinked from this account'
+  ),
 
   feedingStarted: () => 'Feeding · started',
   feedingStopped: () => 'Feeding · stopped',

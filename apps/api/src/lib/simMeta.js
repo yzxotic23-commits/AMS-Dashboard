@@ -398,6 +398,7 @@ export function mapSimRow(sim, accountBySimId = new Map(), accountByCurrentId = 
   return {
     ...sim,
     account_name: bound?.account_name || null,
+    bound_account_id: account_linked ? (bound?.id || sim.current_account_id || null) : null,
     account_linked,
     brand: resolveAccountBrand(bound) || null,
     last_charged,

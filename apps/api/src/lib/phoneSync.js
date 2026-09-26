@@ -90,25 +90,43 @@ export async function applyPhoneSync(supabaseAdmin, { account, sim, action, user
     if (!account.phone_number && sim.phone_number) {
       accountPatch.phone_number = sim.phone_number;
     }
+  } else if (action === 'unlink_sim') {
+    if (!account.sim_id && !sim) {
+      const err = new Error('No SIM linked to this account');
+      err.status = 400;
+      throw err;
+    }
+    // Clear account→sim only when this SIM is the bound one (or no SIM row given).
+    const clearAccountLink = !sim || !account.sim_id || account.sim_id === sim.id;
+    if (clearAccountLink) {
+      accountPatch = { sim_id: null };
+    }
+    if (sim) {
+      simPatch = { current_account_id: null };
+    }
   } else {
     const err = new Error('Invalid sync action');
     err.status = 400;
     throw err;
   }
 
-  const { data: updatedAccount, error: accErr } = await supabaseAdmin
-    .from('accounts')
-    .update(accountPatch)
-    .eq('id', account.id)
-    .select('*')
-    .single();
-  if (accErr) throw accErr;
+  let updatedAccount = account;
+  if (Object.keys(accountPatch).length) {
+    const { data, error: accErr } = await supabaseAdmin
+      .from('accounts')
+      .update(accountPatch)
+      .eq('id', account.id)
+      .select('*')
+      .single();
+    if (accErr) throw accErr;
+    updatedAccount = data;
 
-  await syncResourceBindings(account.id, {
-    device_id: updatedAccount.device_id,
-    sim_id: updatedAccount.sim_id,
-    ip_id: updatedAccount.ip_id,
-  }, prev);
+    await syncResourceBindings(account.id, {
+      device_id: updatedAccount.device_id,
+      sim_id: updatedAccount.sim_id,
+      ip_id: updatedAccount.ip_id,
+    }, prev);
+  }
 
   if (sim && Object.keys(simPatch).length) {
     const { error: simErr } = await supabaseAdmin
@@ -118,5 +136,10 @@ export async function applyPhoneSync(supabaseAdmin, { account, sim, action, user
     if (simErr) throw simErr;
   }
 
-  return { account: updatedAccount, sim_id: sim?.id || updatedAccount.sim_id, action, userId };
+  return {
+    account: updatedAccount,
+    sim_id: action === 'unlink_sim' ? null : (sim?.id || updatedAccount.sim_id),
+    action,
+    userId,
+  };
 }

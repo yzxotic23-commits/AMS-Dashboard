@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { Link2Off, Trash2 } from 'lucide-react';
+import { History, Link2Off, Trash2 } from 'lucide-react';
 import SimSyncPopover from './SimSyncPopover';
 import SimRemarkCell from './SimRemarkCell';
 import IconTooltip from './IconTooltip';
@@ -36,6 +36,9 @@ function SimTableRow({
   const siteLabel = siteChipLabel(row);
   const stopped = row.ledger_status === 'stop_topup';
   const linked = Boolean(row.account_linked);
+  const historyLabel = row.topup_count
+    ? `Top-up history (${row.topup_count})`
+    : 'Top-up history';
 
   return (
     <tr>
@@ -124,11 +127,18 @@ function SimTableRow({
               No top-up
             </span>
           )}
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => onHistory(row)}>
-            History{row.topup_count ? ` (${row.topup_count})` : ''}
-          </button>
+          <IconTooltip label={historyLabel}>
+            <button
+              type="button"
+              className="table-icon-btn"
+              onClick={() => onHistory(row)}
+              aria-label={historyLabel}
+            >
+              <History size={15} strokeWidth={2} />
+            </button>
+          </IconTooltip>
           {linked && (
-            <IconTooltip label="Unlink from account">
+            <IconTooltip label="Unlink SIM">
               <button
                 type="button"
                 className="table-icon-btn"
@@ -140,7 +150,7 @@ function SimTableRow({
             </IconTooltip>
           )}
           {linked ? (
-            <IconTooltip label="Linked to account — unlink first">
+            <IconTooltip label="Delete blocked">
               <button
                 type="button"
                 className="table-icon-btn table-icon-btn--danger opacity-40"
@@ -151,7 +161,7 @@ function SimTableRow({
               </button>
             </IconTooltip>
           ) : (
-            <IconTooltip label="Delete from SIM ledger">
+            <IconTooltip label="Delete SIM">
               <button
                 type="button"
                 className="table-icon-btn table-icon-btn--danger"

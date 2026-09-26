@@ -1930,7 +1930,7 @@
   .icon-tip__bubble::after {
     content: '';
     position: absolute;
-    left: 50%;
+    left: var(--tip-arrow-left, 50%);
     transform: translateX(-50%);
     border: 5px solid transparent;
   }
@@ -1946,11 +1946,10 @@
     position: fixed;
     z-index: 80;
   }
-  .icon-tip__bubble--portal.icon-tip__bubble--above {
-    transform: translate(-50%, -100%);
-  }
+  .icon-tip__bubble--portal.icon-tip__bubble--above,
   .icon-tip__bubble--portal.icon-tip__bubble--below {
-    transform: translate(-50%, 0);
+    /* transform set inline so horizontal clamp keeps tip above the anchor */
+    transform: none;
   }
   .data-table .col-center,
   .data-table th.col-center {

@@ -48,6 +48,39 @@ router.post('/ensure-capacity', async (req, res, next) => {
   }
 });
 
+function lockedProfileSite(profile) {
+  const sk = profile?.site_key;
+  return sk === 'my' || sk === 'pp' ? sk : null;
+}
+
+// Operators scoped to one site can only create devices on that site.
+router.post('/', (req, res, next) => {
+  const opSite = lockedProfileSite(req.profile);
+  if (opSite && req.body && typeof req.body === 'object') {
+    req.body.site_key = opSite;
+  }
+  next();
+});
+
+// Site is fixed once set: renaming (e.g. PP-SB-005 → MYR-SB-023) must not move the device.
+router.patch('/:id', async (req, res, next) => {
+  try {
+    if (!req.body || typeof req.body !== 'object' || !('site_key' in req.body)) return next();
+    const { data: current, error } = await supabaseAdmin
+      .from('devices')
+      .select('site_key')
+      .eq('id', req.params.id)
+      .maybeSingle();
+    if (error) throw error;
+    if (current?.site_key === 'my' || current?.site_key === 'pp') {
+      delete req.body.site_key;
+    }
+    next();
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.use(crud);
 
 export default router;

@@ -52,20 +52,24 @@ function deviceLocationLabel(device = {}) {
   return LOCATION_OPTIONS.find((o) => o.value === key)?.label || '—';
 }
 
-/** Resolve site_key when adding/editing a device. */
-function resolveDeviceSiteKey(deviceName, { profile, headerSite, manualSite } = {}) {
-  const implied = prefixImpliedSite(deviceName);
-  if (implied) return implied;
-  if (devicePrefix(deviceName) !== 'SGD') return null;
-  if (manualSite === 'my' || manualSite === 'pp') return manualSite;
-  const op = operatorSiteKey(profile);
-  if (op === 'my' || op === 'pp') return op;
-  if (headerSite === 'my' || headerSite === 'pp') return headerSite;
-  return null;
+function storedSiteKey(device) {
+  const sk = device?.site_key;
+  return sk === 'my' || sk === 'pp' ? sk : null;
 }
 
-function isSgdDevice(deviceName = '') {
-  return devicePrefix(deviceName) === 'SGD';
+/**
+ * Resolve site_key for a new device (or a legacy row with no site yet).
+ * Staff scoped to one site always get their own site; the Device ID prefix is only a fallback
+ * because MYR/SGD are currency codes and MYR devices also run in Poipet.
+ */
+function resolveDeviceSiteKey(deviceName, { profile, headerSite, manualSite } = {}) {
+  const op = operatorSiteKey(profile);
+  if (op === 'my' || op === 'pp') return op;
+  if (manualSite === 'my' || manualSite === 'pp') return manualSite;
+  const implied = prefixImpliedSite(deviceName);
+  if (implied) return implied;
+  if (headerSite === 'my' || headerSite === 'pp') return headerSite;
+  return null;
 }
 
 function currencyFromStored(value, deviceName = '') {
@@ -298,24 +302,24 @@ export default function DevicesPage() {
     }
     if (!detailRow?.id) return;
     const currency = (editCurrency || currencyFromStored('', name) || '').toUpperCase();
-    const site_key = resolveDeviceSiteKey(name, {
-      profile,
-      headerSite: site,
-      manualSite: isSgdDevice(name) ? editSiteKey : null,
-    });
-    if (isSgdDevice(name) && !site_key) {
-      showToast('Choose Location (Malaysia or Poipet) for SGD devices', 'error');
-      return;
+    const body = {
+      device_name: name,
+      status: editStatus,
+      serial_number: serialFromCurrency(currency, name),
+    };
+    if (!storedSiteKey(detailRow)) {
+      const site_key = resolveDeviceSiteKey(name, {
+        profile,
+        headerSite: site,
+        manualSite: editSiteKey,
+      });
+      if (!site_key) {
+        showToast('Choose Location (Malaysia or Poipet)', 'error');
+        return;
+      }
+      body.site_key = site_key;
     }
-    patchMut.mutate({
-      id: detailRow.id,
-      body: {
-        device_name: name,
-        status: editStatus,
-        serial_number: serialFromCurrency(currency, name),
-        site_key: site_key || null,
-      },
-    });
+    patchMut.mutate({ id: detailRow.id, body });
   }
 
   function submitAdd() {
@@ -332,10 +336,10 @@ export default function DevicesPage() {
     const site_key = resolveDeviceSiteKey(name, {
       profile,
       headerSite: site,
-      manualSite: isSgdDevice(name) ? addSiteKey : null,
+      manualSite: addSiteKey,
     });
-    if (isSgdDevice(name) && !site_key) {
-      showToast('Choose Location (Malaysia or Poipet) for SGD devices', 'error');
+    if (!site_key) {
+      showToast('Choose Location (Malaysia or Poipet)', 'error');
       return;
     }
     createMut.mutate({
@@ -398,14 +402,15 @@ export default function DevicesPage() {
     headerSite: site,
     manualSite: addSiteKey,
   });
-  const addNeedsSitePick = isSgdDevice(addForm.device_name) && !locationLockedToOp && !(site === 'my' || site === 'pp');
-  const editNeedsSitePick = isSgdDevice(editName);
+  const addNeedsSitePick = !locationLockedToOp;
+  const detailStoredSite = storedSiteKey(detailRow);
+  const editNeedsSitePick = !detailStoredSite;
 
   return (
     <div>
       <PageHead
         title="Devices"
-        description="Farm phone inventory — Device ID, site location, currency, and bound accounts. SGD location follows the operator’s site."
+        description="Farm phone inventory — Device ID, site location, currency, and bound accounts. Location is set once from the operator’s site and never follows the Device ID prefix."
         actions={(
           <div className="page-meta-bubble">
             <span className="font-semibold text-ams-ink">{filtered.length}</span>
@@ -669,7 +674,7 @@ export default function DevicesPage() {
                   <span className="drawer-label">Location</span>
                   <select
                     className="input"
-                    value={editSiteKey}
+                    value={locationLockedToOp ? opSite : editSiteKey}
                     onChange={(e) => setEditSiteKey(e.target.value)}
                     disabled={locationLockedToOp}
                   >
@@ -677,16 +682,19 @@ export default function DevicesPage() {
                     <option value="my">{SITES.my.name}</option>
                     <option value="pp">{SITES.pp.name}</option>
                   </select>
-                  {locationLockedToOp && (
-                    <span className="mt-1 text-[12px] text-ams-muted">
-                      Locked to your site ({SITES[opSite]?.name}).
-                    </span>
-                  )}
+                  <span className="mt-1 text-[12px] text-ams-muted">
+                    {locationLockedToOp
+                      ? `Locked to your site (${SITES[opSite]?.name}).`
+                      : 'Location is fixed after saving.'}
+                  </span>
                 </label>
               ) : (
                 <div className="drawer-locked">
                   <div className="drawer-locked-label">Location</div>
-                  <div className="text-sm">{deviceLocationLabel({ device_name: editName, site_key: editSiteKey || detailRow.site_key })}</div>
+                  <div className="text-sm">{SITES[detailStoredSite]?.name}</div>
+                  <span className="mt-1 block text-[12px] text-ams-muted">
+                    Fixed at registration — renaming the Device ID does not change the site.
+                  </span>
                 </div>
               )}
             </div>
@@ -780,41 +788,33 @@ export default function DevicesPage() {
               ))}
             </select>
           </label>
-          {isSgdDevice(addForm.device_name) || prefixImpliedSite(addForm.device_name) ? (
-            addNeedsSitePick ? (
-              <label className="drawer-field">
-                <span className="drawer-label">Location</span>
-                <select
-                  className="input"
-                  value={addSiteKey}
-                  onChange={(e) => setAddSiteKey(e.target.value)}
-                >
-                  <option value="">Select site</option>
-                  <option value="my">{SITES.my.name}</option>
-                  <option value="pp">{SITES.pp.name}</option>
-                </select>
-              </label>
-            ) : (
-              <div className="drawer-locked">
-                <div className="drawer-locked-label">Location</div>
-                <div className="text-sm">
-                  {addResolvedSite
-                    ? SITES[addResolvedSite]?.name
-                    : '—'}
-                  {isSgdDevice(addForm.device_name) && locationLockedToOp && (
-                    <span className="mt-1 block text-[12px] text-ams-muted">
-                      Auto from your site profile.
-                    </span>
-                  )}
-                  {isSgdDevice(addForm.device_name) && !locationLockedToOp && (site === 'my' || site === 'pp') && (
-                    <span className="mt-1 block text-[12px] text-ams-muted">
-                      Auto from active site filter.
-                    </span>
-                  )}
-                </div>
+          {addNeedsSitePick ? (
+            <label className="drawer-field">
+              <span className="drawer-label">Location</span>
+              <select
+                className="input"
+                value={addSiteKey || addResolvedSite || ''}
+                onChange={(e) => setAddSiteKey(e.target.value)}
+              >
+                <option value="">Select site</option>
+                <option value="my">{SITES.my.name}</option>
+                <option value="pp">{SITES.pp.name}</option>
+              </select>
+              <span className="mt-1 text-[12px] text-ams-muted">
+                Location is fixed after saving — renaming the Device ID later will not move it.
+              </span>
+            </label>
+          ) : (
+            <div className="drawer-locked">
+              <div className="drawer-locked-label">Location</div>
+              <div className="text-sm">
+                {addResolvedSite ? SITES[addResolvedSite]?.name : '—'}
+                <span className="mt-1 block text-[12px] text-ams-muted">
+                  Auto from your site profile.
+                </span>
               </div>
-            )
-          ) : null}
+            </div>
+          )}
           <label className="drawer-field">
             <span className="drawer-label">Model</span>
             <input

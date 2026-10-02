@@ -16,6 +16,8 @@ import {
   formatDaysLeft,
   formatTopupAmount,
   normalizeTopupCycleDays,
+  SIM_ANOMALY_PLATFORMS,
+  SIM_ANOMALY_REASONS,
   SIM_EXCEPTION_REASONS,
   SIM_LEDGER_STATUSES,
   SIM_TOPUP_CYCLE_DAYS,
@@ -122,6 +124,10 @@ export default function SimsPage() {
   const [exceptionSim, setExceptionSim] = useState(null);
   const [exceptionReason, setExceptionReason] = useState('topup_failed');
   const [exceptionDetail, setExceptionDetail] = useState('');
+  const [anomalySim, setAnomalySim] = useState(null);
+  const [anomalyReason, setAnomalyReason] = useState(SIM_ANOMALY_REASONS[0].value);
+  const [anomalyPlatform, setAnomalyPlatform] = useState(SIM_ANOMALY_PLATFORMS[0].value);
+  const [anomalyDetail, setAnomalyDetail] = useState('');
   const [refundDraft, setRefundDraft] = useState(null);
   const [chargeDate, setChargeDate] = useState('');
   const [amount, setAmount] = useState('');
@@ -314,6 +320,13 @@ export default function SimsPage() {
     setHistorySim(row);
   }, []);
 
+  const openAnomaly = useCallback((row) => {
+    setAnomalyReason(SIM_ANOMALY_REASONS[0].value);
+    setAnomalyPlatform(SIM_ANOMALY_PLATFORMS[0].value);
+    setAnomalyDetail('');
+    setAnomalySim(row);
+  }, []);
+
   const openException = useCallback((row) => {
     setExceptionReason('topup_failed');
     setExceptionDetail('');
@@ -500,6 +513,14 @@ export default function SimsPage() {
     },
   });
 
+  const anomalyMut = useMutation({
+    mutationFn: ({ id, body }) => api.post(`/sims/${id}/anomaly`, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sims'] });
+      qc.invalidateQueries({ queryKey: ['bans'] });
+    },
+  });
+
   const refundMut = useMutation({
     mutationFn: ({ id, topupId, body }) => api.post(`/sims/${id}/topups/${topupId}/refund`, body),
     onSuccess: () => {
@@ -577,6 +598,29 @@ export default function SimsPage() {
         ? `Bulk top-up: ${ok} saved, ${fail} failed`
         : `Bulk top-up: ${ok} SIM${ok === 1 ? '' : 's'} · ${built.date}`,
       fail ? 'warn' : 'success',
+    );
+  }
+
+  function submitAnomaly() {
+    if (!anomalySim) return;
+    anomalyMut.mutate(
+      {
+        id: anomalySim.id,
+        body: {
+          reason: anomalyReason,
+          platform: anomalyPlatform,
+          detail: anomalyDetail.trim() || null,
+        },
+      },
+      {
+        onSuccess: () => {
+          showToast(`SIM Card Anomaly logged — ${anomalySim.phone_number} moved to Pending Review`);
+          setAnomalySim(null);
+        },
+        onError: (e) => {
+          showToast(e?.response?.data?.error || e.message || 'Failed to log SIM Card Anomaly', 'error');
+        },
+      },
     );
   }
 
@@ -911,6 +955,7 @@ export default function SimsPage() {
                       onCharge={openCharge}
                       onHistory={openHistory}
                       onException={openException}
+                      onAnomaly={openAnomaly}
                       onDelete={requestDeleteSim}
                       onUnlink={requestUnlinkSim}
                       onStatusChange={submitStatus}
@@ -1251,6 +1296,80 @@ export default function SimsPage() {
                 placeholder="e.g. telco error message"
                 value={exceptionDetail}
                 onChange={(e) => setExceptionDetail(e.target.value)}
+              />
+            </label>
+          </>
+        )}
+      </Drawer>
+
+      <Drawer
+        open={!!anomalySim}
+        title="SIM Card Anomaly"
+        onClose={() => setAnomalySim(null)}
+        footer={(
+          <>
+            <button type="button" className="btn btn-ghost" onClick={() => setAnomalySim(null)}>Cancel</button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={submitAnomaly}
+              disabled={anomalyMut.isPending}
+            >
+              {anomalyMut.isPending ? 'Saving…' : 'Log Anomaly'}
+            </button>
+          </>
+        )}
+      >
+        {anomalySim && (
+          <>
+            <p className="drawer-hint">
+              The card itself failed verification (WhatsApp or Telegram). It is counted against the
+              carrier for anomaly-rate tracking and SIM Status switches to Pending Review.
+              For a WhatsApp account that must go to Recovery, use SIM Anomaly on the account in Resource Ledger.
+            </p>
+            <div className="drawer-locked">
+              <div className="drawer-locked-label">Phone · Carrier · Account</div>
+              <div className="drawer-locked-value drawer-locked-value--mono">
+                {anomalySim.phone_number}
+                <span className="drawer-locked-meta">
+                  {anomalySim.carrier}
+                  {' · '}
+                  {anomalySim.account_name || '—'}
+                </span>
+              </div>
+            </div>
+            <label className="drawer-field">
+              <span className="drawer-label">Platform</span>
+              <select
+                className="input"
+                value={anomalyPlatform}
+                onChange={(e) => setAnomalyPlatform(e.target.value)}
+              >
+                {SIM_ANOMALY_PLATFORMS.map((p) => (
+                  <option key={p.value} value={p.value}>{p.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="drawer-field">
+              <span className="drawer-label">Reason</span>
+              <select
+                className="input"
+                value={anomalyReason}
+                onChange={(e) => setAnomalyReason(e.target.value)}
+              >
+                {SIM_ANOMALY_REASONS.map((r) => (
+                  <option key={r.value} value={r.value}>{r.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="drawer-field">
+              <span className="drawer-label">Detail (optional)</span>
+              <input
+                type="text"
+                className="input"
+                placeholder="e.g. carrier SMS, Telegram account name"
+                value={anomalyDetail}
+                onChange={(e) => setAnomalyDetail(e.target.value)}
               />
             </label>
           </>

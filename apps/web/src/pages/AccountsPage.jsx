@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Ban, Search } from 'lucide-react';
+import { AlertTriangle, Ban, Search, SmartphoneNfc } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import PageHead from '../components/PageHead';
@@ -41,6 +41,7 @@ import {
   stageLabel,
   anomalyStatusLabel,
 } from '../lib/anomaly-event';
+import { SIM_ANOMALY_REASONS } from '../lib/sim-meta';
 import api from '../lib/api';
 
 function staffDisplay(account) {
@@ -510,6 +511,7 @@ const RESOLVE_OUTCOMES = [
   ['restrict_scan', 'Restrict — Scan'],
   ['restrict_chat_new', 'Restrict — Chat New Contact'],
   ['banned', 'Banned'],
+  ['sim_anomaly', 'SIM Card Anomaly'],
   ['false_positive', 'False positive / monitoring interruption'],
   ['logged_out', 'Logged out (not ban)'],
 ];
@@ -535,13 +537,21 @@ const STANDBY_BAN_REASONS = [
   'Other',
 ];
 
+const SIM_ANOMALY_FROM_STATUSES = new Set(['NURTURING', 'AVAILABLE', 'IN_USE', 'LOGGED_OUT']);
+
+const SIM_ANOMALY_HINTS = {
+  service_suspended: 'Carrier suspended the line or flagged it for fraud.',
+  expired: 'Card validity ran out — the number is no longer active.',
+  otp_failed: 'Line is active but verification codes never arrive.',
+};
+
 function AccountDetail({ accountId, onBack, staffOptions = [] }) {
   const { profile } = useAuth();
   const isBusinessUser = profile?.role === 'business';
   const { data: account, isLoading, isError, error } = useAccountDetail(accountId);
   const {
     patchAccount, reportDisconnect, resolveDisconnect, returnStandby, ackNotice,
-    banAccount, markStrict,
+    banAccount, markStrict, simAnomaly,
   } = useAccountMutations();
   const unlinkSimMut = usePhoneSyncMutation();
   const canSetStaff = profile?.role === 'admin' || profile?.role === 'operator';
@@ -553,7 +563,10 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
   const [reportToast, setReportToast] = useState('');
   const [resolveOutcome, setResolveOutcome] = useState('restrict_scan');
   const [resolveReason, setResolveReason] = useState('');
+  const [resolveSimReason, setResolveSimReason] = useState(SIM_ANOMALY_REASONS[0].value);
   const [resolveToast, setResolveToast] = useState('');
+  const [simAnomalyReason, setSimAnomalyReason] = useState(SIM_ANOMALY_REASONS[0].value);
+  const [simAnomalyNote, setSimAnomalyNote] = useState('');
   const [standbyReason, setStandbyReason] = useState('');
   const [standbyToast, setStandbyToast] = useState('');
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -681,6 +694,23 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
   }
 
   async function submitResolve() {
+    if (resolveOutcome === 'sim_anomaly') {
+      try {
+        await simAnomaly.mutateAsync({
+          id: account.id,
+          reason: resolveSimReason,
+          note: resolveReason.trim() || undefined,
+          source: 'disconnect_review',
+        });
+        setResolveReason('');
+        setResolveToast('SIM Card Anomaly logged — account moved to the Recovery queue.');
+        setTimeout(() => setResolveToast(''), 4200);
+      } catch (e) {
+        setResolveToast(e?.response?.data?.error || e.message || 'Failed to log SIM Card Anomaly');
+        setTimeout(() => setResolveToast(''), 4200);
+      }
+      return;
+    }
     if (!resolveReason.trim()) {
       setResolveToast('Reason is required');
       setTimeout(() => setResolveToast(''), 3200);
@@ -740,6 +770,26 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
       setStandbyDrawer(null);
     } catch (e) {
       setStandbyUpdateToast(e?.response?.data?.error || e.message || 'Failed to update status');
+    } finally {
+      setStandbyUpdateBusy(false);
+      setTimeout(() => setStandbyUpdateToast(''), 4200);
+    }
+  }
+
+  async function submitSimAnomaly() {
+    if (standbyUpdateBusy) return;
+    setStandbyUpdateBusy(true);
+    try {
+      await simAnomaly.mutateAsync({
+        id: account.id,
+        reason: simAnomalyReason,
+        note: simAnomalyNote.trim() || undefined,
+        source: 'account_detail',
+      });
+      setStandbyUpdateToast('SIM Card Anomaly logged — account moved to the Recovery queue.');
+      setStandbyDrawer(null);
+    } catch (e) {
+      setStandbyUpdateToast(e?.response?.data?.error || e.message || 'Failed to log SIM Card Anomaly');
     } finally {
       setStandbyUpdateBusy(false);
       setTimeout(() => setStandbyUpdateToast(''), 4200);
@@ -835,6 +885,9 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
   const canUpdateStandbyPhone = !isBusinessUser
     && (account.status === 'AVAILABLE' || account.status === 'LOGGED_OUT')
     && !account.disconnect_report;
+  const canMarkSimAnomaly = !isBusinessUser
+    && SIM_ANOMALY_FROM_STATUSES.has(account.status)
+    && !account.disconnect_report;
 
   return (
     <div>
@@ -842,9 +895,24 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
         <button type="button" className="btn btn-secondary btn-sm" onClick={onBack}>‹ Back</button>
         <h1 className="text-[22px] font-bold">{account.account_name}</h1>
         <StatusPill status={account.status} restrictKind={account.restrict_kind} />
-        {canUpdateStandbyPhone && (
+        {(canUpdateStandbyPhone || canMarkSimAnomaly) && (
           <div className="ml-auto flex items-center gap-2">
-            {account.restrict_kind ? (
+            {canMarkSimAnomaly && (
+              <button
+                type="button"
+                className="btn btn-outline-warn btn-sm inline-flex items-center gap-1.5"
+                disabled={standbyUpdateBusy || simAnomaly.isPending}
+                onClick={() => {
+                  setSimAnomalyReason(SIM_ANOMALY_REASONS[0].value);
+                  setSimAnomalyNote('');
+                  setStandbyDrawer('sim_anomaly');
+                }}
+              >
+                <SmartphoneNfc size={14} strokeWidth={2} />
+                SIM Anomaly
+              </button>
+            )}
+            {!canUpdateStandbyPhone ? null : account.restrict_kind ? (
               <button
                 type="button"
                 className="btn btn-secondary btn-sm"
@@ -998,7 +1066,7 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
           )}
           <p className="mt-1 text-[12px] text-ams-muted">
             Event time is the logout timestamp above — not the time you confirm.
-            Check the phone, then mark Restrict, Banned, or false positive.
+            Check the phone, then mark Restrict, Banned, SIM Card Anomaly, or false positive.
           </p>
           <div className="relative z-20 mt-3 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
             <div className="w-full max-w-[16.5rem] shrink-0">
@@ -1011,19 +1079,31 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
                 {RESOLVE_OUTCOMES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select>
             </div>
+            {resolveOutcome === 'sim_anomaly' && (
+              <div className="w-full max-w-[15rem] shrink-0">
+                <select
+                  className="input h-10 w-full py-0 text-[13px] leading-normal"
+                  value={resolveSimReason}
+                  onChange={(e) => setResolveSimReason(e.target.value)}
+                  aria-label="SIM anomaly reason"
+                >
+                  {SIM_ANOMALY_REASONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+                </select>
+              </div>
+            )}
             <input
               className="input h-10 min-w-0 flex-1 py-0 text-[13px] leading-normal"
-              placeholder="Reason (required)…"
+              placeholder={resolveOutcome === 'sim_anomaly' ? 'Note (optional)…' : 'Reason (required)…'}
               value={resolveReason}
               onChange={(e) => setResolveReason(e.target.value)}
             />
             <button
               type="button"
               className="btn btn-primary btn-sm shrink-0 self-start sm:self-auto"
-              disabled={resolveDisconnect.isPending}
+              disabled={resolveDisconnect.isPending || simAnomaly.isPending}
               onClick={submitResolve}
             >
-              {resolveDisconnect.isPending ? 'Saving…' : 'Confirm'}
+              {resolveDisconnect.isPending || simAnomaly.isPending ? 'Saving…' : 'Confirm'}
             </button>
           </div>
           {resolveToast && <p className="mt-2 text-[12px] text-ams-muted">{resolveToast}</p>}
@@ -1332,6 +1412,71 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
                 <option key={r} value={r}>{r}</option>
               ))}
             </select>
+          </label>
+        </div>
+      </Drawer>
+
+      <Drawer
+        open={standbyDrawer === 'sim_anomaly'}
+        title="SIM Card Anomaly"
+        onClose={() => setStandbyDrawer(null)}
+        footer={(
+          <>
+            <button type="button" className="btn btn-ghost" onClick={() => setStandbyDrawer(null)}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={standbyUpdateBusy || simAnomaly.isPending}
+              onClick={submitSimAnomaly}
+            >
+              {standbyUpdateBusy ? 'Saving…' : 'Confirm SIM Anomaly'}
+            </button>
+          </>
+        )}
+      >
+        <div className="space-y-4">
+          <p className="text-[12.5px] leading-relaxed text-ams-muted">
+            The account cannot verify because of its SIM card — not a platform ban. It moves to
+            the Recovery queue, and the anomaly is logged against the SIM&apos;s carrier.
+          </p>
+          <div className="rounded-lg border border-ams-line bg-ams-surface-muted px-3 py-2">
+            <div className="text-[11px] font-medium uppercase tracking-wide text-ams-faint">Account</div>
+            <div className="text-sm font-semibold text-ams-ink">{account.account_name}</div>
+            <div className="mt-0.5 text-[12px] text-ams-muted">SIM: {account.sim || account.phone_number || '—'}</div>
+          </div>
+          <fieldset className="space-y-2">
+            <legend className="mb-1 text-[12px] font-semibold text-ams-ink">Anomaly reason</legend>
+            {SIM_ANOMALY_REASONS.map((r) => (
+              <label
+                key={r.value}
+                className={`flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2.5 ${
+                  simAnomalyReason === r.value ? 'border-ams-accent bg-ams-accent/5' : 'border-ams-line'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="sim-anomaly-reason"
+                  className="mt-0.5"
+                  checked={simAnomalyReason === r.value}
+                  onChange={() => setSimAnomalyReason(r.value)}
+                />
+                <span>
+                  <span className="block text-[13px] font-semibold text-ams-ink">{r.label}</span>
+                  <span className="block text-[12px] text-ams-muted">{SIM_ANOMALY_HINTS[r.value]}</span>
+                </span>
+              </label>
+            ))}
+          </fieldset>
+          <label className="drawer-field">
+            <span className="drawer-label">Note (optional)</span>
+            <input
+              className="input h-10 w-full py-0 text-[13px]"
+              placeholder="e.g. carrier SMS, last OTP attempt…"
+              value={simAnomalyNote}
+              onChange={(e) => setSimAnomalyNote(e.target.value)}
+            />
           </label>
         </div>
       </Drawer>

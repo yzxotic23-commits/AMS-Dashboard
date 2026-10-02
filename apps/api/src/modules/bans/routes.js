@@ -10,6 +10,7 @@ import {
 import { ACCOUNT_SELECT_BAN } from '../../lib/accountSelect.js';
 import { parseDateRangeQuery, inDateRange } from '../../lib/dateRange.js';
 import { accountInBrandScope, profileBrandScope } from '../../lib/accountBrand.js';
+import { aggregateSimAnomalyStats, simSiteKeyForStats } from '../../lib/simAnomaly.js';
 
 const router = Router();
 router.use(authenticate);
@@ -98,7 +99,58 @@ router.get('/stats', requireRole('admin', 'operator', 'business'), async (req, r
       restrictTotal: anomalyKpis.restrictTotal,
       logoutTotal: anomalyKpis.logoutTotal,
       falsePositiveTotal: anomalyKpis.falsePositiveTotal,
+      simAnomalyTotal: anomalyKpis.simAnomalyTotal,
       flaggedIps: flaggedIps || [],
+      date_range: range ? { from: range.from, to: range.to } : null,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// GET /bans/sim-anomalies — SIM Card Anomaly breakdown by reason / carrier / platform.
+router.get('/sim-anomalies', requireRole('admin', 'operator', 'business'), async (req, res, next) => {
+  try {
+    const siteKey = req.query.site || req.query.site_key || 'all';
+    const range = parseDateRangeQuery(req.query);
+
+    const { data: rows, error } = await supabaseAdmin
+      .from('sim_anomalies')
+      .select('*')
+      .order('occurred_at', { ascending: false })
+      .limit(5000);
+    if (error) throw error;
+
+    let anomalies = (rows || []).filter((a) => {
+      if (siteKey !== 'all' && a.site_key !== siteKey) return false;
+      return !range || inDateRange(a.occurred_at, range);
+    });
+
+    const brandScope = profileBrandScope(req.profile);
+    if (brandScope) {
+      const ids = [...new Set(anomalies.map((a) => a.account_id).filter(Boolean))];
+      let allowed = new Set();
+      if (ids.length && brandScope.length) {
+        const { data: accts } = await supabaseAdmin
+          .from('accounts')
+          .select('id, notes, account_name, device_id')
+          .in('id', ids);
+        allowed = new Set((accts || []).filter((a) => accountInBrandScope(a, brandScope)).map((a) => a.id));
+      }
+      anomalies = anomalies.filter((a) => a.account_id && allowed.has(a.account_id));
+    }
+
+    const { data: sims, error: simErr } = await supabaseAdmin
+      .from('sims')
+      .select('id, carrier, notes, site_key, phone_number');
+    if (simErr) throw simErr;
+    const scopedSims = siteKey === 'all'
+      ? (sims || [])
+      : (sims || []).filter((s) => simSiteKeyForStats(s) === siteKey);
+
+    res.json({
+      ...aggregateSimAnomalyStats(anomalies, brandScope ? [] : scopedSims),
+      recent: anomalies.slice(0, 20),
       date_range: range ? { from: range.from, to: range.to } : null,
     });
   } catch (e) {

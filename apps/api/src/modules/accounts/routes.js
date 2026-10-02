@@ -8,7 +8,17 @@ import { parsePagination, paginatedResponse, pick } from '../../lib/pagination.j
 import {
   syncResourceBindings, recordInitialAssignments, bumpIpRisk, promoteSimToLedger,
 } from '../../lib/resourceBindings.js';
-import { serializeRecoveryNotes, recoveryOnBanDefaults } from '../../lib/accountRecovery.js';
+import {
+  serializeRecoveryNotes,
+  recoveryOnBanDefaults,
+  recoveryOnSimAnomalyDefaults,
+} from '../../lib/accountRecovery.js';
+import {
+  findSimForAccount,
+  recordSimAnomaly,
+  simAnomalyReasonLabel,
+  SIM_ANOMALY_REASON_IDS,
+} from '../../lib/simAnomaly.js';
 import {
   ACCOUNT_SELECT,
   ACCOUNT_SELECT_FULL,
@@ -197,6 +207,14 @@ const resolveDisconnectSchema = z.object({
   ]),
   reason: z.string().min(1),
 });
+
+const simAnomalySchema = z.object({
+  reason: z.enum(SIM_ANOMALY_REASON_IDS),
+  note: z.string().max(500).optional().nullable(),
+  source: z.string().max(60).optional(),
+});
+
+const SIM_ANOMALY_FROM_STATUSES = new Set(['NURTURING', 'AVAILABLE', 'IN_USE', 'LOGGED_OUT']);
 
 const STRICT_KIND_LABEL = {
   restrict_scan: 'Restricted Scan',
@@ -1213,6 +1231,103 @@ router.post('/:id/resolve-disconnect', async (req, res, next) => {
     });
 
     res.json(data);
+  } catch (e) {
+    next(e);
+  }
+});
+
+// POST /accounts/:id/sim-anomaly — account cannot re-verify because of its SIM
+// (suspended / expired / no OTP). Not a ban: goes to the Recovery queue and is logged
+// per carrier in sim_anomalies. Also closes a pending disconnect report if one is open.
+router.post('/:id/sim-anomaly', async (req, res, next) => {
+  try {
+    const { reason, note, source } = simAnomalySchema.parse(req.body || {});
+    const { data: current, error: fetchErr } = await supabaseAdmin
+      .from('accounts')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+    if (fetchErr) throw fetchErr;
+
+    if (!SIM_ANOMALY_FROM_STATUSES.has(current.status)) {
+      return res.status(422).json({
+        error: `SIM Card Anomaly cannot be logged while the account is ${current.status}`,
+      });
+    }
+    assertTransition(current.status, 'RECOVERING');
+
+    const label = simAnomalyReasonLabel(reason);
+    const detail = String(note || '').trim();
+    const reasonText = detail ? `${label} · ${detail}` : label;
+    const reportedBy = req.profile?.full_name || req.profile?.username || 'R&M';
+    const meta = parseOperatorMeta(current);
+    const closed = finalizeAnomaly(meta, {
+      outcome: 'sim_anomaly',
+      reason: reasonText,
+      fromStatus: meta.disconnect_report?.from_status || current.status,
+      source: source || 'sim_anomaly_form',
+      reportedBy,
+    });
+    const logoutAt = eventLogoutAt(closed.last_anomaly) || new Date().toISOString();
+    const opNotes = mergeOperatorNotes(current.notes, {
+      ...closed,
+      restrict_kind: null,
+      business_notice: null,
+    });
+    const notes = serializeRecoveryNotes(opNotes, recoveryOnSimAnomalyDefaults(reason, label));
+
+    const { data, error } = await supabaseAdmin
+      .from('accounts')
+      .update({ status: 'RECOVERING', notes })
+      .eq('id', req.params.id)
+      .select(ACCOUNT_SELECT_WITH_SIM_LOCATION)
+      .single();
+    if (error) throw error;
+
+    await supabaseAdmin.from('account_status_history').insert({
+      account_id: data.id,
+      from_status: current.status,
+      to_status: 'RECOVERING',
+      reason: `[sim_anomaly] ${reasonText} · reported by ${reportedBy}`,
+      changed_by: req.profile.id,
+      changed_at: logoutAt,
+    });
+
+    const sim = await findSimForAccount(current);
+    const { anomaly } = await recordSimAnomaly({
+      sim,
+      account: current,
+      platform: 'whatsapp',
+      reason,
+      detail: detail || null,
+      source: source || 'account',
+      profile: req.profile,
+      fallbackCarrier: meta.prepared_telco || null,
+      fallbackSiteKey: meta.site_key || null,
+    });
+
+    await writeAudit({
+      entityType: 'account',
+      entityId: data.id,
+      action: 'STATE_CHANGE',
+      previousValue: { status: current.status },
+      newValue: { status: 'RECOVERING', outcome: 'sim_anomaly', reason },
+      metadata: {
+        account_name: data.account_name,
+        field: 'SIM Card Anomaly',
+        outcome: 'sim_anomaly',
+        reason,
+        reason_label: label,
+        note: detail || null,
+        carrier: anomaly.carrier,
+        sim_anomaly_id: anomaly.id,
+        to: 'Recovering',
+      },
+      userId: req.profile.id,
+      req,
+    });
+
+    res.json({ ...data, sim_anomaly: anomaly });
   } catch (e) {
     next(e);
   }

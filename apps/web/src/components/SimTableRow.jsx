@@ -1,10 +1,16 @@
 import { memo } from 'react';
-import { History, Link2Off, Trash2 } from 'lucide-react';
+import { History, Link2Off, SmartphoneNfc, Trash2 } from 'lucide-react';
 import SimSyncPopover from './SimSyncPopover';
 import SimRemarkCell from './SimRemarkCell';
 import IconTooltip from './IconTooltip';
 import { SITES, getSiteChipClass } from '../lib/sites';
-import { daysLeftTagClass, formatDaysLeft, ledgerStatusLabel } from '../lib/sim-meta';
+import {
+  daysLeftTagClass,
+  formatDaysLeft,
+  ledgerStatusLabel,
+  SIM_ANOMALY_EXCEPTION,
+  simExceptionSummary,
+} from '../lib/sim-meta';
 
 function siteChipLabel(row) {
   return row.site_name || SITES[row.site]?.name || 'Malaysia';
@@ -28,6 +34,7 @@ function SimTableRow({
   onCharge,
   onHistory,
   onException,
+  onAnomaly,
   onDelete,
   onUnlink,
   onStatusChange,
@@ -36,6 +43,7 @@ function SimTableRow({
   const siteLabel = siteChipLabel(row);
   const stopped = row.ledger_status === 'stop_topup';
   const linked = Boolean(row.account_linked);
+  const anomaly = row.last_exception?.reason === SIM_ANOMALY_EXCEPTION ? row.last_exception : null;
   const historyLabel = row.topup_count
     ? `Top-up history (${row.topup_count})`
     : 'Top-up history';
@@ -53,7 +61,17 @@ function SimTableRow({
         />
       </td>
       <td className="col-mono">{row.phone_number}</td>
-      <td>{row.carrier}</td>
+      <td>
+        {row.carrier}
+        {anomaly && (
+          <span
+            className="badge badge-warn ml-1.5 whitespace-nowrap"
+            title={`${simExceptionSummary(anomaly)}${anomaly.created_at ? ` · ${new Date(anomaly.created_at).toLocaleString()}` : ''}`}
+          >
+            SIM Anomaly
+          </span>
+        )}
+      </td>
       <td>
         <span className={getSiteChipClass(row.site)}>
           {siteLabel}
@@ -127,6 +145,16 @@ function SimTableRow({
               No top-up
             </span>
           )}
+          <IconTooltip label="SIM Card Anomaly">
+            <button
+              type="button"
+              className="table-icon-btn"
+              onClick={() => onAnomaly?.(row)}
+              aria-label={`Log SIM Card Anomaly for ${row.phone_number}`}
+            >
+              <SmartphoneNfc size={15} strokeWidth={2} />
+            </button>
+          </IconTooltip>
           <IconTooltip label={historyLabel}>
             <button
               type="button"

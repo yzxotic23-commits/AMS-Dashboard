@@ -31,9 +31,9 @@ const MS_DAY = 86_400_000;
 
 const ALLOWED_TRANSITIONS = {
   REGISTERING: ['NURTURING', 'RECYCLED'],
-  NURTURING: ['AVAILABLE', 'BANNED', 'RECYCLED'],
-  AVAILABLE: ['IN_USE', 'NURTURING', 'RECYCLED', 'BANNED', 'LOGGED_OUT'],
-  IN_USE: ['LOGGED_OUT', 'BANNED', 'AVAILABLE'],
+  NURTURING: ['AVAILABLE', 'BANNED', 'RECYCLED', 'RECOVERING'],
+  AVAILABLE: ['IN_USE', 'NURTURING', 'RECYCLED', 'BANNED', 'LOGGED_OUT', 'RECOVERING'],
+  IN_USE: ['LOGGED_OUT', 'BANNED', 'AVAILABLE', 'RECOVERING'],
   LOGGED_OUT: ['NURTURING', 'RECOVERING', 'RECYCLED', 'BANNED', 'IN_USE', 'AVAILABLE'],
   BANNED: ['RECOVERING', 'RECYCLED'],
   RECOVERING: ['NURTURING', 'AVAILABLE', 'RECYCLED'],
@@ -995,6 +995,19 @@ export function getMockResponse(config) {
     pushStatusHistory(id, current.status, 'BANNED', banReason);
     bumpDemoIpRisk(current.ip_id);
     return enrichAccount(demoAccounts.find((a) => a.id === id));
+  }
+
+  if (method === 'GET' && url === 'bans/sim-anomalies') {
+    return {
+      total: 0,
+      affectedSims: 0,
+      totalSims: 0,
+      byReason: [],
+      byPlatform: [],
+      byCarrier: [],
+      recent: [],
+      date_range: null,
+    };
   }
 
   if (method === 'GET' && url === 'bans/stats') {

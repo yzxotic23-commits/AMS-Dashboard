@@ -25,6 +25,11 @@ import {
   loadTopupCounts,
   mapTopupRow,
 } from '../../lib/simLedgerDb.js';
+import {
+  recordSimAnomaly,
+  SIM_ANOMALY_PLATFORM_IDS,
+  SIM_ANOMALY_REASON_IDS,
+} from '../../lib/simAnomaly.js';
 
 const router = Router();
 router.use(authenticate);
@@ -51,6 +56,12 @@ const updateSchema = createSchema.partial().extend({
 const exceptionSchema = z.object({
   reason: z.enum(['topup_failed', 'number_suspended', 'account_ban_pending']),
   detail: z.string().optional().nullable(),
+});
+
+const anomalySchema = z.object({
+  reason: z.enum(SIM_ANOMALY_REASON_IDS),
+  platform: z.enum(SIM_ANOMALY_PLATFORM_IDS),
+  detail: z.string().max(500).optional().nullable(),
 });
 
 const refundSchema = z.object({
@@ -324,6 +335,64 @@ router.post('/:id/exception', async (req, res, next) => {
       maps.accountBySimId,
       maps.accountByCurrentId,
       maps.accountByPhoneDigits,
+    ));
+  } catch (e) {
+    next(e);
+  }
+});
+
+// POST /sims/:id/anomaly — card-level SIM Card Anomaly (WhatsApp or Telegram usage).
+// Does not change any account status; use /accounts/:id/sim-anomaly for that.
+router.post('/:id/anomaly', async (req, res, next) => {
+  try {
+    const body = anomalySchema.parse(req.body || {});
+    const { data: current, error: readErr } = await supabaseAdmin
+      .from('sims')
+      .select('*')
+      .eq('id', req.params.id)
+      .maybeSingle();
+    if (readErr) throw readErr;
+    if (!current) {
+      const err = new Error('SIM not found');
+      err.status = 404;
+      throw err;
+    }
+
+    const { anomaly, sim: data } = await recordSimAnomaly({
+      sim: current,
+      platform: body.platform,
+      reason: body.reason,
+      detail: body.detail,
+      source: 'sim_ledger',
+      profile: req.profile,
+    });
+
+    await writeAudit({
+      entityType: 'sim',
+      entityId: current.id,
+      action: 'UPDATE',
+      previousValue: current,
+      newValue: data,
+      metadata: {
+        kind: 'sim_anomaly',
+        reason: body.reason,
+        platform: body.platform,
+        carrier: anomaly.carrier,
+        detail: body.detail || null,
+        sim_anomaly_id: anomaly.id,
+      },
+      userId: req.profile.id,
+      req,
+    });
+
+    const maps = await loadSimAccountMapsFull([data]);
+    const counts = await loadTopupCounts([data.id]);
+    res.json(mapSimRow(
+      data,
+      maps.accountBySimId,
+      maps.accountByCurrentId,
+      maps.accountByPhoneDigits,
+      counts,
     ));
   } catch (e) {
     next(e);

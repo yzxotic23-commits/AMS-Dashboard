@@ -5,6 +5,7 @@ export const ANOMALY_RESTRICT = 'restrict';
 export const ANOMALY_BANNED = 'banned';
 export const ANOMALY_FALSE_POSITIVE = 'false_positive';
 export const ANOMALY_LOGGED_OUT = 'logged_out';
+export const ANOMALY_SIM = 'sim_anomaly';
 
 const STAGE_LABEL = {
   manual_nurture: 'Manual Nurture',
@@ -126,18 +127,22 @@ export function kpiOutcome(outcome) {
   if (outcome === 'banned') return ANOMALY_BANNED;
   if (outcome === 'false_positive') return ANOMALY_FALSE_POSITIVE;
   if (outcome === 'logged_out') return ANOMALY_LOGGED_OUT;
+  if (outcome === 'sim_anomaly') return ANOMALY_SIM;
   return outcome || ANOMALY_PENDING;
 }
 
 export function aggregateAnomalyKpis(accounts, { range, siteKey, inDateRange } = {}) {
   const stageOrder = ['manual_nurture', 'auto_nurture', 'in_use', 'other'];
-  const empty = () => ({ banned: 0, restrict: 0, pending: 0, logged_out: 0, false_positive: 0 });
+  const empty = () => ({
+    banned: 0, restrict: 0, pending: 0, logged_out: 0, false_positive: 0, sim_anomaly: 0,
+  });
   const byStageMap = Object.fromEntries(stageOrder.map((s) => [s, empty()]));
   let pendingBacklog = 0;
   let bannedTotal = 0;
   let restrictTotal = 0;
   let logoutTotal = 0;
   let falsePositiveTotal = 0;
+  let simAnomalyTotal = 0;
 
   for (const row of accounts || []) {
     const meta = row._meta || {};
@@ -164,13 +169,17 @@ export function aggregateAnomalyKpis(accounts, { range, siteKey, inDateRange } =
       } else if (kpi === ANOMALY_FALSE_POSITIVE) {
         bucket.false_positive += 1;
         falsePositiveTotal += 1;
+      } else if (kpi === ANOMALY_SIM) {
+        bucket.sim_anomaly += 1;
+        simAnomalyTotal += 1;
       }
     }
   }
 
+  const eventCount = (b) => b.banned + b.restrict + b.pending + b.logged_out + b.false_positive + b.sim_anomaly;
   const byStage = stageOrder.map((stage) => {
     const b = byStageMap[stage];
-    const denom = b.banned + b.restrict + b.pending + b.logged_out + b.false_positive;
+    const denom = eventCount(b);
     return {
       name: stageLabel(stage),
       stage,
@@ -178,7 +187,7 @@ export function aggregateAnomalyKpis(accounts, { range, siteKey, inDateRange } =
       count: b.banned,
       pct: denom > 0 ? Math.round((b.banned / denom) * 1000) / 10 : 0,
     };
-  }).filter((s) => s.banned + s.restrict + s.pending + s.logged_out + s.false_positive > 0);
+  }).filter((s) => eventCount(s) > 0);
 
   return {
     pendingBacklog,
@@ -186,6 +195,7 @@ export function aggregateAnomalyKpis(accounts, { range, siteKey, inDateRange } =
     restrictTotal,
     logoutTotal,
     falsePositiveTotal,
+    simAnomalyTotal,
     byStage,
   };
 }

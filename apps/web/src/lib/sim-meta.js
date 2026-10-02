@@ -122,5 +122,39 @@ export function ledgerStatusLabel(status) {
 }
 
 export function exceptionReasonLabel(reason) {
+  if (reason === SIM_ANOMALY_EXCEPTION) return 'SIM Card Anomaly';
   return SIM_EXCEPTION_REASONS.find((r) => r.value === reason)?.label || reason || '—';
+}
+
+/** SIM Card Anomaly — card-level cause (logged per carrier for provider decisions). */
+export const SIM_ANOMALY_EXCEPTION = 'sim_anomaly';
+
+export const SIM_ANOMALY_REASONS = [
+  { value: 'service_suspended', label: 'Service suspended / fraud' },
+  { value: 'expired', label: 'Expired' },
+  { value: 'otp_failed', label: 'Cannot receive OTP' },
+];
+
+export const SIM_ANOMALY_PLATFORMS = [
+  { value: 'whatsapp', label: 'WhatsApp' },
+  { value: 'telegram', label: 'Telegram' },
+];
+
+export function simAnomalyReasonLabel(reason) {
+  return SIM_ANOMALY_REASONS.find((r) => r.value === reason)?.label || reason || '—';
+}
+
+export function simAnomalyPlatformLabel(platform) {
+  return SIM_ANOMALY_PLATFORMS.find((p) => p.value === platform)?.label || platform || '—';
+}
+
+/** Short label for a SIM's last exception, including the anomaly sub-reason. */
+export function simExceptionSummary(exception) {
+  if (!exception?.reason) return '';
+  if (exception.reason === SIM_ANOMALY_EXCEPTION) {
+    const parts = ['SIM Card Anomaly', simAnomalyReasonLabel(exception.sim_reason)];
+    if (exception.platform) parts.push(simAnomalyPlatformLabel(exception.platform));
+    return parts.join(' · ');
+  }
+  return exceptionReasonLabel(exception.reason);
 }

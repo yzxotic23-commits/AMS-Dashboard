@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useSite } from '../context/SiteContext';
 import { useGovernanceDate } from '../context/GovernanceDateContext';
 import { SITES } from '../lib/sites';
-import { useBanStats } from '../hooks/useBanStats';
+import { useBanStats, useSimAnomalyStats } from '../hooks/useBanStats';
 import { useRecoveryStats } from '../hooks/useRecoveryStats';
 import { useSupplyStats } from '../hooks/useSupplyStats';
 import { useTicketStats } from '../hooks/useTickets';
@@ -19,6 +19,13 @@ const BAR_TONE = {
   danger: 'bar-row-fill-danger',
   warn: 'bar-row-fill-warn',
   muted: 'bar-row-fill-muted',
+};
+
+const STAGE_GRID_COLS = {
+  1: 'grid-cols-1',
+  2: 'grid-cols-1 sm:grid-cols-2',
+  3: 'grid-cols-1 sm:grid-cols-3',
+  4: 'grid-cols-2 lg:grid-cols-4',
 };
 
 function supplyTone(pct) {
@@ -151,6 +158,7 @@ export default function GovernancePage() {
   const { data: recStats } = useRecoveryStats(site, dateRange);
   const { data: supplyData } = useSupplyStats(site, dateRange);
   const { data: tkStats } = useTicketStats(site, dateRange);
+  const { data: simAnomaly, isLoading: simAnomalyLoading } = useSimAnomalyStats(site, dateRange);
   const { data: simRows = [] } = useQuery({
     queryKey: ['sims', 'governance', site],
     queryFn: async () => {
@@ -264,7 +272,7 @@ export default function GovernancePage() {
             </div>
           </div>
         ) : (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className={`grid gap-3 ${STAGE_GRID_COLS[Math.min(byStage.length, 4)] || STAGE_GRID_COLS[4]}`}>
           {byStage.map((b) => (
             <MetricCard
               key={b.name}
@@ -395,6 +403,78 @@ export default function GovernancePage() {
             tone={simKpis.expiring > 0 ? 'warn' : undefined}
           />
         </div>
+      </DashSection>
+
+      <DashSection
+        title="SIM Card Anomaly"
+        badge={simAnomalyLoading
+          ? 'Loading…'
+          : `${simAnomaly?.total ?? 0} events · ${simAnomaly?.affectedSims ?? 0} SIMs`}
+      >
+        {!simAnomaly?.total ? (
+          <div className="dash-panel">
+            <div className="dash-empty-hint">
+              No SIM Card Anomaly logged in this range. Log one from an account (Resource Ledger → SIM Anomaly)
+              or from a card in SIM Ledger (WhatsApp or Telegram).
+            </div>
+          </div>
+        ) : (
+          <div className="grid gap-3 lg:grid-cols-3">
+            <div className="dash-panel">
+              <h4 className="dash-panel-title">By reason</h4>
+              <div className="space-y-3">
+                {simAnomaly.byReason.map((r) => (
+                  <BarRow key={r.id} label={r.label} val={r.count} pct={r.pct} tone="warn" />
+                ))}
+              </div>
+              <h4 className="dash-panel-title mt-5">By platform</h4>
+              <div className="space-y-3">
+                {simAnomaly.byPlatform.map((r) => (
+                  <BarRow key={r.id} label={r.label} val={r.count} pct={r.pct} tone="muted" />
+                ))}
+              </div>
+            </div>
+            <div className="dash-panel lg:col-span-2">
+              <h4 className="dash-panel-title">Anomaly rate by carrier</h4>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-[13px]">
+                  <thead>
+                    <tr className="border-b border-ams-line text-[11px] uppercase tracking-wide text-ams-faint">
+                      <th className="py-2 pr-3 font-semibold">Carrier</th>
+                      <th className="py-2 pr-3 text-right font-semibold">Rate</th>
+                      <th className="py-2 pr-3 text-right font-semibold">SIMs affected</th>
+                      <th className="py-2 pr-3 text-right font-semibold">Suspended</th>
+                      <th className="py-2 pr-3 text-right font-semibold">Expired</th>
+                      <th className="py-2 text-right font-semibold">No OTP</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {simAnomaly.byCarrier.map((c) => (
+                      <tr key={c.carrier} className="border-b border-ams-line/60 last:border-0">
+                        <td className="py-2 pr-3 font-medium text-ams-ink">{c.carrier}</td>
+                        <td
+                          className={`py-2 pr-3 text-right font-semibold ${
+                            c.rate >= 20 ? 'text-ams-danger' : c.rate >= 10 ? 'text-ams-warn' : 'text-ams-muted'
+                          }`}
+                        >
+                          {c.rate}%
+                        </td>
+                        <td className="py-2 pr-3 text-right text-ams-muted">{c.affectedSims} / {c.totalSims}</td>
+                        <td className="py-2 pr-3 text-right text-ams-muted">{c.reasons.service_suspended}</td>
+                        <td className="py-2 pr-3 text-right text-ams-muted">{c.reasons.expired}</td>
+                        <td className="py-2 text-right text-ams-muted">{c.reasons.otp_failed}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="mt-3 text-[12px] leading-relaxed text-ams-faint">
+                Rate = SIMs with at least one anomaly in this range ÷ SIMs of that carrier on the ledger.
+                SIM Card Anomaly is not counted in the ban rate.
+              </p>
+            </div>
+          </div>
+        )}
       </DashSection>
 
       <DashSection title="Logout Rate">

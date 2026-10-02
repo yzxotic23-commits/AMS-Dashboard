@@ -13,6 +13,7 @@ import {
 } from '../lib/account-recovery-meta';
 import { buildMetaPatch } from '../lib/account-operator-meta';
 import { RECOVERY_STATUS, toastCopy } from '../lib/operator-copy';
+import { SIM_ANOMALY_EXCEPTION, simAnomalyReasonLabel } from '../lib/sim-meta';
 
 const REC_FAIL_REASONS = [
   'SIM issue (expired / not topped up / deactivated)',
@@ -23,7 +24,12 @@ const REC_FAIL_REASONS = [
 
 function accountToRecoveryRow(account) {
   const rec = parseRecoveryMeta({ notes: account._notes }) || { recovery_status: 'need', log: [] };
-  const from = banSourceLabel(rec.ban_stage || rec.ban_reason || 'Banned');
+  const simAnomaly = rec.cause === SIM_ANOMALY_EXCEPTION;
+  const from = simAnomaly
+    ? `SIM Card Anomaly · ${simAnomalyReasonLabel(rec.sim_reason)}`
+    : banSourceLabel(rec.ban_stage || rec.ban_reason || 'Banned');
+  // SIM anomalies land directly in RECOVERING but still wait in "need" until an operator starts.
+  const simWaiting = simAnomaly && (rec.recovery_status || 'need') === 'need';
   return {
     id: account.id,
     acct: account.account_name,
@@ -32,8 +38,9 @@ function accountToRecoveryRow(account) {
     sim: account.sim,
     siteKey: account.siteKey,
     status: account.status,
-    st: account.status === 'RECOVERING' ? 'doing' : (rec.recovery_status || 'need'),
+    st: account.status === 'RECOVERING' && !simWaiting ? 'doing' : (rec.recovery_status || 'need'),
     from,
+    simAnomaly,
     log: rec.log || [],
     notes: account.human_note,
     row: account,
@@ -80,11 +87,13 @@ export default function RecoveryPage() {
     setBusy(true);
     try {
       if (to === 'doing') {
-        await transitionAccount.mutateAsync({
-          id: row.id,
-          to_status: 'RECOVERING',
-          reason: 'Recovery started',
-        });
+        if (row.status !== 'RECOVERING') {
+          await transitionAccount.mutateAsync({
+            id: row.id,
+            to_status: 'RECOVERING',
+            reason: 'Recovery started',
+          });
+        }
         await patchAccount.mutateAsync({
           id: row.id,
           row: row.row,
@@ -167,7 +176,7 @@ export default function RecoveryPage() {
     <div>
       <PageHead
         title="Account Recovery"
-        description="Banned accounts queue here. Pending → Recovering → Nurturing, Standby, or Failed (Recycled). Every step is timestamped for recovery-time stats."
+        description="Banned and SIM Card Anomaly accounts queue here. Pending → Recovering → Nurturing, Standby, or Failed (Recycled). Every step is timestamped for recovery-time stats."
         actions={pending > 0 ? (
           <div className="page-meta-bubble">
             <span className="font-semibold text-ams-danger">{pending}</span>
@@ -211,7 +220,7 @@ export default function RecoveryPage() {
                   </td>
                 </tr>
               ) : list.map((row) => {
-                const stKey = row.st === 'doing' || row.status === 'RECOVERING' ? 'doing' : row.st;
+                const stKey = row.st;
                 const st = { need: { label: RECOVERY_STATUS.need, pill: 'badge-warn' }, doing: { label: RECOVERY_STATUS.doing, pill: 'badge-accent' }, ok: { label: RECOVERY_STATUS.ok, pill: 'badge-success' }, fail: { label: RECOVERY_STATUS.fail, pill: 'badge-danger' } }[stKey] || { label: RECOVERY_STATUS.need, pill: 'badge-warn' };
                 return (
                   <tr key={row.id}>
@@ -224,7 +233,9 @@ export default function RecoveryPage() {
                         {row.acct}
                       </button>
                     </td>
-                    <td><span className="badge badge-danger">{row.from}</span></td>
+                    <td>
+                      <span className={`badge ${row.simAnomaly ? 'badge-warn' : 'badge-danger'}`}>{row.from}</span>
+                    </td>
                     <td><span className={`badge ${st.pill}`}>{st.label}</span></td>
                     <td className="text-sm text-ams-muted">{recElapsed(row.log, row.st)}</td>
                     {site === 'all' && (
@@ -234,7 +245,7 @@ export default function RecoveryPage() {
                     )}
                     <td className="col-action col-action--wide">
                       <div className="col-action-btns">
-                        {row.st === 'need' && row.status === 'BANNED' && (
+                        {row.st === 'need' && (row.status === 'BANNED' || row.simAnomaly) && (
                           <IconTooltip label="Start recovery">
                             <button
                               type="button"
@@ -246,7 +257,7 @@ export default function RecoveryPage() {
                             </button>
                           </IconTooltip>
                         )}
-                        {(row.st === 'doing' || row.status === 'RECOVERING') && (
+                        {row.st === 'doing' && (
                           <>
                             <IconTooltip label="Recovered → Nurturing (feeding)">
                               <button

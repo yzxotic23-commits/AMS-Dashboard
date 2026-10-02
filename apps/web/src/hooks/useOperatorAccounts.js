@@ -158,6 +158,17 @@ export function useAccountMutations() {
     onSuccess: invalidate,
   });
 
+  const simAnomaly = useMutation({
+    mutationFn: async ({ id, reason, note, source }) => {
+      const res = await api.post(`/accounts/${id}/sim-anomaly`, { reason, note, source });
+      return accountToOperatorRow(res.data);
+    },
+    onSuccess: () => {
+      invalidate();
+      qc.invalidateQueries({ queryKey: ['sims'] });
+    },
+  });
+
   const returnStandby = useMutation({
     mutationFn: async ({ id, reason }) => {
       const res = await api.post(`/accounts/${id}/return-standby`, { reason });
@@ -193,6 +204,7 @@ export function useAccountMutations() {
     markStrict,
     reportDisconnect,
     resolveDisconnect,
+    simAnomaly,
     returnStandby,
     ackNotice,
     logRegistration,

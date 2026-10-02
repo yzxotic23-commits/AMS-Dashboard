@@ -23,6 +23,22 @@ export function useBanStats(siteKey = 'all', dateRange = null) {
   });
 }
 
+export function useSimAnomalyStats(siteKey = 'all', dateRange = null) {
+  return useQuery({
+    queryKey: ['bans', 'sim-anomalies', siteKey, dateRange?.fromInput, dateRange?.toInput],
+    queryFn: async () => {
+      const { data } = await api.get('/bans/sim-anomalies', {
+        params: {
+          ...(siteKey !== 'all' ? { site: siteKey } : {}),
+          ...dateQueryParams(dateRange),
+        },
+      });
+      return data;
+    },
+    staleTime: 30_000,
+  });
+}
+
 export function useBanLog(siteKey = 'all', limit = 20) {
   return useQuery({
     queryKey: ['bans', 'log', siteKey, limit],

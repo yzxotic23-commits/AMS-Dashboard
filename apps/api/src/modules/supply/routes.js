@@ -206,7 +206,9 @@ router.post('/rm-settings/reset', requireRole('admin'), async (req, res, next) =
 
 async function loadPhoneSyncCandidates(siteKey) {
   const [{ data: accounts, error: accErr }, { data: sims, error: simErr }] = await Promise.all([
-    supabaseAdmin.from('accounts').select('id, account_name, phone_number, status, sim_id, notes').limit(500),
+    supabaseAdmin.from('accounts').select('id, account_name, phone_number, status, sim_id, notes')
+      .neq('status', 'RECYCLED')
+      .limit(500),
     supabaseAdmin.from('sims').select('id, phone_number, carrier, current_account_id').limit(500),
   ]);
   if (accErr) throw accErr;
@@ -302,11 +304,24 @@ router.post('/phone-sync/:accountId', async (req, res, next) => {
       userId: req.user.id,
     });
 
+    const retired = result.account?.status === 'RECYCLED' && account.status !== 'RECYCLED';
     await writeAudit({
       entityType: 'account',
       entityId: account.id,
-      action: 'PHONE_SYNC',
-      metadata: { action: body.action, sim_id: result.sim_id },
+      action: retired ? 'STATE_CHANGE' : 'ASSIGNMENT_CHANGE',
+      previousValue: { status: account.status, sim_id: account.sim_id, device_id: account.device_id },
+      newValue: {
+        status: result.account?.status,
+        sim_id: result.account?.sim_id ?? null,
+        device_id: result.account?.device_id ?? null,
+      },
+      metadata: {
+        kind: 'phone_sync',
+        action: body.action,
+        sim_id: body.sim_id || account.sim_id || null,
+        account_name: account.account_name,
+        ...(retired ? { field: 'SIM unlinked — account retired', to: 'Recycled' } : {}),
+      },
       userId: req.user.id,
       req,
     });

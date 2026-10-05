@@ -1,3 +1,5 @@
+import { parsePrefixedJsonBlock } from './accountMeta.js';
+
 const REC_PREFIX = '_ams_rec:';
 
 export function recoveryOnBanDefaults(stage = 'manual', reason = '') {
@@ -23,6 +25,10 @@ export function recoveryOnSimAnomalyDefaults(simReason, label) {
     ban_reason: `SIM Card Anomaly — ${label}`,
     log: [{ st: 'need', time: now, by: 'System', reason: `SIM Card Anomaly — ${label}` }],
   };
+}
+
+export function parseRecoveryNotes(notes) {
+  return parsePrefixedJsonBlock(notes, REC_PREFIX);
 }
 
 export function serializeRecoveryNotes(existingNotes, recoveryMeta) {

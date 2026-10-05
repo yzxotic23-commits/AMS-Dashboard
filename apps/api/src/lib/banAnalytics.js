@@ -48,7 +48,7 @@ export function buildBanRecords(historyRows, accountsById) {
         source: parsed.source,
         stage_label: banStageLabel(h.from_status, parsed),
         ip: account.ips?.ip_address || '—',
-        device: account.devices?.device_name || '—',
+        device: account.devices?.device_name || account.retired_device_name || '—',
         channel: account.channel || '—',
         site_key: account.site_key || 'my',
         changed_at: h.changed_at,

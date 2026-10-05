@@ -77,7 +77,7 @@ const EMPTY_PHONE_MAP = new Map();
 
 // Keep selects embed-free for ledger maps — brand comes from account notes meta.
 // (Embedding devices() is ambiguous: accounts.device_id vs devices.current_account_id.)
-const ACCOUNT_SIM_SELECT = 'id, account_name, sim_id, phone_number, notes, device_id';
+const ACCOUNT_SIM_SELECT = 'id, account_name, sim_id, phone_number, notes, device_id, status';
 
 function normalizeAccountRow(a) {
   if (!a) return a;
@@ -162,6 +162,7 @@ async function loadSimAccountMapsFull(simRows) {
     ]);
     const data = await attachDeviceNames(await selectAccounts({ or: orParts.join(',') }));
     data.forEach((a) => {
+      if (a.status === 'RECYCLED') return;
       const digits = String(a.phone_number || '').replace(/\D/g, '');
       if (digits) accountByPhoneDigits.set(digits, a);
       if (digits.length >= 9) accountByPhoneDigits.set(digits.slice(-9), a);

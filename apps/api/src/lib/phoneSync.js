@@ -1,4 +1,45 @@
 import { syncResourceBindings } from './resourceBindings.js';
+import { mergeOperatorNotes } from './accountMeta.js';
+import { parseRecoveryNotes, serializeRecoveryNotes } from './accountRecovery.js';
+import { assertTransition } from './stateMachine.js';
+
+const RETIRE_REASON = 'SIM unlinked — account retired (1 account = 1 SIM)';
+
+/**
+ * One account lives on one SIM, so unlinking the SIM retires the account: it becomes
+ * RECYCLED and frees its device slot. Status history (incl. past bans) is kept for KPIs,
+ * and the device name is snapshotted so ban analytics still attribute old bans to it.
+ */
+async function retireAccountPatch(supabaseAdmin, account) {
+  if (account.status === 'IN_USE') {
+    const err = new Error('Account is In Use — return it to Standby before unlinking its SIM');
+    err.status = 409;
+    throw err;
+  }
+  if (account.status !== 'RECYCLED') assertTransition(account.status, 'RECYCLED');
+
+  let deviceName = null;
+  if (account.device_id) {
+    const { data } = await supabaseAdmin
+      .from('devices')
+      .select('device_name')
+      .eq('id', account.device_id)
+      .maybeSingle();
+    deviceName = data?.device_name || null;
+  }
+  const opNotes = mergeOperatorNotes(account.notes, {
+    retired_at: new Date().toISOString(),
+    retired_reason: 'sim_unlinked',
+    ...(deviceName ? { retired_device_name: deviceName } : {}),
+  });
+  const rec = parseRecoveryNotes(account.notes);
+  return {
+    sim_id: null,
+    device_id: null,
+    status: 'RECYCLED',
+    notes: rec ? serializeRecoveryNotes(opNotes, rec) : opNotes,
+  };
+}
 
 export function phoneDigits(phone) {
   return String(phone || '').replace(/\D/g, '');
@@ -99,7 +140,7 @@ export async function applyPhoneSync(supabaseAdmin, { account, sim, action, user
     // Clear account→sim only when this SIM is the bound one (or no SIM row given).
     const clearAccountLink = !sim || !account.sim_id || account.sim_id === sim.id;
     if (clearAccountLink) {
-      accountPatch = { sim_id: null };
+      accountPatch = await retireAccountPatch(supabaseAdmin, account);
     }
     if (sim) {
       simPatch = { current_account_id: null };
@@ -126,6 +167,16 @@ export async function applyPhoneSync(supabaseAdmin, { account, sim, action, user
       sim_id: updatedAccount.sim_id,
       ip_id: updatedAccount.ip_id,
     }, prev);
+
+    if (accountPatch.status === 'RECYCLED' && account.status !== 'RECYCLED') {
+      await supabaseAdmin.from('account_status_history').insert({
+        account_id: account.id,
+        from_status: account.status,
+        to_status: 'RECYCLED',
+        reason: RETIRE_REASON,
+        changed_by: userId || null,
+      });
+    }
   }
 
   if (sim && Object.keys(simPatch).length) {

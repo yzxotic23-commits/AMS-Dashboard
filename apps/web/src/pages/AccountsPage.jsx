@@ -829,8 +829,7 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
         sim_id: account.sim_id,
       });
       setUnlinkSimOpen(false);
-      setUnlinkSimToast(toastCopy.accountSimUnlinked(account.sim));
-      setTimeout(() => setUnlinkSimToast(''), 4200);
+      onBack(toastCopy.accountSimUnlinked(account.sim));
     } catch (e) {
       setUnlinkSimToast(e?.response?.data?.error || e.message || 'Failed to unlink SIM');
       setTimeout(() => setUnlinkSimToast(''), 4200);
@@ -1549,11 +1548,12 @@ function AccountDetail({ accountId, onBack, staffOptions = [] }) {
         open={unlinkSimOpen}
         title="Unlink SIM from account?"
         message={
-          account.sim
-            ? `Remove the binding to ${account.sim}? The SIM stays in the ledger; only this account link is cleared.`
-            : 'Remove the SIM binding from this account? The SIM stays in the ledger; only this account link is cleared.'
+          `One account = one SIM. Unlinking ${account.sim || 'the SIM'} retires ${account.account_name}: `
+          + 'it is removed from its device slot and from Resource Ledger. The SIM stays in the SIM Ledger, '
+          + 'and status history (including bans) is kept for KPIs.'
         }
-        confirmLabel={unlinkSimBusy ? 'Unlinking…' : 'Unlink'}
+        confirmLabel={unlinkSimBusy ? 'Unlinking…' : 'Unlink & retire'}
+        danger
         onConfirm={confirmUnlinkSim}
         onCancel={() => !unlinkSimBusy && setUnlinkSimOpen(false)}
       />
@@ -1573,10 +1573,16 @@ export default function AccountsPage() {
   const [fBrand, setFBrand] = useState('');
   const [fStaff, setFStaff] = useState('');
   const [fSt, setFSt] = useState('');
+  const [listToast, setListToast] = useState('');
   const [detailId, setDetailId] = useState(null);
   const [page, setPage] = useState(1);
 
-  const { data: accounts = [], isLoading: accountsLoading, isError: accountsError } = useAllAccounts();
+  const { data: accountRows = [], isLoading: accountsLoading, isError: accountsError } = useAllAccounts();
+  // Recycled accounts are retired (e.g. SIM unlinked) and no longer occupy a device slot.
+  const accounts = useMemo(
+    () => accountRows.filter((a) => a.status !== 'RECYCLED'),
+    [accountRows],
+  );
   const staffScope = useMemo(() => profileStaffScope(profile), [profile]);
   const visibleAccounts = useMemo(
     () => accounts.filter((a) => accountInStaffScope(a, staffScope)),
@@ -1824,7 +1830,13 @@ export default function AccountsPage() {
     return (
       <AccountDetail
         accountId={detailId}
-        onBack={() => setDetailId(null)}
+        onBack={(message) => {
+          setDetailId(null);
+          if (typeof message === 'string' && message) {
+            setListToast(message);
+            setTimeout(() => setListToast(''), 4200);
+          }
+        }}
         staffOptions={staffOptions}
       />
     );
@@ -2150,6 +2162,7 @@ export default function AccountsPage() {
           ? `${SITES[site].name} · ${businessRows.length} accounts`
           : `${SITES[site].name} · ${filtered.devCount} devices · ${filtered.acctCount} accounts`}
       </p>
+      <Toast open={!!listToast} message={listToast} onClose={() => setListToast('')} />
     </div>
   );
 }

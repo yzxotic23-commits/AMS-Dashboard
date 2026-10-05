@@ -85,11 +85,13 @@ export const toastCopy = {
   simDeleteBlocked: () => 'Cannot delete — SIM is linked to an account',
   simUnlinked: (phone, accountName) => (
     accountName
-      ? `${phone} · unlinked from ${accountName}`
-      : `${phone} · SIM unlinked`
+      ? `${phone} · unlinked — ${accountName} retired and removed from its device`
+      : `${phone} · SIM unlinked — account retired`
   ),
   accountSimUnlinked: (simLabel) => (
-    simLabel ? `SIM unlinked · ${simLabel}` : 'SIM unlinked from this account'
+    simLabel
+      ? `SIM unlinked · ${simLabel} — account retired and removed from its device`
+      : 'SIM unlinked — account retired and removed from its device'
   ),
 
   feedingStarted: () => 'Feeding · started',

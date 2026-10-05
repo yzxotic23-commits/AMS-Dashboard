@@ -356,9 +356,10 @@ export default function SimsPage() {
       phone: row.phone_number,
       accountName: row.account_name && row.account_name !== '—' ? row.account_name : null,
       title: 'Unlink SIM from account?',
-      message: row.account_name && row.account_name !== '—'
-        ? `Remove the binding between ${row.phone_number} and ${row.account_name}? The SIM stays in the ledger; only the account link is cleared.`
-        : `Remove the account binding for ${row.phone_number}? The SIM stays in the ledger; only the account link is cleared.`,
+      message: `One account = one SIM. Unlinking ${row.phone_number} retires `
+        + `${row.account_name && row.account_name !== '—' ? row.account_name : 'its account'}: `
+        + 'the account is removed from its device slot and from Resource Ledger. '
+        + 'The SIM stays in this ledger, and status history (including bans) is kept for KPIs.',
     });
   }, [syncBySimId]);
 
@@ -1390,7 +1391,8 @@ export default function SimsPage() {
         open={!!unlinkConfirm}
         title={unlinkConfirm?.title || 'Unlink SIM?'}
         message={unlinkConfirm?.message || ''}
-        confirmLabel={unlinking ? 'Unlinking…' : 'Unlink'}
+        confirmLabel={unlinking ? 'Unlinking…' : 'Unlink & retire'}
+        danger
         onConfirm={confirmUnlinkSim}
         onCancel={() => !unlinking && setUnlinkConfirm(null)}
       />

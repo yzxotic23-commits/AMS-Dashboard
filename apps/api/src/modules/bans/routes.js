@@ -21,6 +21,7 @@ function enrichAccountRow(row) {
     ...row,
     site_key: meta.site_key || 'my',
     channel: meta.channel || '',
+    retired_device_name: meta.retired_device_name || null,
   };
 }
 

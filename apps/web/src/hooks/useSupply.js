@@ -26,6 +26,8 @@ export function usePhoneSyncMutation() {
       qc.invalidateQueries({ queryKey: ['accounts'] });
       qc.invalidateQueries({ queryKey: ['sims'] });
       qc.invalidateQueries({ queryKey: ['sims-bound-accounts'] });
+      qc.invalidateQueries({ queryKey: ['devices'] });
+      qc.invalidateQueries({ queryKey: ['bans'] });
     },
   });
 }

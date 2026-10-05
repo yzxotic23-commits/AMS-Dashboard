@@ -9,7 +9,6 @@ import {
   formatDaysLeft,
   ledgerStatusLabel,
   SIM_ANOMALY_EXCEPTION,
-  simExceptionSummary,
 } from '../lib/sim-meta';
 
 function siteChipLabel(row) {
@@ -29,7 +28,6 @@ function SimTableRow({
   onToggleSelect,
   syncRow,
   syncBusy,
-  remarkBusy,
   onAlign,
   onCharge,
   onHistory,
@@ -38,7 +36,6 @@ function SimTableRow({
   onDelete,
   onUnlink,
   onStatusChange,
-  onRemarkSave,
 }) {
   const siteLabel = siteChipLabel(row);
   const stopped = row.ledger_status === 'stop_topup';
@@ -61,17 +58,7 @@ function SimTableRow({
         />
       </td>
       <td className="col-mono">{row.phone_number}</td>
-      <td>
-        {row.carrier}
-        {anomaly && (
-          <span
-            className="badge badge-warn ml-1.5 whitespace-nowrap"
-            title={`${simExceptionSummary(anomaly)}${anomaly.created_at ? ` · ${new Date(anomaly.created_at).toLocaleString()}` : ''}`}
-          >
-            SIM Anomaly
-          </span>
-        )}
-      </td>
+      <td>{row.carrier}</td>
       <td>
         <span className={getSiteChipClass(row.site)}>
           {siteLabel}
@@ -121,12 +108,10 @@ function SimTableRow({
         )}
       </td>
       <SimRemarkCell
+        anomaly={anomaly}
         remark={row.remark}
         updatedAt={row.remark_updated_at}
         updatedBy={row.remark_updated_by}
-        phone={row.phone_number}
-        busy={remarkBusy}
-        onSave={(next) => onRemarkSave?.(row, next)}
       />
       <td className="col-action col-action--wide">
         <div className="col-action-btns">

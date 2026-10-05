@@ -1776,26 +1776,14 @@
     max-width: 14rem;
     width: 12rem;
   }
-  .sim-remark-trigger {
+  .sim-remark-view {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 0.15rem;
+    gap: 0.2rem;
     width: 100%;
-    margin: 0;
     padding: 0.15rem 0.2rem;
-    border: 0;
-    border-radius: 6px;
-    background: transparent;
     text-align: left;
-    cursor: pointer;
-  }
-  .sim-remark-trigger:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--ams-accent) 6%, transparent);
-  }
-  .sim-remark-trigger:disabled {
-    opacity: 0.6;
-    cursor: wait;
   }
   .sim-remark-text {
     color: var(--ams-ink);
@@ -1806,10 +1794,6 @@
     font-size: 10.5px;
     line-height: 1.3;
     color: var(--ams-faint);
-  }
-  .sim-remark-input {
-    @apply input w-full resize-y text-[12.5px] leading-snug;
-    min-height: 2.5rem;
   }
   .data-table .col-muted {
     color: var(--ams-faint);

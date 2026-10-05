@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import IconTooltip from './IconTooltip';
+import { simAnomalyPlatformLabel, simAnomalyReasonLabel } from '../lib/sim-meta';
 
 function formatRemarkMeta(updatedAt, updatedBy) {
   if (!updatedAt) return null;
@@ -13,93 +14,61 @@ function formatRemarkMeta(updatedAt, updatedBy) {
   return updatedBy ? `${updatedBy} · ${when}` : when;
 }
 
+/** Read-only remark: system-written SIM Card Anomaly first, otherwise any legacy remark. */
 export default function SimRemarkCell({
+  anomaly,
   remark,
   updatedAt,
   updatedBy,
-  phone,
-  busy,
-  onSave,
 }) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(remark || '');
-  const inputRef = useRef(null);
-  const skipBlurCommit = useRef(false);
-
-  useEffect(() => {
-    if (!editing) setDraft(remark || '');
-  }, [remark, editing]);
-
-  useEffect(() => {
-    if (editing) {
-      inputRef.current?.focus();
-      inputRef.current?.select();
-    }
-  }, [editing]);
-
-  function commit() {
-    if (skipBlurCommit.current) {
-      skipBlurCommit.current = false;
-      return;
-    }
-    const next = draft.trim();
-    const prev = (remark || '').trim();
-    setEditing(false);
-    if (next === prev) return;
-    onSave?.(next || null);
-  }
-
-  function cancel() {
-    skipBlurCommit.current = true;
-    setDraft(remark || '');
-    setEditing(false);
-  }
-
-  const meta = formatRemarkMeta(updatedAt, updatedBy);
-
-  if (editing) {
+  if (anomaly) {
+    const meta = formatRemarkMeta(anomaly.created_at, anomaly.created_by);
+    const rows = [
+      ['Reason', simAnomalyReasonLabel(anomaly.sim_reason)],
+      anomaly.platform ? ['Platform', simAnomalyPlatformLabel(anomaly.platform)] : null,
+      anomaly.detail ? ['Note', anomaly.detail] : null,
+    ].filter(Boolean);
+    const tip = (
+      <span className="block min-w-[12rem] max-w-[16rem] text-left text-[12px] leading-snug">
+        <span className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
+          {rows.map(([k, v]) => (
+            <span key={k} className="contents">
+              <span className="opacity-70">{k}</span>
+              <span className="font-medium">{v}</span>
+            </span>
+          ))}
+        </span>
+        {meta && (
+          <span className="mt-1.5 block border-t border-white/15 pt-1.5 text-[11px] opacity-70">
+            Updated by {meta}
+          </span>
+        )}
+      </span>
+    );
     return (
-      <td className="col-remark col-remark--edit">
-        <textarea
-          ref={inputRef}
-          className="sim-remark-input"
-          rows={2}
-          value={draft}
-          disabled={busy}
-          aria-label={`Remark for ${phone}`}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') {
-              e.preventDefault();
-              cancel();
-            }
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              commit();
-            }
-          }}
-        />
+      <td className="col-remark">
+        <div className="sim-remark-view">
+          <IconTooltip label={tip} rich>
+            <span className="badge badge-warn cursor-default whitespace-nowrap" tabIndex={0}>
+              SIM Anomaly
+            </span>
+          </IconTooltip>
+        </div>
       </td>
     );
   }
 
+  const meta = remark ? formatRemarkMeta(updatedAt, updatedBy) : null;
   return (
     <td className="col-remark">
-      <button
-        type="button"
-        className="sim-remark-trigger"
-        disabled={busy}
-        onClick={() => setEditing(true)}
-        title="Click to edit remark"
-      >
+      <div className="sim-remark-view">
         {remark ? (
           <span className="sim-remark-text">{remark}</span>
         ) : (
           <span className="text-[12.5px] text-ams-faint">—</span>
         )}
         {meta && <span className="sim-remark-meta">{meta}</span>}
-      </button>
+      </div>
     </td>
   );
 }

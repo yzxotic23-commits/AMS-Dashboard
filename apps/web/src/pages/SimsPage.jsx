@@ -147,7 +147,6 @@ export default function SimsPage() {
 
   const [onlyMismatch, setOnlyMismatch] = useState(false);
   const [syncBusyId, setSyncBusyId] = useState(null);
-  const [remarkBusyId, setRemarkBusyId] = useState(null);
   const tableScrollRef = useScrollRevealScrollbar();
 
   function syncActionForIssue(issue) {
@@ -666,22 +665,6 @@ export default function SimsPage() {
     );
   }
 
-  function submitRemark(row, nextRemark) {
-    setRemarkBusyId(row.id);
-    patchMut.mutate(
-      { id: row.id, body: { remark: nextRemark } },
-      {
-        onSettled: () => setRemarkBusyId(null),
-        onSuccess: () => {
-          showToast(nextRemark ? `Remark saved for ${row.phone_number}` : `Remark cleared for ${row.phone_number}`);
-        },
-        onError: (e) => {
-          showToast(e?.response?.data?.error || e.message || 'Remark save failed', 'error');
-        },
-      },
-    );
-  }
-
   function submitRefund() {
     if (!historySim || !refundDraft?.topupId) return;
     const amountValue = refundDraft.amount === '' || refundDraft.amount == null
@@ -951,7 +934,6 @@ export default function SimsPage() {
                       onToggleSelect={toggleSelect}
                       syncRow={syncBySimId.get(row.id)}
                       syncBusy={syncBusyId === row.id}
-                      remarkBusy={remarkBusyId === row.id}
                       onAlign={handleAlign}
                       onCharge={openCharge}
                       onHistory={openHistory}
@@ -960,7 +942,6 @@ export default function SimsPage() {
                       onDelete={requestDeleteSim}
                       onUnlink={requestUnlinkSim}
                       onStatusChange={submitStatus}
-                      onRemarkSave={submitRemark}
                     />
                   ))}
                 </tbody>

@@ -11,6 +11,9 @@ import {
   SIM_ANOMALY_EXCEPTION,
 } from '../lib/sim-meta';
 
+/** Charged SIMs show Mark Charged again once expiry is this close (or already due). */
+const RENEW_WINDOW_DAYS = 7;
+
 function siteChipLabel(row) {
   return row.site_name || SITES[row.site]?.name || 'Malaysia';
 }
@@ -30,6 +33,7 @@ function SimTableRow({
   syncBusy,
   onAlign,
   onCharge,
+  onEditTopup,
   onHistory,
   onException,
   onAnomaly,
@@ -41,6 +45,7 @@ function SimTableRow({
   const stopped = row.ledger_status === 'stop_topup';
   const linked = Boolean(row.account_linked);
   const anomaly = row.last_exception?.reason === SIM_ANOMALY_EXCEPTION ? row.last_exception : null;
+  const renewDue = row.days_left == null || row.days_left <= RENEW_WINDOW_DAYS;
   const historyLabel = row.topup_count
     ? `Top-up history (${row.topup_count})`
     : 'Top-up history';
@@ -101,7 +106,7 @@ function SimTableRow({
       <td>
         {stopped ? (
           <span className={statusBadgeClass('stop_topup')}>Stop Top-up</span>
-        ) : row.last_charged ? (
+        ) : row.last_charged && row.days_left !== 0 ? (
           <span className="badge badge-success">Charged · {row.last_charged}</span>
         ) : (
           <span className="badge badge-danger">Due</span>
@@ -117,7 +122,14 @@ function SimTableRow({
         <div className="col-action-btns">
           {!stopped && (
             row.last_charged ? (
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => onCharge(row)}>Update</button>
+              <>
+                {renewDue && (
+                  <button type="button" className="btn btn-primary btn-sm" onClick={() => onCharge(row)}>Mark Charged</button>
+                )}
+                <IconTooltip label="Correct the last top-up">
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => onEditTopup?.(row)}>Update</button>
+                </IconTooltip>
+              </>
             ) : (
               <>
                 <button type="button" className="btn btn-primary btn-sm" onClick={() => onCharge(row)}>Mark Charged</button>

@@ -64,6 +64,15 @@ const anomalySchema = z.object({
   detail: z.string().max(500).optional().nullable(),
 });
 
+const topupEditSchema = z.object({
+  last_charged: z.string().min(1),
+  amount: z.union([z.number(), z.string()]).optional().nullable(),
+  cycle_days: z.union([z.number(), z.string()]).optional().nullable(),
+  plan: z.string().optional().nullable(),
+});
+
+const TOPUP_EDIT_FIELDS = ['charged_at', 'amount', 'cycle_days', 'plan'];
+
 const refundSchema = z.object({
   amount: z.union([z.number(), z.string()]).optional().nullable(),
   reason: z.string().optional().nullable(),
@@ -395,6 +404,121 @@ router.post('/:id/anomaly', async (req, res, next) => {
       maps.accountByPhoneDigits,
       counts,
     ));
+  } catch (e) {
+    next(e);
+  }
+});
+
+// PATCH /sims/:id/topups/latest — correct the most recently entered top-up in place
+// (SIM Ledger "Update"); each correction is kept in sim_topups.edits.
+router.patch('/:id/topups/latest', async (req, res, next) => {
+  try {
+    const body = topupEditSchema.parse(req.body || {});
+    const { data: current, error: readErr } = await supabaseAdmin
+      .from('sims')
+      .select('*')
+      .eq('id', req.params.id)
+      .maybeSingle();
+    if (readErr) throw readErr;
+    if (!current) {
+      const err = new Error('SIM not found');
+      err.status = 404;
+      throw err;
+    }
+
+    const { data: latest, error: latestErr } = await supabaseAdmin
+      .from('sim_topups')
+      .select('*')
+      .eq('sim_id', current.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (latestErr) throw latestErr;
+    if (!latest) {
+      const err = new Error('No top-up to update yet — use Mark Charged');
+      err.status = 404;
+      throw err;
+    }
+
+    const actor = actorName(req.profile);
+    const entry = buildTopupEntry({
+      charged_at: body.last_charged,
+      amount: body.amount,
+      cycle_days: body.cycle_days,
+      plan: body.plan,
+      prev_cycle_days: latest.cycle_days,
+    });
+    const before = {
+      charged_at: latest.charged_at,
+      amount: latest.amount == null ? null : Number(latest.amount),
+      cycle_days: latest.cycle_days,
+      plan: latest.plan || null,
+    };
+    const changes = {};
+    for (const field of TOPUP_EDIT_FIELDS) {
+      if (before[field] !== entry[field]) changes[field] = { from: before[field], to: entry[field] };
+    }
+
+    let data = current;
+    if (Object.keys(changes).length) {
+      const editedAt = new Date().toISOString();
+      const edits = [
+        ...(Array.isArray(latest.edits) ? latest.edits : []),
+        { at: editedAt, by: actor, changes },
+      ];
+      const { error: topupErr } = await supabaseAdmin
+        .from('sim_topups')
+        .update({
+          charged_at: entry.charged_at,
+          amount: entry.amount,
+          cycle_days: entry.cycle_days,
+          plan: entry.plan,
+          expiry_date: entry.expiry_date,
+          edits,
+          updated_at: editedAt,
+        })
+        .eq('id', latest.id);
+      if (topupErr) throw topupErr;
+
+      const { data: updated, error: simErr } = await supabaseAdmin
+        .from('sims')
+        .update({
+          last_charged: entry.charged_at,
+          last_amount: entry.amount,
+          last_cycle_days: entry.cycle_days,
+          last_plan: entry.plan,
+          expiry_date: entry.expiry_date,
+        })
+        .eq('id', current.id)
+        .select('*')
+        .single();
+      if (simErr) throw simErr;
+      data = updated;
+
+      await writeAudit({
+        entityType: 'sim',
+        entityId: current.id,
+        action: 'UPDATE',
+        previousValue: current,
+        newValue: data,
+        metadata: { kind: 'topup_edit', topup_id: latest.id, changes },
+        userId: req.profile.id,
+        req,
+      });
+    }
+
+    const maps = await loadSimAccountMapsFull([data]);
+    const counts = await loadTopupCounts([data.id]);
+    res.json({
+      ...mapSimRow(
+        data,
+        maps.accountBySimId,
+        maps.accountByCurrentId,
+        maps.accountByPhoneDigits,
+        counts,
+      ),
+      topup_changed: Object.keys(changes).length > 0,
+    });
   } catch (e) {
     next(e);
   }

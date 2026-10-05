@@ -32,7 +32,7 @@ import { usePhoneSyncMutation, usePhoneSyncRows } from '../hooks/useSupply';
 
 function simDue(s) {
   if (s.ledger_status === 'stop_topup') return false;
-  return !s.last_charged;
+  return !s.last_charged || s.days_left === 0;
 }
 
 function daysLeftFromChargeDate(chargeDate, cycleDays = SIM_TOPUP_CYCLE_DAYS) {
@@ -97,6 +97,26 @@ function brandKey(row) {
   return row.brand || 'Unassigned';
 }
 
+const TOPUP_FIELD_LABELS = {
+  charged_at: 'Charge date',
+  amount: 'Amount',
+  cycle_days: 'Cycle',
+  plan: 'Plan',
+};
+
+function formatTopupField(field, value, site) {
+  if (value == null || value === '') return '—';
+  if (field === 'amount') return formatTopupAmount(value, site);
+  if (field === 'cycle_days') return `${value}d`;
+  return String(value);
+}
+
+function formatEditTime(iso) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
 function canBulkCharge(row) {
   return row.ledger_status !== 'stop_topup';
 }
@@ -113,6 +133,7 @@ export default function SimsPage() {
   const [onlyDue, setOnlyDue] = useState(false);
   const [filterSoon, setFilterSoon] = useState(false);
   const [drawer, setDrawer] = useState(null);
+  const [chargeMode, setChargeMode] = useState('charge'); // 'charge' = new top-up, 'edit' = correct latest
   const [bulkOpen, setBulkOpen] = useState(false);
   const [selected, setSelected] = useState(() => new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -289,9 +310,19 @@ export default function SimsPage() {
   }, [list]);
 
   const openCharge = useCallback((row) => {
-    const today = new Date().toISOString().slice(0, 10);
     setBulkOpen(false);
-    setChargeDate(row.last_charged || today);
+    setChargeMode('charge');
+    setChargeDate(new Date().toISOString().slice(0, 10));
+    setAmount(row.last_amount != null ? String(row.last_amount) : '');
+    setCycleDays(String(normalizeTopupCycleDays(row.last_cycle_days)));
+    setPlan(row.last_plan || '');
+    setDrawer(row);
+  }, []);
+
+  const openEditTopup = useCallback((row) => {
+    setBulkOpen(false);
+    setChargeMode('edit');
+    setChargeDate(row.last_charged || new Date().toISOString().slice(0, 10));
     setAmount(row.last_amount != null ? String(row.last_amount) : '');
     setCycleDays(String(normalizeTopupCycleDays(row.last_cycle_days)));
     setPlan(row.last_plan || '');
@@ -513,6 +544,14 @@ export default function SimsPage() {
     },
   });
 
+  const editTopupMut = useMutation({
+    mutationFn: ({ id, body }) => api.patch(`/sims/${id}/topups/latest`, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sims'] });
+      qc.invalidateQueries({ queryKey: ['sim-topups'] });
+    },
+  });
+
   const anomalyMut = useMutation({
     mutationFn: ({ id, body }) => api.post(`/sims/${id}/anomaly`, body),
     onSuccess: () => {
@@ -552,6 +591,24 @@ export default function SimsPage() {
     const built = buildChargeBody();
     if (built.error) {
       showToast(built.error, 'error');
+      return;
+    }
+    if (chargeMode === 'edit') {
+      const { last_charged, amount: amt, cycle_days, plan: planText } = built.body;
+      editTopupMut.mutate(
+        { id: drawer.id, body: { last_charged, amount: amt, cycle_days, plan: planText } },
+        {
+          onSuccess: (res) => {
+            showToast(res?.data?.topup_changed === false
+              ? `No changes for ${drawer.phone_number}`
+              : `Top-up corrected for ${drawer.phone_number}`);
+            closeChargeDrawer();
+          },
+          onError: (e) => {
+            showToast(e?.response?.data?.error || e.message || 'Update failed', 'error');
+          },
+        },
+      );
       return;
     }
     patchMut.mutate(
@@ -936,6 +993,7 @@ export default function SimsPage() {
                       syncBusy={syncBusyId === row.id}
                       onAlign={handleAlign}
                       onCharge={openCharge}
+                      onEditTopup={openEditTopup}
                       onHistory={openHistory}
                       onException={openException}
                       onAnomaly={openAnomaly}
@@ -981,7 +1039,9 @@ export default function SimsPage() {
 
       <Drawer
         open={chargeDrawerOpen}
-        title={bulkOpen ? `Bulk Mark Charged (${selectedRows.length})` : 'Record Top-up'}
+        title={bulkOpen
+          ? `Bulk Mark Charged (${selectedRows.length})`
+          : chargeMode === 'edit' ? 'Update Last Top-up' : 'Record Top-up'}
         onClose={closeChargeDrawer}
         footer={(
           <>
@@ -992,11 +1052,13 @@ export default function SimsPage() {
               type="button"
               className="btn btn-primary"
               onClick={bulkOpen ? submitBulkCharge : submitCharge}
-              disabled={bulkOpen ? bulkBusy : patchMut.isPending}
+              disabled={bulkOpen ? bulkBusy : (patchMut.isPending || editTopupMut.isPending)}
             >
               {bulkOpen
                 ? (bulkBusy ? `Saving ${selectedRows.length}…` : `Save ${selectedRows.length} SIM${selectedRows.length === 1 ? '' : 's'}`)
-                : (patchMut.isPending ? 'Saving…' : 'Save')}
+                : (patchMut.isPending || editTopupMut.isPending)
+                  ? 'Saving…'
+                  : chargeMode === 'edit' ? 'Save changes' : 'Save'}
             </button>
           </>
         )}
@@ -1006,7 +1068,9 @@ export default function SimsPage() {
             <p className="drawer-hint">
               {bulkOpen
                 ? 'Shared charge date, amount, and plan cycle will be applied to every selected SIM. Each save is written to the audit log individually.'
-                : 'Top-up is done manually on the telco platform. AMS records the charge date, amount, and plan cycle for bookkeeping.'}
+                : chargeMode === 'edit'
+                  ? 'Correct the most recent top-up record — no new top-up is added. The change (old → new) is kept in Top-up history.'
+                  : 'Top-up is done manually on the telco platform. AMS records the charge date, amount, and plan cycle for bookkeeping.'}
             </p>
             {bulkOpen ? (
               <div className="drawer-locked">
@@ -1147,21 +1211,33 @@ export default function SimsPage() {
                           {tu.created_by && (
                             <div className="mt-0.5 text-[11px] text-ams-faint">by {tu.created_by}</div>
                           )}
+                          {(tu.edits || []).map((ed, i) => (
+                            <div key={`${ed.at}-${i}`} className="mt-1 text-[11.5px] leading-snug text-ams-warn">
+                              <span className="font-medium">
+                                Edited by {ed.by || '—'} · {formatEditTime(ed.at)}
+                              </span>
+                              {Object.entries(ed.changes || {}).map(([field, ch]) => (
+                                <div key={field} className="text-ams-muted">
+                                  {TOPUP_FIELD_LABELS[field] || field}: {formatTopupField(field, ch.from, historySim.site)} → {formatTopupField(field, ch.to, historySim.site)}
+                                </div>
+                              ))}
+                            </div>
+                          ))}
                           {tu.refund && (
                             <div className="mt-1 text-[12px] text-ams-danger">
-                              Refunded {formatTopupAmount(tu.refund.amount)}
+                              Refunded {formatTopupAmount(tu.refund.amount, historySim.site)}
                               {tu.refund.reason ? ` · ${tu.refund.reason}` : ''}
                             </div>
                           )}
                         </div>
                         <div className="shrink-0 text-right">
                           <div className="font-mono text-[13px] font-semibold text-ams-ink">
-                            {formatTopupAmount(tu.amount)}
+                            {formatTopupAmount(tu.amount, historySim.site)}
                           </div>
                           {!tu.refund && !isRefunding && (
                             <button
                               type="button"
-                              className="btn btn-ghost btn-sm mt-1"
+                              className="btn btn-outline-warn btn-sm mt-1"
                               onClick={() => setRefundDraft({
                                 topupId: tu.id,
                                 amount: tu.amount == null ? '' : String(tu.amount),

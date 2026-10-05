@@ -45,6 +45,8 @@ export function mapTopupRow(row) {
     created_at: row.created_at || null,
     created_by: row.created_by || null,
     refund: row.refund || null,
+    edits: Array.isArray(row.edits) ? row.edits : [],
+    updated_at: row.updated_at || null,
   };
 }
 

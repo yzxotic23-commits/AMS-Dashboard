@@ -98,11 +98,15 @@ export function daysLeftTagClass(days) {
   return 'due-far';
 }
 
-export function formatTopupAmount(amount) {
+/** Malaysia SIMs are topped up in ringgit, Poipet (Cambodia) SIMs in USD. */
+const TOPUP_CURRENCY_PREFIX = { my: 'RM', pp: '$' };
+
+export function formatTopupAmount(amount, site) {
   if (amount == null || amount === '') return '—';
   const n = Number(amount);
   if (!Number.isFinite(n)) return '—';
-  return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  const prefix = TOPUP_CURRENCY_PREFIX[site] || '';
+  return `${prefix}${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 export const SIM_LEDGER_STATUSES = [

@@ -15,6 +15,8 @@ const api = axios.create({
 
 let authRedirecting = false;
 
+export const IP_BLOCKED_EVENT = 'ams:ip-blocked';
+
 api.interceptors.request.use(async (config) => {
   try {
     const { data: { session } } = await getSupabase().auth.getSession();
@@ -31,16 +33,21 @@ api.interceptors.response.use(
   (res) => res,
   async (err) => {
     const status = err.response?.status;
+    const code = err.response?.data?.code;
     const onLogin = typeof window !== 'undefined' && window.location.pathname.startsWith('/login');
-    if (status === 401 && !authRedirecting && !onLogin) {
+    const deactivated = status === 403 && code === 'ACCOUNT_DEACTIVATED';
+    if ((status === 401 || deactivated) && !authRedirecting && !onLogin) {
       authRedirecting = true;
       try {
         await getSupabase().auth.signOut();
       } catch {
         /* ignore */
       }
-      window.location.href = '/login';
+      window.location.href = deactivated ? '/login?reason=deactivated' : '/login';
       return new Promise(() => {});
+    }
+    if (status === 403 && code === 'IP_NOT_ALLOWED' && !onLogin) {
+      window.dispatchEvent(new CustomEvent(IP_BLOCKED_EVENT, { detail: { ip: err.response.data.ip } }));
     }
     const message = formatApiError(err, err.message || 'Request failed');
     return Promise.reject(new Error(message));

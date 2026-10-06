@@ -16,6 +16,7 @@ import FeedFlowPage from './pages/FeedFlowPage';
 import TicketsPage from './pages/TicketsPage';
 import UserManagementPage from './pages/settings/UserManagementPage';
 import SettingsPage from './pages/settings/SettingsPage';
+import NetworkAccessPage from './pages/settings/NetworkAccessPage';
 import AdminRoute from './components/AdminRoute';
 import { homePathForRole } from './lib/role-access';
 
@@ -84,6 +85,14 @@ export default function App() {
           element={(
             <AdminRoute>
               <UserManagementPage />
+            </AdminRoute>
+          )}
+        />
+        <Route
+          path="settings/access"
+          element={(
+            <AdminRoute>
+              <NetworkAccessPage />
             </AdminRoute>
           )}
         />

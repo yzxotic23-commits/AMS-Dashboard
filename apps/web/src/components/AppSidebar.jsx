@@ -2,7 +2,7 @@ import { memo, useEffect, useRef } from 'react';
 import { LogOut } from 'lucide-react';
 import {
   LayoutGrid, Plus, RotateCcw, Globe, CreditCard, Table2,
-  Ticket, LineChart, ScrollText, Zap, MessageSquare, Users, Smartphone, Search,
+  Ticket, LineChart, ScrollText, Zap, MessageSquare, Users, Smartphone, Search, ShieldCheck,
 } from 'lucide-react';
 import { readSidebarScrollTop, writeSidebarScrollTop } from '../lib/sidebar-prefs';
 import SidebarNavGroup, { pathInGroup } from './SidebarNavGroup';
@@ -62,6 +62,7 @@ const SETTINGS_GROUP = {
   items: [
     { to: '/settings', icon: LineChart, label: 'RM Supply model', end: true },
     USER_MGMT_ITEM,
+    { to: '/settings/access', icon: ShieldCheck, label: 'Network access' },
   ],
 };
 

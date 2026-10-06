@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { authenticate } from '../../middleware/auth.js';
 import { supabaseAdmin } from '../../lib/supabase.js';
+import { writeAudit } from '../../lib/audit.js';
 
 const router = Router();
 
@@ -10,6 +11,17 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 
+function auditLogin(req, { profileId, username, ok, reason }) {
+  return writeAudit({
+    entityType: 'profile',
+    entityId: profileId || null,
+    action: ok ? 'LOGIN' : 'LOGIN_FAILED',
+    metadata: { username, ...(reason ? { reason } : {}) },
+    userId: profileId || null,
+    req,
+  });
+}
+
 router.post('/login', async (req, res, next) => {
   try {
     const { username, password } = loginSchema.parse(req.body);
@@ -17,11 +29,16 @@ router.post('/login', async (req, res, next) => {
 
     const { data: profile, error } = await supabaseAdmin
       .from('profiles')
-      .select('email, is_active')
+      .select('id, email, is_active')
       .eq('username', uname)
-      .single();
+      .maybeSingle();
 
-    if (error || !profile?.is_active) {
+    if (error || !profile) {
+      await auditLogin(req, { username: uname, ok: false, reason: 'unknown_username' });
+      return res.status(401).json({ error: 'Invalid username or password' });
+    }
+    if (!profile.is_active) {
+      await auditLogin(req, { profileId: profile.id, username: uname, ok: false, reason: 'deactivated' });
       return res.status(401).json({ error: 'Invalid username or password' });
     }
 
@@ -42,8 +59,11 @@ router.post('/login', async (req, res, next) => {
 
     const session = await tokenRes.json();
     if (!tokenRes.ok) {
+      await auditLogin(req, { profileId: profile.id, username: uname, ok: false, reason: 'wrong_password' });
       return res.status(401).json({ error: 'Invalid username or password' });
     }
+
+    await auditLogin(req, { profileId: profile.id, username: uname, ok: true });
 
     res.json({
       access_token: session.access_token,

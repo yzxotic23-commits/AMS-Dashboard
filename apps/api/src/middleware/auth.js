@@ -25,7 +25,7 @@ export async function authenticate(req, res, next) {
     }
 
     if (!profile.is_active) {
-      return res.status(403).json({ error: 'Account deactivated' });
+      return res.status(403).json({ error: 'Account deactivated', code: 'ACCOUNT_DEACTIVATED' });
     }
 
     req.user = user;

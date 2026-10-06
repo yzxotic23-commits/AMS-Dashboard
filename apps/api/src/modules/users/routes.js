@@ -66,6 +66,56 @@ async function findAuthUserByEmail(email) {
   return (data.users || []).find((u) => u.email?.toLowerCase() === email.toLowerCase()) || null;
 }
 
+/**
+ * Locking must take effect immediately: ban the auth user so refresh tokens stop
+ * working, and drop existing sessions. Unlocking lifts the ban.
+ */
+async function setAuthAccess(userId, active) {
+  const url = process.env.SUPABASE_URL;
+  const res = await fetch(`${url}/auth/v1/admin/users/${userId}`, {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify({ ban_duration: active ? 'none' : '876000h' }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.msg || body.message || `Could not ${active ? 'unban' : 'ban'} auth user`);
+  }
+  if (active || !process.env.DATABASE_URL) return;
+  const client = new pg.Client({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+  try {
+    await client.connect();
+    await client.query('DELETE FROM auth.sessions WHERE user_id = $1', [userId]);
+  } finally {
+    await client.end().catch(() => {});
+  }
+}
+
+async function loadLastSignIns() {
+  const map = new Map();
+  const url = process.env.SUPABASE_URL;
+  for (let page = 1; page <= 20; page += 1) {
+    const res = await fetch(`${url}/auth/v1/admin/users?page=${page}&per_page=200`, { headers: authHeaders() });
+    if (!res.ok) break;
+    const data = await res.json();
+    const users = data.users || [];
+    for (const u of users) map.set(u.id, u.last_sign_in_at || null);
+    if (users.length < 200) break;
+  }
+  return map;
+}
+
+function userAuditSummary(profile) {
+  return {
+    username: profile.username,
+    full_name: profile.full_name,
+    role: profile.role,
+    site_key: profile.site_key,
+    brands: profile.brands || [],
+    is_active: profile.is_active,
+  };
+}
+
 async function findProfileByUsername(username) {
   const { data, error } = await supabaseAdmin
     .from('profiles')
@@ -131,15 +181,61 @@ async function upsertProfilePg(client, row) {
 }
 
 // GET /users — staff list (admin)
-router.get('/', async (_req, res, next) => {
-  try {
-    const { data, error } = await supabaseAdmin
+async function listStaff() {
+  const [{ data, error }, lastSignIns] = await Promise.all([
+    supabaseAdmin
       .from('profiles')
       .select('id, email, username, full_name, role, site_key, brands, is_active, created_at, updated_at')
-      .order('created_at', { ascending: false });
-    if (error) throw error;
-    const rows = await enrichProfilesSiteKey(data || []);
-    res.json({ data: rows });
+      .order('created_at', { ascending: false }),
+    loadLastSignIns().catch(() => new Map()),
+  ]);
+  if (error) throw error;
+  const rows = await enrichProfilesSiteKey(data || []);
+  return rows.map((r) => ({ ...r, last_sign_in_at: lastSignIns.get(r.id) || null }));
+}
+
+router.get('/', async (_req, res, next) => {
+  try {
+    res.json({ data: await listStaff() });
+  } catch (e) {
+    next(e);
+  }
+});
+
+function csvCell(value) {
+  const s = value == null ? '' : String(value);
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+// GET /users/export — staff list CSV for the monthly reconciliation (no passwords)
+router.get('/export', async (req, res, next) => {
+  try {
+    const rows = await listStaff();
+    const header = ['Username', 'Full name', 'Role', 'Site', 'Brands', 'Status', 'Created', 'Last login'];
+    const lines = rows.map((r) => [
+      r.username,
+      r.full_name,
+      r.role,
+      r.site_key,
+      (r.brands || []).join(' '),
+      r.is_active ? 'Active' : 'Locked',
+      r.created_at ? String(r.created_at).slice(0, 10) : '',
+      r.last_sign_in_at ? String(r.last_sign_in_at).slice(0, 16).replace('T', ' ') : 'Never',
+    ].map(csvCell).join(','));
+
+    await writeAudit({
+      entityType: 'profile',
+      entityId: null,
+      action: 'EXPORT',
+      metadata: { export: 'user_list', rows: rows.length },
+      userId: req.user.id,
+      req,
+    });
+
+    const stamp = new Date().toISOString().slice(0, 10);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="ams-users-${stamp}.csv"`);
+    res.send(`\uFEFF${[header.join(','), ...lines].join('\n')}\n`);
   } catch (e) {
     next(e);
   }
@@ -165,7 +261,7 @@ router.post('/', async (req, res, next) => {
       const resetRes = await fetch(`${url}/auth/v1/admin/users/${authUser.id}`, {
         method: 'PUT',
         headers: authHeaders(),
-        body: JSON.stringify({ password: body.password, email_confirm: true }),
+        body: JSON.stringify({ password: body.password, email_confirm: true, ban_duration: 'none' }),
       });
       if (!resetRes.ok) throw new Error('Could not reset existing auth user password');
     } else {
@@ -243,6 +339,17 @@ router.patch('/:id', async (req, res, next) => {
       .single();
     if (findErr || !existing) return res.status(404).json({ error: 'User not found' });
 
+    const isSelf = req.params.id === req.user.id;
+    if (isSelf && body.is_active === false) {
+      return res.status(400).json({ error: 'You cannot lock your own account' });
+    }
+    if (isSelf && body.role != null && body.role !== 'admin') {
+      return res.status(400).json({ error: 'You cannot remove your own admin role' });
+    }
+
+    const activeChanged = body.is_active != null && body.is_active !== existing.is_active;
+    if (activeChanged) await setAuthAccess(req.params.id, body.is_active);
+
     if (body.password) {
       const url = process.env.SUPABASE_URL;
       const resetRes = await fetch(`${url}/auth/v1/admin/users/${req.params.id}`, {
@@ -290,6 +397,28 @@ router.patch('/:id', async (req, res, next) => {
       data = existing;
     }
 
+    const before = userAuditSummary(existing);
+    const after = userAuditSummary(data);
+    const changed = Object.keys(before).filter(
+      (k) => JSON.stringify(before[k]) !== JSON.stringify(after[k]),
+    );
+    if (changed.length || body.password) {
+      let kind = 'profile_update';
+      if (activeChanged) kind = body.is_active ? 'user_unlock' : 'user_lock';
+      else if (changed.includes('role')) kind = 'role_change';
+      else if (body.password && !changed.length) kind = 'password_reset';
+      await writeAudit({
+        entityType: 'profile',
+        entityId: existing.id,
+        action: 'USER_UPDATE',
+        previousValue: before,
+        newValue: after,
+        metadata: { kind, changed, ...(body.password ? { password_reset: true } : {}) },
+        userId: req.user.id,
+        req,
+      });
+    }
+
     const [enriched] = await enrichProfilesSiteKey([data]);
     res.json(enriched);
   } catch (e) {
@@ -327,7 +456,7 @@ router.delete('/:id', async (req, res, next) => {
       entityType: 'profile',
       entityId: existing.id,
       action: 'USER_DELETE',
-      oldValue: { username: existing.username },
+      previousValue: { username: existing.username },
       userId: req.user.id,
       req,
     });

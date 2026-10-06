@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import { ZodError } from 'zod';
 import v1Router from './routes/v1/index.js';
+import { ipAllowlistGate } from './lib/ipAllowlist.js';
 
 const app = express();
 
@@ -20,7 +21,7 @@ app.use(cors({
 app.use(morgan('dev'));
 app.use(express.json({ limit: '8mb' }));
 
-app.use('/api/v1', v1Router);
+app.use('/api/v1', ipAllowlistGate, v1Router);
 
 app.use((err, _req, res, _next) => {
   if (err instanceof ZodError) {

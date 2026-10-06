@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Lock, LockOpen, Pencil, Plus, Trash2, UserPlus } from 'lucide-react';
+import { Download, Lock, LockOpen, Pencil, Plus, Trash2, UserPlus } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import PageHead from '../../components/PageHead';
 import DetailDialog from '../../components/DetailDialog';
@@ -41,6 +41,20 @@ function resolveSiteKey(siteKey, role) {
 
 function siteShortLabel(siteKey, role) {
   return SITES[resolveSiteKey(siteKey, role)].short;
+}
+
+const STALE_LOGIN_DAYS = 30;
+
+function formatLastLogin(iso) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function isStaleLogin(iso) {
+  if (!iso) return true;
+  return Date.now() - new Date(iso).getTime() > STALE_LOGIN_DAYS * 86400000;
 }
 
 const EMPTY_FORM = {
@@ -112,7 +126,7 @@ export default function UserManagementPage() {
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ['users'] });
       if (vars?.body && Object.keys(vars.body).length === 1 && 'is_active' in vars.body) {
-        showToast(vars.body.is_active ? 'Account unlocked' : 'Account locked');
+        showToast(vars.body.is_active ? 'Account unlocked' : 'Account locked — signed out everywhere');
         return;
       }
       closeDialog();
@@ -303,6 +317,29 @@ export default function UserManagementPage() {
     }
   }
 
+  const [exporting, setExporting] = useState(false);
+
+  async function exportUsers() {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const res = await api.get('/users/export', { responseType: 'blob' });
+      const url = URL.createObjectURL(res.data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ams-users-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      showToast('User list exported');
+    } catch (err) {
+      showToast(err.message || 'Export failed', 'error');
+    } finally {
+      setExporting(false);
+    }
+  }
+
   const formSiteOptions = siteOptionsForRole();
   const dialogBusy = createMut.isPending || patchMut.isPending;
 
@@ -313,10 +350,18 @@ export default function UserManagementPage() {
         title="User management"
         description="Admin Master manages users and settings only — not pipeline operators. Operators register accounts (Owner) and can assign Staff names for Business. Business users only see Delivery tickets and Governance for their brands."
         actions={(
-          <button type="button" className="btn btn-primary btn-sm" onClick={openCreate}>
-            <UserPlus size={15} strokeWidth={2.25} />
-            Add user
-          </button>
+          <>
+            <IconTooltip label="Staff list with last login — for the monthly check against active staff">
+              <button type="button" className="btn btn-secondary btn-sm" onClick={exportUsers} disabled={exporting}>
+                <Download size={15} strokeWidth={2.25} />
+                {exporting ? 'Exporting…' : 'Export CSV'}
+              </button>
+            </IconTooltip>
+            <button type="button" className="btn btn-primary btn-sm" onClick={openCreate}>
+              <UserPlus size={15} strokeWidth={2.25} />
+              Add user
+            </button>
+          </>
         )}
       />
 
@@ -420,13 +465,14 @@ export default function UserManagementPage() {
                     <th>Site</th>
                     <th>Role</th>
                     <th>Brands</th>
+                    <th>Last login</th>
                     <th className="col-action">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {pageRows.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="empty-cell">
+                      <td colSpan={8} className="empty-cell">
                         No users yet. Add Operator accounts for Control Center pipeline, or other roles as needed.
                       </td>
                     </tr>
@@ -469,6 +515,18 @@ export default function UserManagementPage() {
                           ) : (
                             <span className="text-[12.5px] text-ams-faint">—</span>
                           )}
+                        </td>
+                        <td className="whitespace-nowrap text-[12.5px]">
+                          {formatLastLogin(u.last_sign_in_at) ? (
+                            <IconTooltip label={isStaleLogin(u.last_sign_in_at) && u.is_active ? `No login for over ${STALE_LOGIN_DAYS} days — check if still on staff` : 'Last successful login'}>
+                              <span className={isStaleLogin(u.last_sign_in_at) && u.is_active ? 'text-ams-warn' : 'text-ams-muted'}>
+                                {formatLastLogin(u.last_sign_in_at)}
+                              </span>
+                            </IconTooltip>
+                          ) : (
+                            <span className="text-ams-faint">Never</span>
+                          )}
+                          {!u.is_active && <span className="badge badge-danger ml-2">Locked</span>}
                         </td>
                         <td className="col-action">
                           <div className="col-action-btns">

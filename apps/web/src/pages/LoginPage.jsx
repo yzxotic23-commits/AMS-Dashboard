@@ -9,7 +9,11 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [error, setError] = useState(() => (
+    new URLSearchParams(window.location.search).get('reason') === 'deactivated'
+      ? 'Your account has been locked. Contact the AMS admin.'
+      : ''
+  ));
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e) {

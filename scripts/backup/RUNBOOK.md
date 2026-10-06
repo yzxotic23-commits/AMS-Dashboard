@@ -5,11 +5,13 @@
 | Layer | What | Retention | Who restores |
 |---|---|---|---|
 | Supabase Pro daily backup | Whole database (managed by Supabase) | 7 days | Supabase dashboard → Database → Backups |
-| Nightly encrypted backup (this folder) | `public` schema + `auth.users`, AES-256 encrypted | 30 days (GitHub Actions artifacts) | This runbook, step B |
+| Nightly encrypted backup (this folder) | `public` schema + `auth.users`, AES-256 encrypted | Google Shared Drive `AMS-Backups` (in setup); until then GitHub Actions artifacts, 7 days, private repo | This runbook, step B |
 | Audit log | Every export, delete, lock/role change, setting change, circuit-breaker trip | Permanent (`audit_logs`) | Audit Log page |
 
 The nightly job (`.github/workflows/db-backup.yml`, 02:00 WIB) runs a **restore drill** right after every
-backup: it restores into an empty Postgres 17 and checks every table's row count. A red run (or a Slack
+backup, in the same job: it restores into an empty Postgres 17 and checks every table's row count.
+Backups are encrypted before they leave the runner; the passphrase lives only in GitHub secrets and the
+password manager. A red run (or a Slack
 alert, if the webhook is set) means last night's backup is not trustworthy — investigate the same day.
 
 ## One-time setup
@@ -38,7 +40,8 @@ Then Actions → "AMS database backup" → Run workflow, and confirm both jobs a
 First choice: Supabase dashboard → Database → Backups → restore the latest daily backup. Use the steps
 below only if that is unavailable or older than the nightly artifact.
 
-1. Download: GitHub → Actions → latest green "AMS database backup" run → artifact `ams-db-backup`.
+1. Download the latest `ams-backup-*.tar.gz.enc` from the `AMS-Backups` Shared Drive (or, while the Drive
+   upload is not live yet: GitHub → Actions → latest green "AMS database backup" run → artifact `ams-db-backup`).
 2. Decrypt and unpack:
    ```bash
    export BACKUP_PASSPHRASE='…'

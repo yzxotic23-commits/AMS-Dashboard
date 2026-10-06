@@ -23,6 +23,19 @@ export function parseAllowlistValue(value) {
   return { value: `${addr}/${prefix}`, type, addr, prefix };
 }
 
+const text = (v, max) => String(v || '').trim().slice(0, max);
+
+/** "CRM | SGD 1" — kept alongside the structured fields for audit logs and older readers. */
+function composeLabel({ department, user }) {
+  return [department, user].filter(Boolean).join(' | ');
+}
+
+/** Entries saved before the `user` field split the name into market + line ("SGD" + "1"). */
+function entryUser(e) {
+  if (e?.user !== undefined) return text(e.user, 60);
+  return text([e?.market, e?.line].map((v) => String(v || '').trim()).filter(Boolean).join(' '), 60);
+}
+
 export function normalizeAllowlistConfig(value) {
   const entries = Array.isArray(value?.entries) ? value.entries : [];
   return {
@@ -31,7 +44,14 @@ export function normalizeAllowlistConfig(value) {
       .map((e) => {
         const parsed = parseAllowlistValue(e?.value);
         if (!parsed) return null;
-        return { value: parsed.value, label: String(e?.label || '').trim().slice(0, 80) };
+        const fields = {
+          department: text(e?.department, 40),
+          user: entryUser(e),
+          remark: text(e?.remark, 200),
+          active: e?.active !== false,
+        };
+        const label = composeLabel(fields) || text(e?.label, 80);
+        return { value: parsed.value, ...fields, label: label.slice(0, 80) };
       })
       .filter(Boolean),
   };
@@ -40,6 +60,7 @@ export function normalizeAllowlistConfig(value) {
 function buildBlockList(entries) {
   const list = new net.BlockList();
   for (const e of entries) {
+    if (e.active === false) continue;
     const parsed = parseAllowlistValue(e.value);
     if (!parsed) continue;
     if (parsed.prefix == null) list.addAddress(parsed.addr, parsed.type);

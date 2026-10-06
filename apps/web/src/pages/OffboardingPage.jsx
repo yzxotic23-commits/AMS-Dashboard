@@ -29,6 +29,12 @@ function isStaleLogin(iso) {
   return Date.now() - new Date(iso).getTime() > STALE_LOGIN_DAYS * 86400000;
 }
 
+function StatusPill({ active }) {
+  return active
+    ? <span className="badge badge-success">Active</span>
+    : <span className="badge badge-danger">Locked</span>;
+}
+
 export default function OffboardingPage() {
   const { profile } = useAuth();
   const qc = useQueryClient();
@@ -143,11 +149,10 @@ export default function OffboardingPage() {
       {!isLoading && !isError && (
         <div className="data-panel card overflow-hidden">
           <div className="data-table-wrap">
-            <table className="data-table w-full">
+            <table className="data-table data-table--offboard w-full">
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>Username</th>
+                  <th>Staff</th>
                   <th>Site</th>
                   <th>Role</th>
                   <th>Last login</th>
@@ -158,7 +163,7 @@ export default function OffboardingPage() {
               <tbody>
                 {rows.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="empty-cell">No staff match this filter.</td>
+                    <td colSpan={6} className="empty-cell">No staff match this filter.</td>
                   </tr>
                 ) : rows.map((u) => {
                   const isSelf = u.id === profile?.id;
@@ -168,9 +173,11 @@ export default function OffboardingPage() {
                     : adminTarget ? 'Admin accounts can only be locked by an admin' : null;
                   const stale = u.is_active && isStaleLogin(u.last_sign_in_at);
                   return (
-                    <tr key={u.id}>
-                      <td className="font-medium">{u.full_name}</td>
-                      <td className="font-mono text-sm">{u.username}</td>
+                    <tr key={u.id} className={u.is_active ? undefined : 'is-locked'}>
+                      <td>
+                        <div className="font-medium text-ams-ink">{u.full_name}</div>
+                        <div className="font-mono text-[12px] text-ams-faint">{u.username}</div>
+                      </td>
                       <td>
                         <span className={getSiteChipClass(siteKeyOf(u))}>{SITES[siteKeyOf(u)].short}</span>
                       </td>
@@ -182,30 +189,26 @@ export default function OffboardingPage() {
                       <td className="whitespace-nowrap text-[12.5px]">
                         {formatLastLogin(u.last_sign_in_at) ? (
                           <IconTooltip label={stale ? `No login for over ${STALE_LOGIN_DAYS} days — check if still on staff` : 'Last successful login'}>
-                            <span className={stale ? 'text-ams-warn' : 'text-ams-muted'}>{formatLastLogin(u.last_sign_in_at)}</span>
+                            <span className={stale ? 'offboard-stale' : 'text-ams-muted'}>{formatLastLogin(u.last_sign_in_at)}</span>
                           </IconTooltip>
                         ) : (
-                          <span className={u.is_active ? 'text-ams-warn' : 'text-ams-faint'}>Never</span>
+                          <span className={u.is_active ? 'offboard-stale' : 'text-ams-faint'}>Never</span>
                         )}
                       </td>
-                      <td>
-                        {u.is_active
-                          ? <span className="badge badge-default">Active</span>
-                          : <span className="badge badge-danger">Locked</span>}
-                      </td>
+                      <td><StatusPill active={u.is_active} /></td>
                       <td className="col-action">
                         {blockedReason ? (
                           <IconTooltip label={blockedReason}>
-                            <span className="text-[12.5px] text-ams-faint">—</span>
+                            <span className="text-[12px] text-ams-faint">{isSelf ? 'You' : 'Admin only'}</span>
                           </IconTooltip>
                         ) : (
                           <button
                             type="button"
-                            className={`btn btn-sm ${u.is_active ? 'btn-danger' : 'btn-secondary'}`}
+                            className="btn btn-secondary btn-sm min-w-[5.5rem] justify-center"
                             onClick={() => openDialog(u)}
                             disabled={mutation.isPending}
                           >
-                            {u.is_active ? <Lock size={14} strokeWidth={2.25} /> : <LockOpen size={14} strokeWidth={2.25} />}
+                            {u.is_active ? <Lock size={13} strokeWidth={2.25} /> : <LockOpen size={13} strokeWidth={2.25} />}
                             {u.is_active ? 'Lock' : 'Unlock'}
                           </button>
                         )}

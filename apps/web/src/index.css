@@ -1814,6 +1814,54 @@
     width: 1%;
     min-width: 5.5rem;
   }
+  /* Staff offboarding + Network access */
+  .data-table--offboard th.col-action,
+  .data-table--offboard td.col-action,
+  .data-table--allowlist th.col-action,
+  .data-table--allowlist td.col-action {
+    width: 7.5rem;
+    min-width: 7.5rem;
+    text-align: center;
+  }
+  .data-table--offboard td.col-action .btn {
+    min-width: 5.5rem;
+    justify-content: center;
+  }
+  .data-table--offboard tr.is-locked td {
+    background-color: var(--ams-surface-muted);
+  }
+  .data-table--offboard tr.is-locked td:first-child > div:first-child {
+    color: var(--ams-muted);
+  }
+  .offboard-stale {
+    color: #b8860b;
+    font-weight: 500;
+  }
+  .data-table--allowlist .col-num {
+    width: 3rem;
+    color: var(--ams-faint);
+  }
+  .data-table--allowlist .col-ip {
+    width: 13rem;
+  }
+  .data-table--allowlist .col-department {
+    width: 14rem;
+  }
+  .data-table--allowlist .col-user {
+    width: 12rem;
+  }
+  .data-table--allowlist .col-note {
+    text-align: center;
+  }
+  .data-table--allowlist td.col-note {
+    max-width: 20rem;
+  }
+  .data-table--allowlist .col-status {
+    width: 8rem;
+  }
+  .data-table--allowlist tr.is-inactive td:not(.col-status):not(.col-action) {
+    opacity: 0.55;
+  }
   .data-table th.col-action--wide,
   .data-table td.col-action--wide {
     min-width: 7.5rem;

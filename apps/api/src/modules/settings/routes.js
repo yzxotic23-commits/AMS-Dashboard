@@ -97,6 +97,10 @@ const allowlistSchema = z.object({
   entries: z.array(z.object({
     value: z.string().trim().min(1).max(64),
     label: z.string().trim().max(80).optional().default(''),
+    department: z.string().trim().max(40).optional().default(''),
+    user: z.string().trim().max(60).optional().default(''),
+    remark: z.string().trim().max(200).optional().default(''),
+    active: z.boolean().optional().default(true),
   })).max(200),
 });
 
@@ -121,8 +125,8 @@ router.put('/ip-allowlist', async (req, res, next) => {
       return res.status(400).json({ error: `Not a valid IP or CIDR range: ${invalid.join(', ')}` });
     }
     const yourIp = clientIp(req);
-    if (body.enabled && !body.entries.length) {
-      return res.status(400).json({ error: 'Add at least one IP before turning the allowlist on' });
+    if (body.enabled && !body.entries.some((e) => e.active)) {
+      return res.status(400).json({ error: 'Add at least one active IP before turning the allowlist on' });
     }
     if (body.enabled && !ipMatchesAllowlist(yourIp, body.entries)
       && yourIp !== '127.0.0.1' && yourIp !== '::1') {

@@ -1,5 +1,6 @@
 import { supabaseAdmin } from './supabase.js';
 import { clientIp } from './clientIp.js';
+import { alertForAudit } from './alerts.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -17,6 +18,7 @@ export async function writeAudit({
   const meta = entityId && !validId
     ? { ...(metadata || {}), entity_ref: String(entityId) }
     : metadata;
+  const ip = req ? clientIp(req) || null : null;
   const { error } = await supabaseAdmin.from('audit_logs').insert({
     entity_type: entityType,
     entity_id: validId,
@@ -25,10 +27,15 @@ export async function writeAudit({
     new_value: newValue ?? null,
     metadata: meta ?? null,
     user_id: userId || null,
-    ip_address: req ? clientIp(req) || null : null,
+    ip_address: ip,
     user_agent: req?.headers?.['user-agent'] || null,
   });
   if (error) console.error('[Audit] write failed:', error.message);
+
+  await alertForAudit(
+    { action, entityType, metadata: meta, previousValue, newValue },
+    { actor: req?.profile?.full_name || req?.profile?.username, ip },
+  );
 }
 
 export function auditMiddleware(entityType, action) {

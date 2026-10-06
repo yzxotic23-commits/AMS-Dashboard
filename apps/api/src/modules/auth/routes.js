@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { authenticate } from '../../middleware/auth.js';
 import { supabaseAdmin } from '../../lib/supabase.js';
 import { writeAudit } from '../../lib/audit.js';
+import { canExport } from '../../lib/exportAccess.js';
 
 const router = Router();
 
@@ -78,7 +79,7 @@ router.post('/login', async (req, res, next) => {
 });
 
 router.get('/me', authenticate, async (req, res) => {
-  res.json({ user: req.user, profile: req.profile });
+  res.json({ user: req.user, profile: { ...req.profile, can_export: canExport(req.profile) } });
 });
 
 export default router;

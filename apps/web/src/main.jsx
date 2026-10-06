@@ -8,6 +8,7 @@ import { SiteProvider } from './context/SiteContext';
 import { GovernanceDateProvider } from './context/GovernanceDateContext';
 import { getWebConfig } from './lib/supabase';
 import NetworkBlockedScreen from './components/NetworkBlockedScreen';
+import CircuitBreakerNotice from './components/CircuitBreakerNotice';
 import { bindAudioUnlock } from './lib/alert-notify';
 import './index.css';
 
@@ -57,6 +58,7 @@ if (!config.ok) {
               <GovernanceDateProvider>
                 <App />
                 <NetworkBlockedScreen />
+                <CircuitBreakerNotice />
               </GovernanceDateProvider>
             </SiteProvider>
           </AuthProvider>

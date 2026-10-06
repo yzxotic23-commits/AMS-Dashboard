@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { authenticate, requireRole } from '../middleware/auth.js';
 import { supabaseAdmin } from './supabase.js';
 import { writeAudit } from './audit.js';
+import { circuitBreaker } from './circuitBreaker.js';
 import { parsePagination, paginatedResponse } from './pagination.js';
 
 export function createCrudRouter({
@@ -74,7 +75,7 @@ export function createCrudRouter({
     }
   });
 
-  router.delete('/:id', async (req, res, next) => {
+  router.delete('/:id', circuitBreaker('delete'), async (req, res, next) => {
     try {
       const { data: current } = await supabaseAdmin.from(table).select('*').eq('id', req.params.id).single();
       const { error } = await supabaseAdmin.from(table).delete().eq('id', req.params.id);

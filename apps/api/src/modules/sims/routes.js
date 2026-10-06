@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { authenticate, requireRole } from '../../middleware/auth.js';
 import { supabaseAdmin } from '../../lib/supabase.js';
 import { writeAudit } from '../../lib/audit.js';
+import { circuitBreaker } from '../../lib/circuitBreaker.js';
 import { parsePagination, paginatedResponse } from '../../lib/pagination.js';
 import {
   appendSimTopup,
@@ -811,7 +812,7 @@ router.patch('/:id', async (req, res, next) => {
   }
 });
 
-router.delete('/:id', async (req, res, next) => {
+router.delete('/:id', circuitBreaker('delete'), async (req, res, next) => {
   try {
     const { id } = req.params;
     const { data: current, error: loadErr } = await supabaseAdmin

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { authenticate, requireRole } from '../../middleware/auth.js';
 import { supabaseAdmin } from '../../lib/supabase.js';
 import { writeAudit } from '../../lib/audit.js';
+import { circuitBreaker } from '../../lib/circuitBreaker.js';
 import { assertTransition, ACCOUNT_STATUSES } from '../../lib/stateMachine.js';
 import { parsePagination, paginatedResponse, pick } from '../../lib/pagination.js';
 import {
@@ -710,7 +711,7 @@ router.post('/:id/transition', async (req, res, next) => {
 });
 
 // POST /accounts/:id/ban — two-stage ban logging (manual day 1–3, auto day 4+)
-router.post('/:id/ban', async (req, res, next) => {
+router.post('/:id/ban', circuitBreaker('account_ban'), async (req, res, next) => {
   try {
     const { stage, reason, source } = banSchema.parse(req.body);
     const { data: current, error: fetchErr } = await supabaseAdmin
@@ -914,7 +915,7 @@ router.post('/:id/mark-strict', async (req, res, next) => {
 // POST /accounts/:id/engine-disconnect — FeedFlow slot lost live connection for an
 // IN_USE account. Mark LOGGED_OUT + open disconnect_report so R&M gets the header bell
 // (even when Business did not self-report).
-router.post('/:id/engine-disconnect', async (req, res, next) => {
+router.post('/:id/engine-disconnect', circuitBreaker('account_disconnect'), async (req, res, next) => {
   try {
     const { note, slot } = engineDisconnectSchema.parse(req.body || {});
     const { data: current, error: fetchErr } = await supabaseAdmin
@@ -1470,7 +1471,7 @@ router.post('/:id/ack-notice', async (req, res, next) => {
 });
 
 // DELETE /accounts/:id
-router.delete('/:id', async (req, res, next) => {
+router.delete('/:id', circuitBreaker('delete'), async (req, res, next) => {
   try {
     const { data: current } = await supabaseAdmin
       .from('accounts')

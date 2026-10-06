@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getBridgeSummary } from '../lib/bridge-client';
-import api from '../lib/api';
+import api, { AUTOMATION_HEADERS } from '../lib/api';
 import { useAllAccounts } from './useOperatorAccounts';
 import { matchAccountForEngineSlot } from '../lib/engine-slot';
 
@@ -62,7 +62,7 @@ export function useEngineHealthSync() {
         await api.post(`/accounts/${match.id}/engine-disconnect`, {
           slot: Number(slot.slot),
           note: `Auto-detected by AMS: FeedFlow slot ${Number(slot.slot) + 1} offline / logged out`,
-        });
+        }, { headers: AUTOMATION_HEADERS });
         qc.invalidateQueries({ queryKey: ['accounts'] });
       } catch {
         synced.current.delete(key);

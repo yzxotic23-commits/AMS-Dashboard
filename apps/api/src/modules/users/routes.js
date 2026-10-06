@@ -4,6 +4,8 @@ import pg from 'pg';
 import { authenticate, requireRole } from '../../middleware/auth.js';
 import { supabaseAdmin } from '../../lib/supabase.js';
 import { writeAudit } from '../../lib/audit.js';
+import { circuitBreaker } from '../../lib/circuitBreaker.js';
+import { requireExport } from '../../lib/exportAccess.js';
 import {
   enrichProfilesSiteKey,
   normalizeProfileBrands,
@@ -208,7 +210,7 @@ function csvCell(value) {
 }
 
 // GET /users/export — staff list CSV for the monthly reconciliation (no passwords)
-router.get('/export', async (req, res, next) => {
+router.get('/export', requireExport, async (req, res, next) => {
   try {
     const rows = await listStaff();
     const header = ['Username', 'Full name', 'Role', 'Site', 'Brands', 'Status', 'Created', 'Last login'];
@@ -429,7 +431,7 @@ router.patch('/:id', async (req, res, next) => {
 });
 
 // DELETE /users/:id — remove staff account (not self)
-router.delete('/:id', async (req, res, next) => {
+router.delete('/:id', circuitBreaker('delete'), async (req, res, next) => {
   try {
     if (req.params.id === req.user.id) {
       return res.status(400).json({ error: 'Cannot delete your own account' });

@@ -179,6 +179,25 @@ export async function refreshWsafBridgeState() {
  *  that treated limit=0 as slice(0,0) → empty list. */
 const FEEDING_AUDIT_ALL = 100_000;
 
+/** Raw CSV of the engine feeding audit log (proxied so AMS can gate and audit it). */
+export async function fetchWsafFeedingAuditCsv() {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 30_000);
+  try {
+    const res = await fetch(`${bridgeBase()}/api/audit/export`, {
+      signal: controller.signal,
+      headers: { 'X-FeedFlow-Client': 'ams-bridge' },
+    });
+    const text = await res.text();
+    if (!res.ok) throw new Error(text || `WSAF bridge HTTP ${res.status}`);
+    return text;
+  } catch (e) {
+    throw formatWsafError(e);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function fetchWsafFeedingAudit({ limit = FEEDING_AUDIT_ALL, offset = 0 } = {}) {
   const safeLimit = !limit || limit <= 0 ? FEEDING_AUDIT_ALL : limit;
   const params = new URLSearchParams({

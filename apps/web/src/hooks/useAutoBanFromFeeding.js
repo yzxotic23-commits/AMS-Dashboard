@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import api from '../lib/api';
+import api, { AUTOMATION_HEADERS } from '../lib/api';
 import { useFeedingAudit } from './useFeedingAudit';
 import { accountToOperatorRow } from '../lib/account-operator-meta';
 
@@ -59,7 +59,7 @@ export function useAutoBanFromFeeding() {
           stage: 'auto',
           reason: 'Engine detected ban',
           source: entry.ipAddress ? `IP ${entry.ipAddress}` : 'FeedFlow audit',
-        });
+        }, { headers: AUTOMATION_HEADERS });
         qc.invalidateQueries({ queryKey: ['accounts'] });
         qc.invalidateQueries({ queryKey: ['ips'] });
         qc.invalidateQueries({ queryKey: ['bans'] });

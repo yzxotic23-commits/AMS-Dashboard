@@ -11,7 +11,8 @@ import {
   filterFeedingAuditBySite,
 } from '../lib/feeding-audit';
 import { SITES } from '../lib/sites';
-import { wsafBridgeBase } from '../lib/wsafEmbed';
+import { useAuth } from '../context/AuthContext';
+import { downloadFromApi } from '../lib/download';
 
 const CURRENT_STATUS_CLASS = {
   [CURRENT_STATUS.ACTIVE]: 'badge-accent',
@@ -48,6 +49,19 @@ export default function FeedingAuditPanel() {
   const { data: accounts = [] } = useAllAccounts();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
+  const { profile } = useAuth();
+  const [exporting, setExporting] = useState(false);
+
+  async function exportCsv() {
+    setExporting(true);
+    try {
+      await downloadFromApi('/bridge/audit/export', `feeding-audit-${new Date().toISOString().slice(0, 10)}.csv`);
+    } catch (err) {
+      window.alert(err.message || 'Export failed');
+    } finally {
+      setExporting(false);
+    }
+  }
 
   const allEntries = useMemo(
     () => enrichFeedingAuditLocations(data?.entries || [], accounts),
@@ -98,14 +112,17 @@ export default function FeedingAuditPanel() {
           >
             <RefreshCw size={14} className={isFetching ? 'animate-spin' : ''} />
           </button>
-          <a
-            href={`${wsafBridgeBase()}/api/audit/export`}
-            className="btn btn-secondary btn-sm"
-            download
-          >
-            <Download size={14} />
-            Export CSV
-          </a>
+          {profile?.can_export && (
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              disabled={exporting}
+              onClick={exportCsv}
+            >
+              <Download size={14} />
+              {exporting ? 'Exporting…' : 'Export CSV'}
+            </button>
+          )}
         </div>
       </div>
 

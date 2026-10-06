@@ -4,6 +4,7 @@ import {
   fetchWsafBridgeSummary,
   fetchWsafEngineStatus,
   fetchWsafFeedingAudit,
+  fetchWsafFeedingAuditCsv,
   postWsafConnect,
   postWsafDisconnect,
   postWsafSlotDisplayLabel,
@@ -16,6 +17,8 @@ import {
   refreshWsafBridgeState,
 } from '../../lib/wsafBridge.js';
 import { ensureWsafEngineReady, getWsafBootStatus } from '../../lib/wsafEngineManager.js';
+import { writeAudit } from '../../lib/audit.js';
+import { requireExport } from '../../lib/exportAccess.js';
 
 const router = Router();
 
@@ -246,6 +249,27 @@ router.get('/audit', authenticate, async (req, res) => {
       entries: [],
       error: e.message || 'Feeding audit unavailable',
     });
+  }
+});
+
+router.get('/audit/export', authenticate, requireExport, async (req, res, next) => {
+  try {
+    const csv = await fetchWsafFeedingAuditCsv();
+    const rows = Math.max(0, csv.trim().split('\n').length - 1);
+    await writeAudit({
+      entityType: 'session',
+      entityId: null,
+      action: 'EXPORT',
+      metadata: { export: 'feeding_audit', rows },
+      userId: req.profile.id,
+      req,
+    });
+    const stamp = new Date().toISOString().slice(0, 10);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="feeding-audit-${stamp}.csv"`);
+    res.send(csv);
+  } catch (e) {
+    next(e);
   }
 });
 

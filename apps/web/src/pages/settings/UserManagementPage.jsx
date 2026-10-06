@@ -10,6 +10,7 @@ import { useAuth } from '../../context/AuthContext';
 import { SITES, getSiteChipClass } from '../../lib/sites';
 import { BRAND_OPTIONS, normalizeBrands } from '../../lib/profile-brands';
 import api from '../../lib/api';
+import { downloadFromApi } from '../../lib/download';
 
 const ROLES = [
   { value: 'operator', label: 'Operator' },
@@ -323,15 +324,7 @@ export default function UserManagementPage() {
     if (exporting) return;
     setExporting(true);
     try {
-      const res = await api.get('/users/export', { responseType: 'blob' });
-      const url = URL.createObjectURL(res.data);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `ams-users-${new Date().toISOString().slice(0, 10)}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      await downloadFromApi('/users/export', `ams-users-${new Date().toISOString().slice(0, 10)}.csv`);
       showToast('User list exported');
     } catch (err) {
       showToast(err.message || 'Export failed', 'error');
@@ -351,12 +344,14 @@ export default function UserManagementPage() {
         description="Admin Master manages users and settings only — not pipeline operators. Operators register accounts (Owner) and can assign Staff names for Business. Business users only see Delivery tickets and Governance for their brands."
         actions={(
           <>
-            <IconTooltip label="Staff list with last login — for the monthly check against active staff">
-              <button type="button" className="btn btn-secondary btn-sm" onClick={exportUsers} disabled={exporting}>
-                <Download size={15} strokeWidth={2.25} />
-                {exporting ? 'Exporting…' : 'Export CSV'}
-              </button>
-            </IconTooltip>
+            {profile?.can_export && (
+              <IconTooltip label="Staff list with last login — for the monthly check against active staff">
+                <button type="button" className="btn btn-secondary btn-sm" onClick={exportUsers} disabled={exporting}>
+                  <Download size={15} strokeWidth={2.25} />
+                  {exporting ? 'Exporting…' : 'Export CSV'}
+                </button>
+              </IconTooltip>
+            )}
             <button type="button" className="btn btn-primary btn-sm" onClick={openCreate}>
               <UserPlus size={15} strokeWidth={2.25} />
               Add user

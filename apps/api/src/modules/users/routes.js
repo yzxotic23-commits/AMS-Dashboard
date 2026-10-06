@@ -15,8 +15,6 @@ import {
 const router = Router();
 router.use(authenticate);
 
-router.use(requireRole('admin'));
-
 const brandEnum = z.enum(['SBMY', 'JMMY', 'STMY', 'PP', 'FWSG', 'WBSG', 'M24SG']);
 const brandsSchema = z.array(brandEnum).optional();
 
@@ -35,7 +33,12 @@ const patchSchema = z.object({
   site_key: z.enum(['my', 'pp', 'all']).optional(),
   brands: brandsSchema,
   is_active: z.boolean().optional(),
+  can_offboard: z.boolean().optional(),
   password: z.string().min(8).optional(),
+});
+
+const offboardSchema = z.object({
+  reason: z.string().trim().min(3, 'Reason is required').max(200),
 });
 
 function resolveBrandsForRole(role, brands) {
@@ -115,6 +118,7 @@ function userAuditSummary(profile) {
     site_key: profile.site_key,
     brands: profile.brands || [],
     is_active: profile.is_active,
+    can_offboard: Boolean(profile.can_offboard),
   };
 }
 
@@ -152,6 +156,10 @@ async function updateProfilePg(client, id, fields) {
     sets.push(`is_active = $${i++}`);
     vals.push(fields.is_active);
   }
+  if (fields.can_offboard != null) {
+    sets.push(`can_offboard = $${i++}`);
+    vals.push(fields.can_offboard);
+  }
   if (fields.password_hash != null) {
     sets.push(`password_hash = $${i++}`);
     vals.push(fields.password_hash);
@@ -187,7 +195,7 @@ async function listStaff() {
   const [{ data, error }, lastSignIns] = await Promise.all([
     supabaseAdmin
       .from('profiles')
-      .select('id, email, username, full_name, role, site_key, brands, is_active, created_at, updated_at')
+      .select('id, email, username, full_name, role, site_key, brands, is_active, can_offboard, created_at, updated_at')
       .order('created_at', { ascending: false }),
     loadLastSignIns().catch(() => new Map()),
   ]);
@@ -195,6 +203,82 @@ async function listStaff() {
   const rows = await enrichProfilesSiteKey(data || []);
   return rows.map((r) => ({ ...r, last_sign_in_at: lastSignIns.get(r.id) || null }));
 }
+
+function requireOffboarding(req, res, next) {
+  const p = req.profile;
+  if (p?.role === 'admin' || (p?.can_offboard === true && p.role !== 'business')) return next();
+  return res.status(403).json({ error: 'You do not have offboarding permission', code: 'OFFBOARD_NOT_ALLOWED' });
+}
+
+// GET /users/offboarding — staff list for the resource team (status only, nothing editable)
+router.get('/offboarding', requireOffboarding, async (_req, res, next) => {
+  try {
+    const rows = await listStaff();
+    res.json({
+      data: rows.map((r) => ({
+        id: r.id,
+        username: r.username,
+        full_name: r.full_name,
+        role: r.role,
+        site_key: r.site_key,
+        is_active: r.is_active,
+        last_sign_in_at: r.last_sign_in_at,
+      })),
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** Offboarding lock/unlock: non-admin targets only (unless the caller is admin), reason required. */
+async function setUserActive(req, res, next, active) {
+  try {
+    const { reason } = offboardSchema.parse(req.body || {});
+    const { data: existing, error: findErr } = await supabaseAdmin
+      .from('profiles')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+    if (findErr || !existing) return res.status(404).json({ error: 'User not found' });
+    if (existing.id === req.user.id) {
+      return res.status(400).json({ error: 'You cannot change your own account' });
+    }
+    if (existing.role === 'admin' && req.profile.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin accounts can only be locked or unlocked by an admin' });
+    }
+    if (existing.is_active === active) {
+      return res.status(409).json({ error: active ? 'Account is already active' : 'Account is already locked' });
+    }
+
+    await setAuthAccess(existing.id, active);
+    const { data, error } = await supabaseAdmin
+      .from('profiles')
+      .update({ is_active: active, updated_at: new Date().toISOString() })
+      .eq('id', existing.id)
+      .select('id, username, full_name, role, site_key, brands, is_active, can_offboard')
+      .single();
+    if (error) throw error;
+
+    await writeAudit({
+      entityType: 'profile',
+      entityId: existing.id,
+      action: 'USER_UPDATE',
+      previousValue: userAuditSummary(existing),
+      newValue: userAuditSummary(data),
+      metadata: { kind: active ? 'user_unlock' : 'user_lock', changed: ['is_active'], via: 'offboarding', reason },
+      userId: req.user.id,
+      req,
+    });
+    res.json({ id: data.id, username: data.username, is_active: data.is_active });
+  } catch (e) {
+    next(e);
+  }
+}
+
+router.post('/:id/lock', requireOffboarding, (req, res, next) => setUserActive(req, res, next, false));
+router.post('/:id/unlock', requireOffboarding, (req, res, next) => setUserActive(req, res, next, true));
+
+router.use(requireRole('admin'));
 
 router.get('/', async (_req, res, next) => {
   try {
@@ -367,6 +451,7 @@ router.patch('/:id', async (req, res, next) => {
       ...(body.full_name != null ? { full_name: body.full_name } : {}),
       ...(body.role != null ? { role: body.role } : {}),
       ...(body.is_active != null ? { is_active: body.is_active } : {}),
+      ...(body.can_offboard != null ? { can_offboard: body.can_offboard } : {}),
       ...(body.password ? { password_hash: body.password } : {}),
     };
     if (body.site_key != null || body.role != null) {
@@ -385,7 +470,7 @@ router.patch('/:id', async (req, res, next) => {
         .from('profiles')
         .update({ ...patch, updated_at: new Date().toISOString() })
         .eq('id', req.params.id)
-        .select('id, email, username, full_name, role, site_key, brands, is_active, created_at, updated_at')
+        .select('id, email, username, full_name, role, site_key, brands, is_active, can_offboard, created_at, updated_at')
         .single();
       if (error) throw error;
       data = updated;
@@ -408,6 +493,7 @@ router.patch('/:id', async (req, res, next) => {
       let kind = 'profile_update';
       if (activeChanged) kind = body.is_active ? 'user_unlock' : 'user_lock';
       else if (changed.includes('role')) kind = 'role_change';
+      else if (changed.includes('can_offboard')) kind = 'permission_change';
       else if (body.password && !changed.length) kind = 'password_reset';
       await writeAudit({
         entityType: 'profile',

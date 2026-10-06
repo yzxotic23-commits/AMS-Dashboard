@@ -33,7 +33,7 @@ const NAV_SECTIONS = [
     { to: '/' }, { to: '/register' }, { to: '/link' }, { to: '/nurturing' }, { to: '/recovery' },
   ]},
   { section: 'RESOURCE MGMT', collapsible: true, items: [{ to: '/ips' }, { to: '/sims' }] },
-  { section: 'SETTINGS', collapsible: true, items: [{ to: '/settings' }, { to: '/settings/users' }, { to: '/settings/access' }] },
+  { section: 'SETTINGS', collapsible: true, items: [{ to: '/settings' }, { to: '/settings/users' }, { to: '/settings/access' }, { to: '/offboarding' }] },
   { section: 'DELIVERY / DATA', collapsible: true, items: [
     { to: '/tickets' }, { to: '/governance' }, { to: '/audit' },
   ]},

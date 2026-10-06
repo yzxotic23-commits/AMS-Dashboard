@@ -17,6 +17,7 @@ import TicketsPage from './pages/TicketsPage';
 import UserManagementPage from './pages/settings/UserManagementPage';
 import SettingsPage from './pages/settings/SettingsPage';
 import NetworkAccessPage from './pages/settings/NetworkAccessPage';
+import OffboardingPage from './pages/OffboardingPage';
 import AdminRoute from './components/AdminRoute';
 import { homePathForRole } from './lib/role-access';
 
@@ -72,6 +73,14 @@ export default function App() {
         <Route path="phone-sync" element={<Navigate to="/sims" replace />} />
         <Route path="ip-gate" element={<Navigate to="/ips" replace />} />
         <Route path="audit" element={<AuditLogPage />} />
+        <Route
+          path="offboarding"
+          element={(
+            <AdminRoute allow={(p) => p?.can_offboard === true}>
+              <OffboardingPage />
+            </AdminRoute>
+          )}
+        />
         <Route
           path="settings"
           element={(

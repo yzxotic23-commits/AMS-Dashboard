@@ -2,7 +2,8 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { homePathForRole } from '../lib/role-access';
 
-export default function AdminRoute({ children }) {
+/** Admin-only route; `allow` can admit specific non-admin profiles (e.g. offboarding permission). */
+export default function AdminRoute({ children, allow }) {
   const { profile, loading } = useAuth();
 
   if (loading) {
@@ -13,7 +14,7 @@ export default function AdminRoute({ children }) {
     );
   }
 
-  if (profile?.role !== 'admin') {
+  if (profile?.role !== 'admin' && !allow?.(profile)) {
     return <Navigate to={homePathForRole(profile?.role)} replace />;
   }
 

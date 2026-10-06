@@ -2,7 +2,7 @@ import { memo, useEffect, useRef } from 'react';
 import { LogOut } from 'lucide-react';
 import {
   LayoutGrid, Plus, RotateCcw, Globe, CreditCard, Table2,
-  Ticket, LineChart, ScrollText, Zap, MessageSquare, Users, Smartphone, Search, ShieldCheck,
+  Ticket, LineChart, ScrollText, Zap, MessageSquare, Users, Smartphone, Search, ShieldCheck, UserX,
 } from 'lucide-react';
 import { readSidebarScrollTop, writeSidebarScrollTop } from '../lib/sidebar-prefs';
 import SidebarNavGroup, { pathInGroup } from './SidebarNavGroup';
@@ -63,7 +63,14 @@ const SETTINGS_GROUP = {
     { to: '/settings', icon: LineChart, label: 'RM Supply model', end: true },
     USER_MGMT_ITEM,
     { to: '/settings/access', icon: ShieldCheck, label: 'Network access' },
+    { to: '/offboarding', icon: UserX, label: 'Staff offboarding' },
   ],
+};
+
+const OFFBOARDING_GROUP = {
+  section: 'STAFF ACCESS',
+  collapsible: false,
+  items: [{ to: '/offboarding', icon: UserX, label: 'Staff offboarding' }],
 };
 
 function buildNav(profile) {
@@ -71,6 +78,7 @@ function buildNav(profile) {
   if (!profile?.role) return [];
   if (profile.role === 'business') return BUSINESS_NAV;
   if (profile.role === 'admin') return [...NAV, SETTINGS_GROUP];
+  if (profile.can_offboard) return [...NAV, OFFBOARDING_GROUP];
   return NAV;
 }
 

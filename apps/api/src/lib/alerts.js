@@ -21,7 +21,7 @@ export async function sendSlackAlert(text) {
   }
 }
 
-const ALERT_USER_KINDS = new Set(['user_lock', 'user_unlock', 'role_change']);
+const ALERT_USER_KINDS = new Set(['user_lock', 'user_unlock', 'role_change', 'permission_change']);
 
 function describe({ action, entityType, metadata, previousValue, newValue }) {
   const m = metadata || {};
@@ -37,7 +37,10 @@ function describe({ action, entityType, metadata, previousValue, newValue }) {
     case 'USER_UPDATE': {
       const who = newValue?.username || previousValue?.username || '';
       if (m.kind === 'role_change') return `Role change · ${who}: ${previousValue?.role} → ${newValue?.role}`;
-      return `${m.kind === 'user_lock' ? 'Locked' : 'Unlocked'} user · ${who}`;
+      if (m.kind === 'permission_change') {
+        return `Offboarding permission ${newValue?.can_offboard ? 'granted to' : 'removed from'} ${who}`;
+      }
+      return `${m.kind === 'user_lock' ? 'Locked' : 'Unlocked'} user · ${who}${m.reason ? ` — reason: ${m.reason}` : ''}`;
     }
     case 'SETTINGS_UPDATE':
       return `Settings changed · ${m.setting || entityType}`;

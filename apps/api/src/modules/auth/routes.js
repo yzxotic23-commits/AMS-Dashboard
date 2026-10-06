@@ -79,7 +79,8 @@ router.post('/login', async (req, res, next) => {
 });
 
 router.get('/me', authenticate, async (req, res) => {
-  res.json({ user: req.user, profile: { ...req.profile, can_export: canExport(req.profile) } });
+  const { password_hash: _passwordHash, ...profile } = req.profile;
+  res.json({ user: req.user, profile: { ...profile, can_export: canExport(req.profile) } });
 });
 
 export default router;

@@ -65,6 +65,7 @@ const EMPTY_FORM = {
   role: 'operator',
   site_key: 'my',
   brands: [],
+  can_offboard: false,
 };
 
 function userToForm(user) {
@@ -75,6 +76,7 @@ function userToForm(user) {
     role: user?.role || 'operator',
     site_key: user?.site_key || 'my',
     brands: normalizeBrands(user?.brands),
+    can_offboard: Boolean(user?.can_offboard),
   };
 }
 
@@ -252,6 +254,9 @@ export default function UserManagementPage() {
     if (form.password.trim()) body.password = form.password;
 
     if (isEdit) {
+      if (form.role !== 'admin' && form.can_offboard !== Boolean(editUser.can_offboard)) {
+        body.can_offboard = form.can_offboard;
+      }
       await patchMut.mutateAsync({ id: editUser.id, body });
       return;
     }
@@ -497,6 +502,11 @@ export default function UserManagementPage() {
                           <span className={`badge ${u.role === 'admin' ? 'badge-accent' : 'badge-default'}`}>
                             {roleLabel(u.role)}
                           </span>
+                          {u.can_offboard && u.role !== 'admin' && (
+                            <IconTooltip label="Can lock/unlock staff accounts (Staff offboarding)">
+                              <span className="badge badge-warn ml-1">Offboarding</span>
+                            </IconTooltip>
+                          )}
                         </td>
                         <td>
                           {u.role === 'business' ? (
@@ -715,6 +725,22 @@ export default function UserManagementPage() {
               })}
             </div>
           </fieldset>
+          {isEdit && form.role !== 'admin' && form.role !== 'business' && (
+            <label className="drawer-field flex items-start gap-2" style={{ cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                className="ams-check mt-0.5"
+                checked={form.can_offboard}
+                onChange={(e) => setForm((f) => ({ ...f, can_offboard: e.target.checked }))}
+              />
+              <span>
+                <span className="drawer-label">Offboarding access</span>
+                <span className="drawer-hint block" style={{ marginTop: 2 }}>
+                  Can lock / unlock non-admin staff accounts from Staff offboarding (reason required, audited).
+                </span>
+              </span>
+            </label>
+          )}
           <label className="drawer-field">
             <span className="drawer-label">
               {isEdit ? 'New password (optional)' : 'Password'}

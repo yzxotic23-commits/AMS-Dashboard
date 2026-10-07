@@ -120,7 +120,7 @@ export async function ipAllowlistGate(req, res, next) {
     if (isLoopback(ip) || ipMatchesAllowlist(ip, config.entries)) return next();
     console.warn(`[ip-allowlist] blocked ${ip} ${req.method} ${req.originalUrl}`);
     return res.status(403).json({
-      error: 'AMS can only be accessed from the company network',
+      error: 'AMS can only be accessed through the company VPN. Connect to the VPN and try again.',
       code: 'IP_NOT_ALLOWED',
       ip,
     });

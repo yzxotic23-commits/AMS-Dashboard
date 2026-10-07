@@ -20,11 +20,11 @@ export default function NetworkBlockedScreen() {
         <ShieldAlert size={36} strokeWidth={1.75} className="mx-auto mb-3 text-ams-danger" />
         <h1 className="mb-2 text-lg font-bold text-ams-ink">Company network only</h1>
         <p className="mb-4 text-sm text-ams-muted">
-          AMS can only be accessed from the company network. Connect to the office network and reload.
+          AMS can only be accessed through the company VPN. Connect to the VPN and reload.
         </p>
         {blocked.ip && (
           <p className="mb-5 text-xs text-ams-faint">
-            Your IP: <span className="font-mono text-ams-ink">{blocked.ip}</span>. If this is an office connection, send it to the AMS admin.
+            Your IP: <span className="font-mono text-ams-ink">{blocked.ip}</span>. Still blocked while on the VPN? Send this IP to the AMS admin.
           </p>
         )}
         <button type="button" className="btn btn-primary btn-sm" onClick={() => window.location.reload()}>

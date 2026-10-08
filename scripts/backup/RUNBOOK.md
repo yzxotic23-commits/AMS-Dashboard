@@ -5,14 +5,20 @@
 | Layer | What | Retention | Who restores |
 |---|---|---|---|
 | Supabase Pro daily backup | Whole database (managed by Supabase) | 7 days | Supabase dashboard → Database → Backups |
-| Nightly encrypted backup (this folder) | `public` schema + `auth.users`, AES-256 encrypted | Google Shared Drive `AMS-Backups` (in setup); until then GitHub Actions artifacts, 7 days, private repo | This runbook, step B |
+| Nightly encrypted backup (this folder) | `public` schema + `auth.users`, AES-256 encrypted | Google Shared Drive `AMS-Backups`, 30 days (at least the 7 newest are always kept). Nothing is stored on GitHub | This runbook, step B |
 | Audit log | Every export, delete, lock/role change, setting change, circuit-breaker trip | Permanent (`audit_logs`) | Audit Log page |
 
 The nightly job (`.github/workflows/db-backup.yml`, 02:00 WIB) runs a **restore drill** right after every
 backup, in the same job: it restores into an empty Postgres 17 and checks every table's row count.
 Backups are encrypted before they leave the runner; the passphrase lives only in GitHub secrets and the
-password manager. A red run (or a Slack
-alert, if the webhook is set) means last night's backup is not trustworthy — investigate the same day.
+password manager. The encrypted file is then uploaded to the `AMS-Backups` Shared Drive, and backups older
+than 30 days are moved to the Drive trash.
+
+- A red run, or a "backup FAILED" message in `#ams-alerts`, means last night's backup is not trustworthy.
+  Investigate the same day.
+- Every Monday 09:00 WIB, `backup-weekly-report.yml` posts a summary to `#ams-alerts`: nights backed up out
+  of 7, and the newest file in Drive. It turns into "needs attention" if a night was missed or the newest
+  backup is older than 36 hours. This catches the case where the nightly job silently stopped running.
 
 ## One-time setup
 
@@ -22,9 +28,24 @@ GitHub → repo → Settings → Secrets and variables → Actions → New repos
   direct `db.<ref>.supabase.co` host does not work). Include the password.
 - `BACKUP_PASSPHRASE` — long random string (`openssl rand -hex 32`). Store it in the password manager too:
   **without it the backups cannot be decrypted.**
-- `ALERT_SLACK_WEBHOOK_URL` — optional, same webhook as the API alerts; posts when backup/drill fails.
+- `ALERT_SLACK_WEBHOOK_URL` — same webhook as the API alerts; posts when backup/drill fails and the weekly report.
 
-Then Actions → "AMS database backup" → Run workflow, and confirm both jobs are green.
+Google Drive upload (keyless; the Workspace org policy blocks service-account key files):
+
+- Google Cloud project `ams-backup-511009`, service account
+  `ams-backup-uploader@ams-backup-511009.iam.gserviceaccount.com`, no Cloud roles.
+- Workload Identity Federation pool `github`, provider `ams-dashboard`, restricted to the repository
+  `yzxotic23-commits/AMS-Dashboard`. The repo may impersonate the service account
+  (`roles/iam.workloadIdentityUser` and `roles/iam.serviceAccountTokenCreator`). If the repository is renamed
+  or moved, update the provider's attribute condition and both bindings.
+- The service account is a **Content manager** on the `AMS-Backups` Shared Drive.
+- GitHub → Settings → Secrets and variables → Actions → **Variables** (not secrets, none of these are
+  sensitive): `GDRIVE_WIF_PROVIDER`
+  (`projects/741431146858/locations/global/workloadIdentityPools/github/providers/ams-dashboard`),
+  `GDRIVE_SERVICE_ACCOUNT`, `GDRIVE_FOLDER_ID` (the Shared Drive ID only, not the full URL).
+
+Then Actions → "AMS database backup" → Run workflow, confirm both jobs are green and the new file shows up
+in the Shared Drive.
 
 ## A. Something was deleted or changed by mistake (data still mostly fine)
 
@@ -38,10 +59,10 @@ Then Actions → "AMS database backup" → Run workflow, and confirm both jobs a
 ## B. Full recovery (database lost or corrupted)
 
 First choice: Supabase dashboard → Database → Backups → restore the latest daily backup. Use the steps
-below only if that is unavailable or older than the nightly artifact.
+below only if that is unavailable or older than the nightly backup.
 
-1. Download the latest `ams-backup-*.tar.gz.enc` from the `AMS-Backups` Shared Drive (or, while the Drive
-   upload is not live yet: GitHub → Actions → latest green "AMS database backup" run → artifact `ams-db-backup`).
+1. Download the latest `ams-backup-*.tar.gz.enc` from the `AMS-Backups` Shared Drive (Kent or a member of
+   the drive). To roll back further, pick an older file; the timestamp in the name is UTC.
 2. Decrypt and unpack:
    ```bash
    export BACKUP_PASSPHRASE='…'

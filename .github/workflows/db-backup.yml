@@ -56,7 +56,6 @@ jobs:
       # exchanged for a short-lived token of ams-backup-uploader (Workload Identity Federation).
       - name: Authenticate to Google
         id: gauth
-        if: vars.GDRIVE_WIF_PROVIDER != ''
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ vars.GDRIVE_WIF_PROVIDER }}
@@ -64,20 +63,12 @@ jobs:
           token_format: access_token
           access_token_scopes: https://www.googleapis.com/auth/drive
 
+      # The Shared Drive is the only place backups are kept; nothing is stored on GitHub.
       - name: Upload to Google Shared Drive
-        if: vars.GDRIVE_WIF_PROVIDER != ''
         env:
           GDRIVE_ACCESS_TOKEN: ${{ steps.gauth.outputs.access_token }}
           GDRIVE_FOLDER_ID: ${{ vars.GDRIVE_FOLDER_ID }}
         run: node scripts/backup/upload-drive.mjs backup-out/*.enc
-
-      # Temporary fallback until the Google Drive upload is live; encrypted, private repo, 7 days.
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ams-db-backup
-          path: backup-out/*.enc
-          retention-days: 7
-          if-no-files-found: error
 
   notify-failure:
     needs: backup

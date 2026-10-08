@@ -1,0 +1,35 @@
+name: AMS backup weekly report
+
+on:
+  schedule:
+    - cron: '0 2 * * 1' # Monday 09:00 WIB
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+  id-token: write
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google
+        id: gauth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GDRIVE_WIF_PROVIDER }}
+          service_account: ${{ vars.GDRIVE_SERVICE_ACCOUNT }}
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/drive
+
+      - name: Send report to Slack
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GDRIVE_ACCESS_TOKEN: ${{ steps.gauth.outputs.access_token }}
+          GDRIVE_FOLDER_ID: ${{ vars.GDRIVE_FOLDER_ID }}
+          ALERT_SLACK_WEBHOOK_URL: ${{ secrets.ALERT_SLACK_WEBHOOK_URL }}
+        run: node scripts/backup/weekly-report.mjs

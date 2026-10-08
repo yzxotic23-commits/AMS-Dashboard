@@ -37,12 +37,15 @@ const session = await drive(token, `${UPLOAD}/files?uploadType=resumable&support
   headers: { 'Content-Type': 'application/json; charset=UTF-8', 'X-Upload-Content-Length': String(size) },
   body: JSON.stringify({ name, parents: [folderId], mimeType: 'application/octet-stream' }),
 });
-const uploaded = await (
-  await drive(token, `${session.headers.get('location')}&fields=id,name,size`, {
+const { id } = await (
+  await drive(token, session.headers.get('location'), {
     method: 'PUT',
     headers: { 'Content-Type': 'application/octet-stream', 'Content-Length': String(size) },
     body: await readFile(file),
   })
+).json();
+const uploaded = await (
+  await drive(token, `${DRIVE}/files/${id}?supportsAllDrives=true&fields=id,name,size`)
 ).json();
 if (Number(uploaded.size) !== size) {
   throw new Error(`Uploaded size ${uploaded.size} does not match local size ${size}`);

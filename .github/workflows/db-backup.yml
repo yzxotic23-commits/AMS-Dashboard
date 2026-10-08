@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 concurrency:
   group: ams-db-backup
@@ -50,6 +51,25 @@ jobs:
           RESTORE_DATABASE_URL: postgresql://postgres:drill@localhost:5432/drill
           BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
         run: scripts/backup/restore-drill.sh backup-out/*.enc
+
+      # Keyless: the org policy blocks service-account keys, so GitHub's OIDC token is
+      # exchanged for a short-lived token of ams-backup-uploader (Workload Identity Federation).
+      - name: Authenticate to Google
+        id: gauth
+        if: vars.GDRIVE_WIF_PROVIDER != ''
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GDRIVE_WIF_PROVIDER }}
+          service_account: ${{ vars.GDRIVE_SERVICE_ACCOUNT }}
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/drive
+
+      - name: Upload to Google Shared Drive
+        if: vars.GDRIVE_WIF_PROVIDER != ''
+        env:
+          GDRIVE_ACCESS_TOKEN: ${{ steps.gauth.outputs.access_token }}
+          GDRIVE_FOLDER_ID: ${{ vars.GDRIVE_FOLDER_ID }}
+        run: node scripts/backup/upload-drive.mjs backup-out/*.enc
 
       # Temporary fallback until the Google Drive upload is live; encrypted, private repo, 7 days.
       - uses: actions/upload-artifact@v4

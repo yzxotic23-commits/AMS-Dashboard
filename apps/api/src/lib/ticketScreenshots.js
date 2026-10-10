@@ -52,7 +52,10 @@ export async function uploadTicketScreenshot({ accountId, reviewId, dataUrl }) {
   const { error } = await supabaseAdmin.storage
     .from(TICKET_SCREENSHOT_BUCKET)
     .upload(path, buffer, { contentType, upsert: true });
-  if (error) throw new Error(error.message || 'Screenshot upload failed');
+  if (error) {
+    const original = error.originalError;
+    throw new Error(error.message || 'Screenshot upload failed', { cause: original?.cause || original });
+  }
 
   return path;
 }

@@ -30,7 +30,11 @@ app.use((err, _req, res, _next) => {
     const message = first?.message || 'Validation failed';
     return res.status(400).json({ error: `${field}: ${message}` });
   }
-  console.error('[API Error]', err.message);
+  const cause = err.cause?.code || err.cause?.message;
+  console.error('[API Error]', err.message, cause ? `(cause: ${cause})` : '');
+  if (/fetch failed/i.test(err.message || '')) {
+    return res.status(503).json({ error: 'Connection to the server was interrupted. Please try again.' });
+  }
   const status = err.status || err.statusCode || (err.code === 'PGRST116' ? 404 : 500);
   res.status(status).json({
     error: err.message || 'Internal server error',

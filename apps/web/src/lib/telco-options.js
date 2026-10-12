@@ -8,6 +8,7 @@ export const TELCO_OPTIONS = [
   'Maxis',
   'U Mobile',
   'Unifi',
+  'XOX',
   'Cellcard',
   'Metfone',
   'Smart',

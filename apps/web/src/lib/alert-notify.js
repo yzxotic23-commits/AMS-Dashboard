@@ -8,6 +8,12 @@ const BASE_TITLE_FALLBACK = 'AMS';
 let baseTitle = null;
 let titleFlashTimer = null;
 
+/** Page title to show when no alert is flashing. */
+export function setBaseTitle(title) {
+  baseTitle = title;
+  if (typeof document !== 'undefined' && !titleFlashTimer) document.title = title;
+}
+
 function rememberBaseTitle() {
   if (typeof document === 'undefined') return BASE_TITLE_FALLBACK;
   if (!baseTitle) {

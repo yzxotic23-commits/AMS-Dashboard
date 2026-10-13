@@ -1,5 +1,8 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
+import { setBaseTitle } from './lib/alert-notify';
+import { pageTitleFor } from './lib/page-title';
 import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
 import CommandCenterPage from './pages/CommandCenterPage';
@@ -50,7 +53,12 @@ function LoginRedirect() {
 }
 
 export default function App() {
-  const { session } = useAuth();
+  const { session, profile } = useAuth();
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    setBaseTitle(pageTitleFor(pathname, profile?.role));
+  }, [pathname, profile?.role]);
 
   return (
     <Routes>

@@ -66,6 +66,7 @@ const EMPTY_FORM = {
   site_key: 'my',
   brands: [],
   can_offboard: false,
+  in_operator_roster: false,
 };
 
 function userToForm(user) {
@@ -77,6 +78,7 @@ function userToForm(user) {
     site_key: user?.site_key || 'my',
     brands: normalizeBrands(user?.brands),
     can_offboard: Boolean(user?.can_offboard),
+    in_operator_roster: Boolean(user?.in_operator_roster),
   };
 }
 
@@ -256,6 +258,9 @@ export default function UserManagementPage() {
     if (isEdit) {
       if (form.role !== 'admin' && form.can_offboard !== Boolean(editUser.can_offboard)) {
         body.can_offboard = form.can_offboard;
+      }
+      if (form.role === 'admin' && form.in_operator_roster !== Boolean(editUser.in_operator_roster)) {
+        body.in_operator_roster = form.in_operator_roster;
       }
       await patchMut.mutateAsync({ id: editUser.id, body });
       return;
@@ -507,6 +512,11 @@ export default function UserManagementPage() {
                               <span className="badge badge-warn ml-1">Offboarding</span>
                             </IconTooltip>
                           )}
+                          {u.in_operator_roster && u.role === 'admin' && (
+                            <IconTooltip label="Listed as an Owner in Register and per-operator counts">
+                              <span className="badge badge-default ml-1">Operator</span>
+                            </IconTooltip>
+                          )}
                         </td>
                         <td>
                           {u.role === 'business' ? (
@@ -737,6 +747,22 @@ export default function UserManagementPage() {
                 <span className="drawer-label">Offboarding access</span>
                 <span className="drawer-hint block" style={{ marginTop: 2 }}>
                   Can lock / unlock non-admin staff accounts from Staff offboarding (reason required, audited).
+                </span>
+              </span>
+            </label>
+          )}
+          {isEdit && form.role === 'admin' && (
+            <label className="drawer-field flex items-start gap-2" style={{ cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                className="ams-check mt-0.5"
+                checked={form.in_operator_roster}
+                onChange={(e) => setForm((f) => ({ ...f, in_operator_roster: e.target.checked }))}
+              />
+              <span>
+                <span className="drawer-label">Also works as operator</span>
+                <span className="drawer-hint block" style={{ marginTop: 2 }}>
+                  Shows this admin as an Owner in Register Account and in per-operator counts.
                 </span>
               </span>
             </label>

@@ -112,8 +112,9 @@ export default function RegisterPage() {
     () => filterRosterForProfile(operatorsRaw, profile),
     [operatorsRaw, profile],
   );
+  const selfInRoster = operators.find((op) => op.id === profile?.id);
   const defaultOperator = isAdminProfile(profile)
-    ? (operators[0] ? operatorDisplayName(operators[0]) : '')
+    ? operatorDisplayName(selfInRoster || operators[0])
     : operatorDisplayLabel(profile);
   const drawerOpen = !!drawer;
   const { data: ledgerAccounts = [], isFetching: ledgerFetching } = useAllAccounts({ enabled: drawerOpen });

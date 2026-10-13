@@ -6,13 +6,13 @@ import { enrichProfilesSiteKey } from '../../lib/profile-site.js';
 const router = Router();
 router.use(authenticate);
 
-/** GET /operators — pipeline operator roster (role=operator only, not Admin Master) */
+/** GET /operators — pipeline operator roster (operators, plus admins flagged in_operator_roster) */
 router.get('/', async (_req, res, next) => {
   try {
     const { data, error } = await supabaseAdmin
       .from('profiles')
       .select('id, username, full_name, role, site_key')
-      .eq('role', 'operator')
+      .or('role.eq.operator,and(role.eq.admin,in_operator_roster.eq.true)')
       .eq('is_active', true)
       .order('full_name', { ascending: true });
     if (error) throw error;

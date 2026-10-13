@@ -2412,6 +2412,20 @@
     @apply mb-2 block text-[12.5px] font-semibold leading-snug;
     color: var(--ams-muted);
   }
+  .drawer-check {
+    @apply flex cursor-pointer items-start gap-3 rounded-card border px-4 py-3;
+    border-color: var(--ams-line);
+  }
+  .drawer-check .ams-check {
+    @apply mt-0.5;
+  }
+  .drawer-check__title {
+    @apply block text-[13px] font-semibold leading-snug;
+  }
+  .drawer-check__hint {
+    @apply mt-1 block text-[12.5px] leading-snug;
+    color: var(--ams-muted);
+  }
   .drawer-label-note {
     @apply ml-1 font-normal;
     font-size: 11px;

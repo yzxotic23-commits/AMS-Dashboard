@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Download, Lock, LockOpen, Pencil, Plus, Trash2, UserPlus } from 'lucide-react';
+import { Download, Lock, LockOpen, Pencil, Plus, Trash2, UserCheck, UserPlus, UserX } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import PageHead from '../../components/PageHead';
 import DetailDialog from '../../components/DetailDialog';
@@ -504,19 +504,21 @@ export default function UserManagementPage() {
                           </span>
                         </td>
                         <td>
-                          <span className={`badge ${u.role === 'admin' ? 'badge-accent' : 'badge-default'}`}>
-                            {roleLabel(u.role)}
+                          <span className="inline-flex items-center gap-1.5">
+                            <span className={`badge ${u.role === 'admin' ? 'badge-accent' : 'badge-default'}`}>
+                              {roleLabel(u.role)}
+                            </span>
+                            {u.can_offboard && u.role !== 'admin' && (
+                              <IconTooltip label="Offboarding access (can lock/unlock staff accounts)">
+                                <UserX size={15} strokeWidth={2} className="text-ams-muted" aria-label="Offboarding access" />
+                              </IconTooltip>
+                            )}
+                            {u.in_operator_roster && u.role === 'admin' && (
+                              <IconTooltip label="Also works as operator (listed as an Owner in Register)">
+                                <UserCheck size={15} strokeWidth={2} className="text-ams-muted" aria-label="Also works as operator" />
+                              </IconTooltip>
+                            )}
                           </span>
-                          {u.can_offboard && u.role !== 'admin' && (
-                            <IconTooltip label="Can lock/unlock staff accounts (Staff offboarding)">
-                              <span className="badge badge-warn ml-1">Offboarding</span>
-                            </IconTooltip>
-                          )}
-                          {u.in_operator_roster && u.role === 'admin' && (
-                            <IconTooltip label="Listed as an Owner in Register and per-operator counts">
-                              <span className="badge badge-default ml-1">Operator</span>
-                            </IconTooltip>
-                          )}
                         </td>
                         <td>
                           {u.role === 'business' ? (
@@ -736,33 +738,33 @@ export default function UserManagementPage() {
             </div>
           </fieldset>
           {isEdit && form.role !== 'admin' && form.role !== 'business' && (
-            <label className="drawer-field flex items-start gap-2" style={{ cursor: 'pointer' }}>
+            <label className="drawer-check">
               <input
                 type="checkbox"
-                className="ams-check mt-0.5"
+                className="ams-check"
                 checked={form.can_offboard}
                 onChange={(e) => setForm((f) => ({ ...f, can_offboard: e.target.checked }))}
               />
               <span>
-                <span className="drawer-label">Offboarding access</span>
-                <span className="drawer-hint block" style={{ marginTop: 2 }}>
+                <span className="drawer-check__title">Offboarding access</span>
+                <span className="drawer-check__hint">
                   Can lock / unlock non-admin staff accounts from Staff offboarding (reason required, audited).
                 </span>
               </span>
             </label>
           )}
           {isEdit && form.role === 'admin' && (
-            <label className="drawer-field flex items-start gap-2" style={{ cursor: 'pointer' }}>
+            <label className="drawer-check">
               <input
                 type="checkbox"
-                className="ams-check mt-0.5"
+                className="ams-check"
                 checked={form.in_operator_roster}
                 onChange={(e) => setForm((f) => ({ ...f, in_operator_roster: e.target.checked }))}
               />
               <span>
-                <span className="drawer-label">Also works as operator</span>
-                <span className="drawer-hint block" style={{ marginTop: 2 }}>
-                  Shows this admin as an Owner in Register Account and in per-operator counts.
+                <span className="drawer-check__title">Also works as operator</span>
+                <span className="drawer-check__hint">
+                  Listed as an Owner in Register Account and counted per operator.
                 </span>
               </span>
             </label>

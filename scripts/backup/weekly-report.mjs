@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * Weekly backup health report to Slack: nightly runs over the last 7 days plus what is
- * actually sitting in the AMS-Backups Shared Drive. Catches the silent case where the
- * nightly job stops running altogether (no failure alert would fire).
+ * Weekly backup health report to Slack: daily runs over the last 7 full WIB days plus what
+ * is actually sitting in the AMS-Backups Shared Drive. Catches the silent case where the
+ * daily job stops running altogether (no failure alert would fire).
  *   GITHUB_TOKEN, GITHUB_REPOSITORY  provided by Actions
  *   GDRIVE_ACCESS_TOKEN, GDRIVE_FOLDER_ID
  *   ALERT_SLACK_WEBHOOK_URL
@@ -19,14 +19,16 @@ async function getJson(url, token) {
   return res.json();
 }
 
-const since = new Date(Date.now() - DAYS * 86400000);
+const wibDate = (iso) => new Date(new Date(iso).getTime() + 7 * 3600000).toISOString().slice(0, 10);
+// The 7 full WIB days before today, so today's backup not having run yet doesn't count as a miss.
+const daysAgo = (n) => new Date(Date.parse(wibDate(new Date().toISOString())) - n * 86400000).toISOString().slice(0, 10);
+const reportDays = Array.from({ length: DAYS }, (_, i) => daysAgo(i + 1));
 const { workflow_runs: runs = [] } = await getJson(
-  `https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/db-backup.yml/runs?per_page=100&created=>=${since.toISOString().slice(0, 10)}`,
+  `https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/db-backup.yml/runs?per_page=100&created=>=${daysAgo(DAYS + 1)}`,
   GITHUB_TOKEN,
 );
-const finished = runs.filter((r) => r.status === 'completed' && new Date(r.created_at) >= since);
-const wibDate = (iso) => new Date(new Date(iso).getTime() + 7 * 3600000).toISOString().slice(0, 10);
-// Manual re-runs can add extra runs, so health is counted in nights with a good backup.
+const finished = runs.filter((r) => r.status === 'completed' && reportDays.includes(wibDate(r.created_at)));
+// Manual re-runs can add extra runs, so health is counted in days with a good backup.
 const succeeded = new Set(finished.filter((r) => r.conclusion === 'success').map((r) => wibDate(r.created_at))).size;
 const failed = finished.filter((r) => r.conclusion !== 'success').length;
 
@@ -43,13 +45,14 @@ const wib = (iso) =>
     timeZone: 'Asia/Jakarta', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false,
   }).format(new Date(iso))} WIB`;
 const mb = (bytes) => `${(Number(bytes) / 1048576).toFixed(1)} MB`;
+const dayLabel = (ymd) => new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', day: 'numeric', month: 'short' }).format(new Date(ymd));
 
 const problems = [];
-if (succeeded < DAYS) problems.push(`Only *${succeeded} of ${DAYS}* nights had a successful backup this week.`);
+if (succeeded < DAYS) problems.push(`Only *${succeeded} of ${DAYS}* days had a successful backup last week.`);
 if (latestAgeHours > STALE_HOURS) problems.push(`The newest backup in Drive is older than ${STALE_HOURS} hours.`);
 
 const details = [
-  ['Nights backed up (last 7 days)', `${succeeded} of ${DAYS}`],
+  [`Days backed up (${dayLabel(reportDays[DAYS - 1])} – ${dayLabel(reportDays[0])})`, `${succeeded} of ${DAYS}`],
   ['Failed runs', failed],
   ['Latest backup', latest ? `${latest.name} · ${mb(latest.size)} · ${wib(latest.createdTime)}` : 'none found'],
   ['Backups in Drive', `${files.length} (kept 30 days)`],
@@ -65,7 +68,7 @@ const blocks = [
 const res = await fetch(ALERT_SLACK_WEBHOOK_URL, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ text: `AMS: weekly backup report (${succeeded}/${DAYS} nights backed up)`, blocks }),
+  body: JSON.stringify({ text: `AMS: weekly backup report (${succeeded}/${DAYS} days backed up)`, blocks }),
 });
 if (!res.ok) throw new Error(`Slack webhook → ${res.status} ${await res.text()}`);
-console.log(`Report sent: ${succeeded}/${DAYS} nights backed up, ${files.length} backups in Drive`);
+console.log(`Report sent: ${succeeded}/${DAYS} days backed up, ${files.length} backups in Drive`);

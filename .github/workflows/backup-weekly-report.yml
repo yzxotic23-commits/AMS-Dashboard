@@ -2,7 +2,7 @@ name: AMS backup weekly report
 
 on:
   schedule:
-    - cron: '0 2 * * 1' # Monday 09:00 WIB
+    - cron: '7 1 * * 1' # Monday 08:07 WIB
   workflow_dispatch:
 
 permissions:

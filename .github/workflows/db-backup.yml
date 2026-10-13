@@ -2,7 +2,7 @@ name: AMS database backup
 
 on:
   schedule:
-    - cron: '0 19 * * *' # 02:00 WIB daily
+    - cron: '3 1 * * *' # 08:03 WIB daily (off the hour: GitHub delays on-the-hour schedules)
   workflow_dispatch:
 
 permissions:
@@ -82,5 +82,5 @@ jobs:
         run: |
           if [ -z "$WEBHOOK" ]; then echo "No Slack webhook configured"; exit 0; fi
           curl -fsS -X POST -H 'Content-Type: application/json' \
-            -d "{\"text\":\":rotating_light: *AMS* — nightly database backup or restore drill FAILED: $RUN_URL\"}" \
+            -d "{\"text\":\":rotating_light: *AMS* — daily database backup or restore drill FAILED: $RUN_URL\"}" \
             "$WEBHOOK"

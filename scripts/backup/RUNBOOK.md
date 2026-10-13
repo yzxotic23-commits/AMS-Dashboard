@@ -5,20 +5,21 @@
 | Layer | What | Retention | Who restores |
 |---|---|---|---|
 | Supabase Pro daily backup | Whole database (managed by Supabase) | 7 days | Supabase dashboard → Database → Backups |
-| Nightly encrypted backup (this folder) | `public` schema + `auth.users`, AES-256 encrypted | Google Shared Drive `AMS-Backups`, 30 days (at least the 7 newest are always kept). Nothing is stored on GitHub | This runbook, step B |
+| Daily encrypted backup (this folder) | `public` schema + `auth.users`, AES-256 encrypted | Google Shared Drive `AMS-Backups`, 30 days (at least the 7 newest are always kept). Nothing is stored on GitHub | This runbook, step B |
 | Audit log | Every export, delete, lock/role change, setting change, circuit-breaker trip | Permanent (`audit_logs`) | Audit Log page |
 
-The nightly job (`.github/workflows/db-backup.yml`, 02:00 WIB) runs a **restore drill** right after every
+The daily job (`.github/workflows/db-backup.yml`, 08:03 WIB; GitHub may start it later) runs a **restore drill** right after every
 backup, in the same job: it restores into an empty Postgres 17 and checks every table's row count.
 Backups are encrypted before they leave the runner; the passphrase lives only in GitHub secrets and the
 password manager. The encrypted file is then uploaded to the `AMS-Backups` Shared Drive, and backups older
 than 30 days are moved to the Drive trash.
 
-- A red run, or a "backup FAILED" message in `#ams-alerts`, means last night's backup is not trustworthy.
+- A red run, or a "backup FAILED" message in `#ams-alerts`, means today's backup is not trustworthy.
   Investigate the same day.
-- Every Monday 09:00 WIB, `backup-weekly-report.yml` posts a summary to `#ams-alerts`: nights backed up out
-  of 7, and the newest file in Drive. It turns into "needs attention" if a night was missed or the newest
-  backup is older than 36 hours. This catches the case where the nightly job silently stopped running.
+- Every Monday 08:07 WIB, `backup-weekly-report.yml` posts a summary to `#ams-alerts`: days backed up out
+  of 7 (previous Monday to Sunday), and the newest file in Drive. It turns into "needs attention" if a day
+  was missed or the newest backup is older than 36 hours. This catches the case where the daily job
+  silently stopped running.
 
 ## One-time setup
 
@@ -53,13 +54,13 @@ in the Shared Drive.
    looping, the circuit-breaker will already have paused it — do not press "Resume".
 2. Find what changed: Audit Log page (sidebar; filter by user / action). `previous_value` holds the old row
    for deletes and updates — small fixes can be re-entered by hand from there.
-3. For larger damage, pull just the affected table from last night's backup (step B, items 1–2), restore it
+3. For larger damage, pull just the affected table from the latest backup (step B, items 1–2), restore it
    into a local scratch Postgres with `restore-drill.sh`, and copy the needed rows back.
 
 ## B. Full recovery (database lost or corrupted)
 
 First choice: Supabase dashboard → Database → Backups → restore the latest daily backup. Use the steps
-below only if that is unavailable or older than the nightly backup.
+below only if that is unavailable or older than the daily backup.
 
 1. Download the latest `ams-backup-*.tar.gz.enc` from the `AMS-Backups` Shared Drive (Kent or a member of
    the drive). To roll back further, pick an older file; the timestamp in the name is UTC.

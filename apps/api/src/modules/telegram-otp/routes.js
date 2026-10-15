@@ -56,19 +56,23 @@ router.get('/accounts', async (req, res, next) => {
   }
 });
 
-/** GET /telegram-otp/assignments — shooter owners and GCS brands in the roster (for User management). */
+/** GET /telegram-otp/assignments — shooter owners and GCS currencies (with their brands) in the roster (for User management). */
 router.get('/assignments', requireRole('admin'), async (_req, res, next) => {
   try {
     const { data, error } = await supabaseAdmin
       .from('tg_accounts')
-      .select('pool, owner, brand')
+      .select('pool, owner, brand, currency')
       .eq('enabled', true);
     if (error) throw error;
     const distinct = (values) => [...new Set(values.map((v) => String(v || '').trim()).filter(Boolean))].sort();
     const rows = data || [];
+    const gcs = rows.filter((r) => r.pool === 'gcs' && r.currency);
     res.json({
       owners: distinct(rows.filter((r) => r.pool === 'shooter').map((r) => r.owner)),
-      brands: distinct(rows.filter((r) => r.pool === 'gcs').map((r) => r.brand)),
+      currencies: distinct(gcs.map((r) => r.currency.toUpperCase())).map((currency) => ({
+        currency,
+        brands: distinct(gcs.filter((r) => r.currency.toUpperCase() === currency).map((r) => r.brand)),
+      })),
     });
   } catch (e) {
     next(e);

@@ -68,7 +68,7 @@ const EMPTY_FORM = {
   can_offboard: false,
   in_operator_roster: false,
   tg_shooter_owner: '',
-  tg_brands: [],
+  tg_currencies: [],
 };
 
 function userToForm(user) {
@@ -82,7 +82,7 @@ function userToForm(user) {
     can_offboard: Boolean(user?.can_offboard),
     in_operator_roster: Boolean(user?.in_operator_roster),
     tg_shooter_owner: user?.tg_shooter_owner || '',
-    tg_brands: user?.tg_brands || [],
+    tg_currencies: user?.tg_currencies || [],
   };
 }
 
@@ -126,10 +126,13 @@ export default function UserManagementPage() {
     const current = editUser?.tg_shooter_owner;
     return current && !owners.includes(current) ? [current, ...owners] : owners;
   }, [tgAssignments, editUser]);
-  const tgBrandOptions = useMemo(() => {
-    const brands = tgAssignments?.brands || [];
-    const extra = (editUser?.tg_brands || []).filter((b) => !brands.includes(b));
-    return [...brands, ...extra];
+  const tgCurrencyOptions = useMemo(() => {
+    const options = tgAssignments?.currencies || [];
+    const known = options.map((o) => o.currency);
+    const extra = (editUser?.tg_currencies || [])
+      .filter((c) => !known.includes(c))
+      .map((currency) => ({ currency, brands: [] }));
+    return [...options, ...extra];
   }, [tgAssignments, editUser]);
 
   const showToast = useCallback((message, tone = 'default') => {
@@ -287,8 +290,8 @@ export default function UserManagementPage() {
         body.tg_shooter_owner = form.tg_shooter_owner || null;
       }
       if (tgAssignable
-        && [...form.tg_brands].sort().join() !== [...(editUser.tg_brands || [])].sort().join()) {
-        body.tg_brands = form.tg_brands;
+        && [...form.tg_currencies].sort().join() !== [...(editUser.tg_currencies || [])].sort().join()) {
+        body.tg_currencies = form.tg_currencies;
       }
       await patchMut.mutateAsync({ id: editUser.id, body });
       return;
@@ -815,18 +818,19 @@ export default function UserManagementPage() {
           )}
           {isEdit && tgAssignable && (
             <fieldset className="drawer-field">
-              <legend className="drawer-label">Telegram GCS brands</legend>
+              <legend className="drawer-label">Telegram GCS currencies</legend>
               <p className="drawer-hint" style={{ marginTop: 0 }}>
-                Telegram OTP: this user can request codes for GCS accounts of these brands.
+                Telegram OTP: this user can request codes for every GCS account in these currencies.
               </p>
               <div className="flex flex-wrap gap-2" style={{ marginTop: 8 }}>
-                {tgBrandOptions.map((brand) => {
-                  const checked = form.tg_brands.includes(brand);
+                {tgCurrencyOptions.map(({ currency, brands }) => {
+                  const checked = form.tg_currencies.includes(currency);
                   return (
                     <label
-                      key={brand}
+                      key={currency}
                       className={`badge ${checked ? 'badge-accent' : 'badge-default'}`}
                       style={{ cursor: 'pointer', userSelect: 'none' }}
+                      title={brands.join(', ')}
                     >
                       <input
                         type="checkbox"
@@ -834,10 +838,13 @@ export default function UserManagementPage() {
                         checked={checked}
                         onChange={() => setForm((f) => ({
                           ...f,
-                          tg_brands: checked ? f.tg_brands.filter((b) => b !== brand) : [...f.tg_brands, brand],
+                          tg_currencies: checked
+                            ? f.tg_currencies.filter((c) => c !== currency)
+                            : [...f.tg_currencies, currency],
                         }))}
                       />
-                      {brand}
+                      {currency}
+                      {brands.length > 0 && <span style={{ opacity: 0.7, fontWeight: 400 }}>· {brands.join(', ')}</span>}
                     </label>
                   );
                 })}

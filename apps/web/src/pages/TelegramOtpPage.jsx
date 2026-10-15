@@ -281,7 +281,7 @@ export default function TelegramOtpPage() {
                   <tr>
                     <td colSpan={6} className="empty-cell">
                       {accounts.length === 0
-                        ? 'No Telegram accounts are assigned to you yet. Ask an admin to set your Telegram shooter owner and GCS brands in User management.'
+                        ? 'No Telegram accounts are assigned to you yet. Ask an admin to set your Telegram shooter owner and GCS currencies in User management.'
                         : 'No accounts match this filter.'}
                     </td>
                   </tr>

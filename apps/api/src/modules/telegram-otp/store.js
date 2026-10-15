@@ -38,13 +38,13 @@ export function isSessionReady(account) {
   return String(account?.status || '').trim().toLowerCase() === 'ready';
 }
 
-/** Admins: any account. Operators and Business: GCS accounts of their assigned brands, shooter accounts of their own owner. */
+/** Admins: any account. Operators and Business: GCS accounts in their assigned currencies, shooter accounts of their own owner. */
 export function isAssignedAccount(profile, account) {
   if (!profile || !account?.enabled) return false;
   if (profile.role === 'admin') return true;
   if (profile.role !== 'operator' && profile.role !== 'business') return false;
   if (account.pool === 'gcs') {
-    return (profile.tg_brands || []).some((b) => sameOwner(b, account.brand));
+    return (profile.tg_currencies || []).some((c) => sameOwner(c, account.currency));
   }
   return sameOwner(profile.tg_shooter_owner, account.owner);
 }

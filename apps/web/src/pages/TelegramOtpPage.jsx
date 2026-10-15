@@ -201,7 +201,7 @@ export default function TelegramOtpPage() {
     <div>
       <PageHead
         title="Telegram OTP"
-        description="Request OTP, then log in to Telegram within 5 minutes — the code appears here."
+        description="Request OTP, then log in within 5 minutes — Friday catches the code and shows it here."
         actions={(
           <div className="page-meta-bubble">
             <span className="font-semibold text-ams-ink">{accounts.length}</span>
@@ -247,8 +247,8 @@ export default function TelegramOtpPage() {
           </label>
         )}
         <label className="page-filter-chip">
-          <select className="page-filter-chip-select" value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Filter by status">
-            <option value="all">All statuses</option>
+          <select className="page-filter-chip-select" value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Filter by Friday session">
+            <option value="all">All Friday sessions</option>
             {statuses.map((s) => <option key={s} value={s}>{s.toLowerCase() === 'ready' ? 'Active' : s}</option>)}
           </select>
         </label>
@@ -272,7 +272,7 @@ export default function TelegramOtpPage() {
                   <th>Phone</th>
                   <th>Brand</th>
                   <th>Type</th>
-                  <th>Status</th>
+                  <th>Friday session</th>
                   <th className="col-action">Action</th>
                 </tr>
               </thead>
@@ -313,7 +313,7 @@ export default function TelegramOtpPage() {
                           Request OTP
                         </button>
                       ) : (
-                        <IconTooltip label="The bot has no live session for this account — it cannot receive login codes until it is Active again.">
+                        <IconTooltip label="Friday has no live session for this account.">
                           <button type="button" className="btn btn-secondary btn-sm justify-center" disabled>
                             <KeyRound size={13} strokeWidth={2.25} />
                             Request OTP

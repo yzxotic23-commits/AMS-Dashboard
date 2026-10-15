@@ -1975,6 +1975,13 @@
   .icon-tip {
     @apply inline-flex;
   }
+  /* Disabled buttons swallow hover events, so let the wrapper receive them and show the tip. */
+  .icon-tip > .btn:disabled {
+    pointer-events: none;
+  }
+  .icon-tip:has(> .btn:disabled) {
+    cursor: not-allowed;
+  }
   .icon-tip__bubble {
     position: relative;
     padding: 0.3rem 0.55rem;

@@ -109,7 +109,7 @@ router.post('/requests', async (req, res, next) => {
     }
     if (!isSessionReady(account)) {
       return res.status(409).json({
-        error: `This account is ${account.status || 'not ready'} in the Telegram bot — it cannot receive login codes until its status is Ready.`,
+        error: `Friday's session for this account is ${account.status || 'not connected'} — it cannot catch login codes until the session is Active again.`,
       });
     }
 

@@ -1858,6 +1858,18 @@
     @apply font-mono text-base tracking-[0.2em];
     color: var(--ams-muted);
   }
+  .otp-success {
+    @apply flex items-start gap-3 rounded-card border px-4 py-3 text-sm;
+    border-color: color-mix(in srgb, var(--ams-success) 30%, transparent);
+    background-color: color-mix(in srgb, var(--ams-success) 8%, transparent);
+    color: var(--ams-success);
+  }
+  .otp-success > div {
+    @apply flex flex-col gap-0.5;
+  }
+  .otp-success span {
+    color: var(--ams-muted);
+  }
   .data-table--allowlist .col-num {
     width: 3rem;
     color: var(--ams-faint);

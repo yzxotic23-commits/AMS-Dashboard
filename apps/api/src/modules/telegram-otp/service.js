@@ -3,7 +3,12 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { supabaseAdmin } from '../../lib/supabase.js';
 import { writeAudit } from '../../lib/audit.js';
-import { purgeOtpRequests, OTP_VIEW_WINDOW_MS } from './store.js';
+import {
+  purgeOtpRequests,
+  LOGIN_CONFIRM_WINDOW_MS,
+  LOGIN_SUCCESS_VISIBLE_MS,
+  OTP_VIEW_WINDOW_MS,
+} from './store.js';
 
 /**
  * Server-to-server API for the TG-OTP listener (Railway). It sits outside the company-network
@@ -125,6 +130,59 @@ router.post('/deliver', async (req, res, next) => {
       userId: open.requested_by,
     });
     res.json({ delivered: true });
+  } catch (e) {
+    next(e);
+  }
+});
+
+const loginConfirmedSchema = z.object({
+  account_id: z.string().trim().min(1).max(120),
+  device: z.string().trim().max(200).optional().nullable(),
+});
+
+/**
+ * POST /login-confirmed — the listener saw a new device sign in after a code was delivered.
+ * The code and password are wiped right away; the request stays readable briefly so the
+ * requester's dialog can show the success state.
+ */
+router.post('/login-confirmed', async (req, res, next) => {
+  try {
+    const body = loginConfirmedSchema.parse(req.body);
+    const since = new Date(Date.now() - LOGIN_CONFIRM_WINDOW_MS).toISOString();
+    const { data: row, error } = await supabaseAdmin
+      .from('otp_requests')
+      .select('id, requested_by')
+      .eq('account_id', body.account_id)
+      .eq('status', 'delivered')
+      .is('logged_in_at', null)
+      .gt('delivered_at', since)
+      .order('delivered_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    if (!row) return res.json({ confirmed: false });
+
+    const now = Date.now();
+    const { error: upErr } = await supabaseAdmin
+      .from('otp_requests')
+      .update({
+        logged_in_at: new Date(now).toISOString(),
+        code: null,
+        password: null,
+        expires_at: new Date(now + LOGIN_SUCCESS_VISIBLE_MS).toISOString(),
+      })
+      .eq('id', row.id)
+      .is('logged_in_at', null);
+    if (upErr) throw upErr;
+
+    await writeAudit({
+      entityType: 'tg_account',
+      entityId: body.account_id,
+      action: 'OTP_LOGIN_CONFIRMED',
+      metadata: { request_id: row.id, device: body.device || null, source: 'tg-otp-listener' },
+      userId: row.requested_by,
+    });
+    res.json({ confirmed: true });
   } catch (e) {
     next(e);
   }

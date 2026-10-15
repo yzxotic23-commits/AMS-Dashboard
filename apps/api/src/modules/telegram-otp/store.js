@@ -4,6 +4,10 @@ import { supabaseAdmin } from '../../lib/supabase.js';
 export const OTP_REQUEST_TTL_MS = 5 * 60 * 1000;
 /** How long a delivered code and password stay readable before they are wiped. */
 export const OTP_VIEW_WINDOW_MS = 3 * 60 * 1000;
+/** A sign-in reported later than this after delivery is not tied to the AMS request. */
+export const LOGIN_CONFIRM_WINDOW_MS = 5 * 60 * 1000;
+/** How long the "Login successful" state stays visible to the requester. */
+export const LOGIN_SUCCESS_VISIBLE_MS = 60 * 1000;
 
 /** Expire stale requests and wipe codes/passwords past their view window. */
 export async function purgeOtpRequests() {

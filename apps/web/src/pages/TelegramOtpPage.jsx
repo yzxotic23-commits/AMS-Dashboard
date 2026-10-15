@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Copy, KeyRound, Loader2, Search } from 'lucide-react';
+import { CheckCircle2, Copy, KeyRound, Loader2, Search } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import PageHead from '../components/PageHead';
 import DetailDialog from '../components/DetailDialog';
@@ -92,12 +92,18 @@ export default function TelegramOtpPage() {
     queryKey: ['telegram-otp', 'request', requestId],
     queryFn: async () => (await api.get(`/telegram-otp/requests/${requestId}`)).data,
     enabled: !!requestId,
-    refetchInterval: (q) => (q.state.data?.status === 'pending' ? 2000 : false),
+    refetchInterval: (q) => {
+      const r = q.state.data;
+      if (r?.status === 'pending') return 2000;
+      if (r?.status === 'delivered' && r.code) return 3000;
+      return false;
+    },
   });
 
   const now = useNow(!!request && (request.status === 'pending' || !!request.code));
   const remainingMs = request ? new Date(request.expires_at).getTime() - now : 0;
   const pending = request?.status === 'pending' && remainingMs > 0;
+  const loggedIn = request?.status === 'delivered' && !!request.logged_in_at;
   const showCode = request?.status === 'delivered' && !!request.code && remainingMs > 0;
 
   useEffect(() => {
@@ -409,12 +415,24 @@ export default function TelegramOtpPage() {
                 </div>
               )}
               <p className="text-[12.5px] text-ams-muted">
-                Hidden in {formatCountdown(remainingMs)}. Close this window when you are logged in.
+                Hidden in {formatCountdown(remainingMs)}. This window confirms once you are logged in.
               </p>
             </>
           )}
 
-          {!pending && !showCode && (
+          {loggedIn && (
+            <div className="otp-success" role="status">
+              <CheckCircle2 size={20} strokeWidth={2.25} />
+              <div>
+                <strong>Login successful</strong>
+                <span>
+                  {account?.profile || account?.id || request.account_id} is signed in. The code has been cleared — you can close this window.
+                </span>
+              </div>
+            </div>
+          )}
+
+          {!pending && !showCode && !loggedIn && (
             <p className="text-sm text-ams-muted">
               {request?.status === 'cancelled'
                 ? 'This request was cancelled.'

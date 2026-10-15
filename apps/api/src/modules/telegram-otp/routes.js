@@ -26,6 +26,7 @@ function publicRequest(row, account) {
     created_at: row.created_at,
     expires_at: row.expires_at,
     delivered_at: row.delivered_at,
+    logged_in_at: row.logged_in_at || null,
     code: visible ? row.code : null,
     password: visible ? row.password : null,
     has_password: visible ? Boolean(row.password) : false,

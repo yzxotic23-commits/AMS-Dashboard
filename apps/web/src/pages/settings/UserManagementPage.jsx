@@ -67,6 +67,8 @@ const EMPTY_FORM = {
   brands: [],
   can_offboard: false,
   in_operator_roster: false,
+  tg_shooter_owner: '',
+  tg_brands: [],
 };
 
 function userToForm(user) {
@@ -79,6 +81,8 @@ function userToForm(user) {
     brands: normalizeBrands(user?.brands),
     can_offboard: Boolean(user?.can_offboard),
     in_operator_roster: Boolean(user?.in_operator_roster),
+    tg_shooter_owner: user?.tg_shooter_owner || '',
+    tg_brands: user?.tg_brands || [],
   };
 }
 
@@ -101,6 +105,7 @@ export default function UserManagementPage() {
   const isEdit = Boolean(editUser);
   const dialogOpen = createOpen || isEdit;
   const brandsEditable = form.role === 'business';
+  const tgAssignable = form.role === 'operator' || form.role === 'business';
 
   const { data: users = [], isLoading, isError, error } = useQuery({
     queryKey: ['users'],
@@ -110,6 +115,22 @@ export default function UserManagementPage() {
     },
     enabled: isAdmin,
   });
+
+  const { data: tgAssignments } = useQuery({
+    queryKey: ['telegram-otp', 'assignments'],
+    queryFn: async () => (await api.get('/telegram-otp/assignments')).data,
+    enabled: isAdmin && isEdit && tgAssignable,
+  });
+  const shooterOwnerOptions = useMemo(() => {
+    const owners = tgAssignments?.owners || [];
+    const current = editUser?.tg_shooter_owner;
+    return current && !owners.includes(current) ? [current, ...owners] : owners;
+  }, [tgAssignments, editUser]);
+  const tgBrandOptions = useMemo(() => {
+    const brands = tgAssignments?.brands || [];
+    const extra = (editUser?.tg_brands || []).filter((b) => !brands.includes(b));
+    return [...brands, ...extra];
+  }, [tgAssignments, editUser]);
 
   const showToast = useCallback((message, tone = 'default') => {
     setToastTone(tone);
@@ -261,6 +282,13 @@ export default function UserManagementPage() {
       }
       if (form.role === 'admin' && form.in_operator_roster !== Boolean(editUser.in_operator_roster)) {
         body.in_operator_roster = form.in_operator_roster;
+      }
+      if (tgAssignable && form.tg_shooter_owner !== (editUser.tg_shooter_owner || '')) {
+        body.tg_shooter_owner = form.tg_shooter_owner || null;
+      }
+      if (tgAssignable
+        && [...form.tg_brands].sort().join() !== [...(editUser.tg_brands || [])].sort().join()) {
+        body.tg_brands = form.tg_brands;
       }
       await patchMut.mutateAsync({ id: editUser.id, body });
       return;
@@ -768,6 +796,53 @@ export default function UserManagementPage() {
                 </span>
               </span>
             </label>
+          )}
+          {isEdit && tgAssignable && (
+            <label className="drawer-field">
+              <span className="drawer-label">Telegram shooter owner</span>
+              <select
+                className="input"
+                value={form.tg_shooter_owner}
+                onChange={(e) => setForm((f) => ({ ...f, tg_shooter_owner: e.target.value }))}
+              >
+                <option value="">None</option>
+                {shooterOwnerOptions.map((o) => <option key={o} value={o}>{o}</option>)}
+              </select>
+              <span className="drawer-check__hint">
+                Telegram OTP: this user can request codes for this owner&apos;s shooter accounts.
+              </span>
+            </label>
+          )}
+          {isEdit && tgAssignable && (
+            <fieldset className="drawer-field">
+              <legend className="drawer-label">Telegram GCS brands</legend>
+              <p className="drawer-hint" style={{ marginTop: 0 }}>
+                Telegram OTP: this user can request codes for GCS accounts of these brands.
+              </p>
+              <div className="flex flex-wrap gap-2" style={{ marginTop: 8 }}>
+                {tgBrandOptions.map((brand) => {
+                  const checked = form.tg_brands.includes(brand);
+                  return (
+                    <label
+                      key={brand}
+                      className={`badge ${checked ? 'badge-accent' : 'badge-default'}`}
+                      style={{ cursor: 'pointer', userSelect: 'none' }}
+                    >
+                      <input
+                        type="checkbox"
+                        className="sr-only"
+                        checked={checked}
+                        onChange={() => setForm((f) => ({
+                          ...f,
+                          tg_brands: checked ? f.tg_brands.filter((b) => b !== brand) : [...f.tg_brands, brand],
+                        }))}
+                      />
+                      {brand}
+                    </label>
+                  );
+                })}
+              </div>
+            </fieldset>
           )}
           <label className="drawer-field">
             <span className="drawer-label">

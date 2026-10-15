@@ -28,6 +28,9 @@ const AMS_BRIDGE_SYNC_PATHS = [
   '/recovery',
 ];
 
+/** Pages whose data is not split by site — the site switcher would do nothing there. */
+const SITE_SWITCHER_HIDDEN_PATHS = ['/telegram-otp'];
+
 const NAV_SECTIONS = [
   { section: 'OPERATOR ACTIONS', collapsible: true, items: [
     { to: '/' }, { to: '/register' }, { to: '/link' }, { to: '/nurturing' }, { to: '/recovery' },
@@ -128,7 +131,7 @@ export default function Layout({ authBooting = false }) {
             <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
               <div aria-hidden="true" />
               <div className="header-toolbar-center">
-                <SiteSwitcher />
+                {!SITE_SWITCHER_HIDDEN_PATHS.includes(location.pathname) && <SiteSwitcher />}
                 {isGovernance && <GovernanceDateControls />}
               </div>
               <div className="flex items-center justify-end gap-3">

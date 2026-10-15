@@ -2,7 +2,7 @@ import { memo, useEffect, useRef } from 'react';
 import { LogOut } from 'lucide-react';
 import {
   LayoutGrid, Plus, RotateCcw, Globe, CreditCard, Table2,
-  Ticket, LineChart, ScrollText, Zap, MessageSquare, Users, Smartphone, Search, ShieldCheck, UserX,
+  Ticket, LineChart, ScrollText, Zap, MessageSquare, Users, Smartphone, Search, ShieldCheck, UserX, KeyRound,
 } from 'lucide-react';
 import { readSidebarScrollTop, writeSidebarScrollTop } from '../lib/sidebar-prefs';
 import SidebarNavGroup, { pathInGroup } from './SidebarNavGroup';
@@ -16,6 +16,7 @@ const NAV = [
     { to: '/register', icon: Plus, label: 'Register', badge: 'reg' },
     { to: '/link', icon: Zap, label: 'Activation & Nurturing' },
     { to: '/recovery', icon: RotateCcw, label: 'Account Recovery' },
+    { to: '/telegram-otp', icon: KeyRound, label: 'Telegram OTP' },
   ]},
   { section: 'RESOURCE MGMT', collapsible: true, items: [
     { to: '/devices', icon: Smartphone, label: 'Device Ledger' },
@@ -38,6 +39,7 @@ const BUSINESS_NAV = [
     collapsible: false,
     items: [
       { to: '/accounts', icon: Search, label: 'Check Account Status' },
+      { to: '/telegram-otp', icon: KeyRound, label: 'Telegram OTP' },
     ],
   },
   {

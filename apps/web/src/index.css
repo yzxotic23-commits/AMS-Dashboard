@@ -1222,7 +1222,7 @@
     @apply shrink-0;
   }
   .page-head-actions {
-    @apply shrink-0;
+    @apply flex shrink-0 items-center gap-2;
   }
 
   .page-meta-bubble {
@@ -1836,6 +1836,27 @@
   .offboard-stale {
     color: #b8860b;
     font-weight: 500;
+  }
+  .otp-wait {
+    @apply flex items-center gap-3 rounded-card border px-4 py-3 text-sm;
+    border-color: var(--ams-line);
+    color: var(--ams-muted);
+  }
+  .otp-wait__timer {
+    @apply ml-auto font-mono text-[13px] font-semibold;
+    color: var(--ams-ink);
+  }
+  .otp-code-row {
+    @apply flex items-center justify-between gap-3 rounded-card border px-4 py-3;
+    border-color: var(--ams-line);
+  }
+  .otp-code {
+    @apply font-mono text-[28px] font-bold tracking-[0.3em];
+    color: var(--ams-ink);
+  }
+  .otp-password {
+    @apply font-mono text-base tracking-[0.2em];
+    color: var(--ams-muted);
   }
   .data-table--allowlist .col-num {
     width: 3rem;

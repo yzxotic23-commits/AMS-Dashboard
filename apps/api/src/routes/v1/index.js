@@ -16,6 +16,7 @@ import usersRoutes from '../../modules/users/routes.js';
 import operatorsRoutes from '../../modules/operators/routes.js';
 import supplyRoutes from '../../modules/supply/routes.js';
 import settingsRoutes from '../../modules/settings/routes.js';
+import telegramOtpRoutes from '../../modules/telegram-otp/routes.js';
 
 const router = Router();
 
@@ -46,5 +47,6 @@ router.use('/operators', operatorsRoutes);
 router.use('/supply', supplyRoutes);
 router.use('/settings', settingsRoutes);
 router.use('/users', usersRoutes);
+router.use('/telegram-otp', telegramOtpRoutes);
 
 export default router;

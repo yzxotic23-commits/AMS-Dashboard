@@ -35,6 +35,8 @@ const patchSchema = z.object({
   is_active: z.boolean().optional(),
   can_offboard: z.boolean().optional(),
   in_operator_roster: z.boolean().optional(),
+  tg_shooter_owner: z.string().trim().max(80).nullable().optional(),
+  tg_brands: z.array(z.string().trim().min(1).max(40)).max(50).optional(),
   password: z.string().min(8).optional(),
 });
 
@@ -121,6 +123,8 @@ function userAuditSummary(profile) {
     is_active: profile.is_active,
     can_offboard: Boolean(profile.can_offboard),
     in_operator_roster: Boolean(profile.in_operator_roster),
+    tg_shooter_owner: profile.tg_shooter_owner || null,
+    tg_brands: profile.tg_brands || [],
   };
 }
 
@@ -166,6 +170,14 @@ async function updateProfilePg(client, id, fields) {
     sets.push(`in_operator_roster = $${i++}`);
     vals.push(fields.in_operator_roster);
   }
+  if (fields.tg_shooter_owner !== undefined) {
+    sets.push(`tg_shooter_owner = $${i++}`);
+    vals.push(fields.tg_shooter_owner);
+  }
+  if (fields.tg_brands != null) {
+    sets.push(`tg_brands = $${i++}::text[]`);
+    vals.push(fields.tg_brands);
+  }
   if (fields.password_hash != null) {
     sets.push(`password_hash = $${i++}`);
     vals.push(fields.password_hash);
@@ -201,7 +213,7 @@ async function listStaff() {
   const [{ data, error }, lastSignIns] = await Promise.all([
     supabaseAdmin
       .from('profiles')
-      .select('id, email, username, full_name, role, site_key, brands, is_active, can_offboard, in_operator_roster, created_at, updated_at')
+      .select('id, email, username, full_name, role, site_key, brands, is_active, can_offboard, in_operator_roster, tg_shooter_owner, tg_brands, created_at, updated_at')
       .order('created_at', { ascending: false }),
     loadLastSignIns().catch(() => new Map()),
   ]);
@@ -459,6 +471,10 @@ router.patch('/:id', async (req, res, next) => {
       ...(body.is_active != null ? { is_active: body.is_active } : {}),
       ...(body.can_offboard != null ? { can_offboard: body.can_offboard } : {}),
       ...(body.in_operator_roster != null ? { in_operator_roster: body.in_operator_roster } : {}),
+      ...(body.tg_shooter_owner !== undefined ? { tg_shooter_owner: body.tg_shooter_owner || null } : {}),
+      ...(body.tg_brands != null
+        ? { tg_brands: [...new Set(body.tg_brands.map((b) => b.toUpperCase()))].sort() }
+        : {}),
       ...(body.password ? { password_hash: body.password } : {}),
     };
     if (body.site_key != null || body.role != null) {
@@ -477,7 +493,7 @@ router.patch('/:id', async (req, res, next) => {
         .from('profiles')
         .update({ ...patch, updated_at: new Date().toISOString() })
         .eq('id', req.params.id)
-        .select('id, email, username, full_name, role, site_key, brands, is_active, can_offboard, in_operator_roster, created_at, updated_at')
+        .select('id, email, username, full_name, role, site_key, brands, is_active, can_offboard, in_operator_roster, tg_shooter_owner, tg_brands, created_at, updated_at')
         .single();
       if (error) throw error;
       data = updated;

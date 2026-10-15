@@ -5,6 +5,7 @@ import morgan from 'morgan';
 import { ZodError } from 'zod';
 import v1Router from './routes/v1/index.js';
 import { ipAllowlistGate } from './lib/ipAllowlist.js';
+import telegramOtpServiceRouter from './modules/telegram-otp/service.js';
 
 const app = express();
 
@@ -22,6 +23,7 @@ app.use(morgan('dev'));
 app.use(express.json({ limit: '8mb' }));
 
 app.use('/api/v1', ipAllowlistGate, v1Router);
+app.use('/api/service/telegram-otp', telegramOtpServiceRouter);
 
 app.use((err, _req, res, _next) => {
   if (err instanceof ZodError) {

@@ -15,6 +15,7 @@ import AuditLogPage from './pages/AuditLogPage';
 import DevicesPage from './pages/DevicesPage';
 import ActivationDeskPage from './pages/ActivationDeskPage';
 import RecoveryPage from './pages/RecoveryPage';
+import TelegramOtpPage from './pages/TelegramOtpPage';
 import FeedFlowPage from './pages/FeedFlowPage';
 import TicketsPage from './pages/TicketsPage';
 import UserManagementPage from './pages/settings/UserManagementPage';
@@ -72,6 +73,14 @@ export default function App() {
         <Route path="link" element={<ActivationDeskPage />} />
         <Route path="nurturing" element={<Navigate to="/link?tab=nurturing" replace />} />
         <Route path="recovery" element={<RecoveryPage />} />
+        <Route
+          path="telegram-otp"
+          element={(
+            <AdminRoute allow={(p) => p?.role === 'operator' || p?.role === 'business'}>
+              <TelegramOtpPage />
+            </AdminRoute>
+          )}
+        />
         <Route path="feedflow" element={<FeedFlowPage />} />
         <Route path="devices" element={<DevicesPage />} />
         <Route path="sims" element={<SimsPage />} />

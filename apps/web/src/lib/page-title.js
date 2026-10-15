@@ -4,6 +4,7 @@ const PAGE_TITLES = {
   '/register': 'Register',
   '/link': 'Activation & Nurturing',
   '/recovery': 'Account Recovery',
+  '/telegram-otp': 'Telegram OTP',
   '/feedflow': 'FeedFlow',
   '/devices': 'Device Ledger',
   '/ips': 'IP Ledger',

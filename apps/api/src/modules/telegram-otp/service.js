@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { supabaseAdmin } from '../../lib/supabase.js';
 import { writeAudit } from '../../lib/audit.js';
 import {
+  purgeGroupScans,
   purgeOtpRequests,
   LOGIN_CONFIRM_WINDOW_MS,
   LOGIN_SUCCESS_VISIBLE_MS,
@@ -183,6 +184,126 @@ router.post('/login-confirmed', async (req, res, next) => {
       userId: row.requested_by,
     });
     res.json({ confirmed: true });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** POST /group-scans/next — claim the oldest queued group scan, if any. */
+router.post('/group-scans/next', async (_req, res, next) => {
+  try {
+    await purgeGroupScans();
+    const { data: queued, error } = await supabaseAdmin
+      .from('tg_group_scans')
+      .select('id, account_id')
+      .eq('status', 'queued')
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    if (!queued) return res.json({ scan: null });
+
+    const now = new Date().toISOString();
+    const { data: claimed, error: claimErr } = await supabaseAdmin
+      .from('tg_group_scans')
+      .update({ status: 'running', started_at: now, heartbeat_at: now })
+      .eq('id', queued.id)
+      .eq('status', 'queued')
+      .select('id, account_id')
+      .maybeSingle();
+    if (claimErr) throw claimErr;
+    res.json({ scan: claimed || null });
+  } catch (e) {
+    next(e);
+  }
+});
+
+const scanProgressSchema = z.object({
+  done: z.number().int().min(0).max(100000),
+  total: z.number().int().min(0).max(100000).nullable().optional(),
+});
+
+/** POST /group-scans/:id/progress — heartbeat; tells the listener to stop when the scan was cancelled. */
+router.post('/group-scans/:id/progress', async (req, res, next) => {
+  try {
+    const body = scanProgressSchema.parse(req.body);
+    const { data, error } = await supabaseAdmin
+      .from('tg_group_scans')
+      .update({
+        progress_done: body.done,
+        ...(body.total != null ? { progress_total: body.total } : {}),
+        heartbeat_at: new Date().toISOString(),
+      })
+      .eq('id', req.params.id)
+      .eq('status', 'running')
+      .select('id')
+      .maybeSingle();
+    if (error) throw error;
+    res.json({ keep_going: Boolean(data) });
+  } catch (e) {
+    next(e);
+  }
+});
+
+const scannedGroupSchema = z.object({
+  group_id: z.string().trim().min(1).max(40),
+  group_name: z.string().max(255).optional().nullable(),
+  member_count: z.number().int().min(0).max(10000000).optional().nullable(),
+  is_admin: z.boolean().optional(),
+  is_owner: z.boolean().optional(),
+  invite_link: z.string().trim().max(300).optional().nullable(),
+});
+
+const scanResultSchema = z.object({ groups: z.array(scannedGroupSchema).max(10000) });
+
+/** POST /group-scans/:id/result — the complete group list; replaces the account's previous list. */
+router.post('/group-scans/:id/result', async (req, res, next) => {
+  try {
+    const { groups } = scanResultSchema.parse(req.body);
+    const { data: scan, error: scanErr } = await supabaseAdmin
+      .from('tg_group_scans')
+      .select('id, account_id, requested_by, status')
+      .eq('id', req.params.id)
+      .maybeSingle();
+    if (scanErr) throw scanErr;
+    if (!scan || scan.status !== 'running') return res.status(409).json({ error: 'Scan is not running' });
+
+    const { data: count, error } = await supabaseAdmin.rpc('tg_commit_group_scan', {
+      p_scan_id: scan.id,
+      p_groups: groups,
+    });
+    if (error) throw error;
+
+    await writeAudit({
+      entityType: 'tg_account',
+      entityId: scan.account_id,
+      action: 'TG_GROUP_SCAN',
+      newValue: {
+        groups: count,
+        admin: groups.filter((g) => g.is_admin || g.is_owner).length,
+      },
+      metadata: { scan_id: scan.id, source: 'tg-otp-listener' },
+      userId: scan.requested_by,
+    });
+    res.json({ committed: count });
+  } catch (e) {
+    next(e);
+  }
+});
+
+const scanFailSchema = z.object({ error: z.string().trim().min(1).max(500) });
+
+/** POST /group-scans/:id/fail — the listener could not finish; the previous group list stays. */
+router.post('/group-scans/:id/fail', async (req, res, next) => {
+  try {
+    const body = scanFailSchema.parse(req.body);
+    const { error } = await supabaseAdmin
+      .from('tg_group_scans')
+      .update({ status: 'failed', error: body.error, finished_at: new Date().toISOString() })
+      .eq('id', req.params.id)
+      .eq('status', 'running');
+    if (error) throw error;
+    res.json({ ok: true });
   } catch (e) {
     next(e);
   }

@@ -29,6 +29,29 @@ export async function purgeOtpRequests() {
   if (wiped.error) throw wiped.error;
 }
 
+/** A running scan with no progress report for this long is treated as dead (listener restarted). */
+export const GROUP_SCAN_STALE_MS = 10 * 60 * 1000;
+/** A queued scan Friday never picked up (listener down) is closed after this long. */
+export const GROUP_SCAN_QUEUE_TTL_MS = 15 * 60 * 1000;
+
+export async function purgeGroupScans() {
+  const now = Date.now();
+  const [stale, unclaimed] = await Promise.all([
+    supabaseAdmin
+      .from('tg_group_scans')
+      .update({ status: 'failed', error: 'Friday stopped reporting progress', finished_at: new Date(now).toISOString() })
+      .eq('status', 'running')
+      .lt('heartbeat_at', new Date(now - GROUP_SCAN_STALE_MS).toISOString()),
+    supabaseAdmin
+      .from('tg_group_scans')
+      .update({ status: 'failed', error: 'Friday did not pick up the scan', finished_at: new Date(now).toISOString() })
+      .eq('status', 'queued')
+      .lt('created_at', new Date(now - GROUP_SCAN_QUEUE_TTL_MS).toISOString()),
+  ]);
+  if (stale.error) throw stale.error;
+  if (unclaimed.error) throw unclaimed.error;
+}
+
 export function sameOwner(a, b) {
   return Boolean(a && b) && String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
 }

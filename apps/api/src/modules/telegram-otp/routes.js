@@ -9,10 +9,12 @@ import {
   isSessionReady,
   purgeOtpRequests,
 } from './store.js';
+import groupsRouter from './groups.js';
 
 const router = Router();
 router.use(authenticate);
 router.use(requireRole('admin', 'operator'));
+router.use('/groups', groupsRouter);
 
 const ACCOUNT_FIELDS = 'id, pool, phone, profile, brand, currency, owner, status, enabled, synced_at';
 

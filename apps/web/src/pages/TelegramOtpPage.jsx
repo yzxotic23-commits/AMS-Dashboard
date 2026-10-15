@@ -5,6 +5,8 @@ import PageHead from '../components/PageHead';
 import DetailDialog from '../components/DetailDialog';
 import IconTooltip from '../components/IconTooltip';
 import Toast from '../components/Toast';
+import TelegramGroupsTab from '../components/TelegramGroupsTab';
+import { useAuth } from '../context/AuthContext';
 import api from '../lib/api';
 
 function formatAgo(iso) {
@@ -58,8 +60,17 @@ function PoolBadge({ account }) {
   return <span className="badge badge-default">GCS</span>;
 }
 
+const PAGE_TABS = [
+  { id: 'otp', label: 'OTP' },
+  { id: 'groups', label: 'Groups' },
+];
+
 export default function TelegramOtpPage() {
   const qc = useQueryClient();
+  const { profile } = useAuth();
+  const isAdmin = profile?.role === 'admin';
+  const [tabState, setTab] = useState('otp');
+  const tab = isAdmin ? tabState : 'otp';
   const [search, setSearch] = useState('');
   const [pool, setPool] = useState('all');
   const [brand, setBrand] = useState('all');
@@ -201,8 +212,10 @@ export default function TelegramOtpPage() {
     <div>
       <PageHead
         title="Telegram OTP"
-        description="Request OTP, then log in within 5 minutes — Friday catches the code and shows it here."
-        actions={(
+        description={tab === 'groups'
+          ? 'Scan the groups of each GCS account and compare them with its brand’s master list.'
+          : 'Request OTP, then log in within 5 minutes — Friday catches the code and shows it here.'}
+        actions={tab === 'otp' ? (
           <div className="page-meta-bubble">
             <span className="font-semibold text-ams-ink">{accounts.length}</span>
             <span>accounts ·</span>
@@ -210,9 +223,30 @@ export default function TelegramOtpPage() {
             <span>active · synced</span>
             <span className="font-semibold text-ams-ink">{formatAgo(roster?.last_synced_at)}</span>
           </div>
-        )}
+        ) : null}
       />
 
+      {isAdmin && (
+        <div className="tk-tab-toolbar mb-4">
+          <div className="page-tab-bar tk-tab-toolbar-tabs" role="tablist" aria-label="Telegram OTP sections">
+            {PAGE_TABS.map(({ id, label }) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={tab === id}
+                className={tab === id ? 'page-tab page-tab-active' : 'page-tab'}
+                onClick={() => setTab(id)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {tab === 'groups' ? <TelegramGroupsTab /> : (
+        <>
       <div className="page-filter-bar">
         <div className="page-filter-search !flex-none w-full max-w-xs">
           <Search size={15} className="page-filter-search-icon" strokeWidth={2} />
@@ -368,6 +402,8 @@ export default function TelegramOtpPage() {
             </div>
           )}
         </div>
+      )}
+        </>
       )}
 
       <DetailDialog

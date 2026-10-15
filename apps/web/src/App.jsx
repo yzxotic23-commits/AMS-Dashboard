@@ -76,7 +76,7 @@ export default function App() {
         <Route
           path="telegram-otp"
           element={(
-            <AdminRoute allow={(p) => p?.role === 'operator' || p?.role === 'business'}>
+            <AdminRoute allow={(p) => p?.role === 'operator'}>
               <TelegramOtpPage />
             </AdminRoute>
           )}

@@ -39,7 +39,6 @@ const BUSINESS_NAV = [
     collapsible: false,
     items: [
       { to: '/accounts', icon: Search, label: 'Check Account Status' },
-      { to: '/telegram-otp', icon: KeyRound, label: 'Telegram OTP' },
     ],
   },
   {

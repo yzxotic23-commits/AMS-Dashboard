@@ -12,7 +12,7 @@ import {
 
 const router = Router();
 router.use(authenticate);
-router.use(requireRole('admin', 'operator', 'business'));
+router.use(requireRole('admin', 'operator'));
 
 const ACCOUNT_FIELDS = 'id, pool, phone, profile, brand, currency, owner, status, enabled, synced_at';
 

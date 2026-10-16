@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Weekly backup health report to Slack: daily runs over the last 7 full WIB days plus what
+ * Weekly backup health report to Slack: daily runs over the last 7 full GMT+7 days plus what
  * is actually sitting in the AMS-Backups Shared Drive. Catches the silent case where the
  * daily job stops running altogether (no failure alert would fire).
  *   GITHUB_TOKEN, GITHUB_REPOSITORY  provided by Actions
@@ -20,7 +20,7 @@ async function getJson(url, token) {
 }
 
 const wibDate = (iso) => new Date(new Date(iso).getTime() + 7 * 3600000).toISOString().slice(0, 10);
-// The 7 full WIB days before today, so today's backup not having run yet doesn't count as a miss.
+// The 7 full GMT+7 days before today, so today's backup not having run yet doesn't count as a miss.
 const daysAgo = (n) => new Date(Date.parse(wibDate(new Date().toISOString())) - n * 86400000).toISOString().slice(0, 10);
 const reportDays = Array.from({ length: DAYS }, (_, i) => daysAgo(i + 1));
 const { workflow_runs: runs = [] } = await getJson(
@@ -43,7 +43,7 @@ const latestAgeHours = latest ? (Date.now() - new Date(latest.createdTime).getTi
 const wib = (iso) =>
   `${new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Asia/Jakarta', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false,
-  }).format(new Date(iso))} WIB`;
+  }).format(new Date(iso))} GMT +7`;
 const mb = (bytes) => `${(Number(bytes) / 1048576).toFixed(1)} MB`;
 const dayLabel = (ymd) => new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', day: 'numeric', month: 'short' }).format(new Date(ymd));
 

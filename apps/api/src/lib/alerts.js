@@ -37,7 +37,7 @@ function formatTime(date = new Date()) {
     minute: '2-digit',
     hour12: false,
   }).format(date);
-  return `${text} WIB`;
+  return `${text} GMT +7`;
 }
 
 const bold = (text) => ({
@@ -112,11 +112,25 @@ function allowlistAlert(prev = {}, next = {}) {
 function buildAlert({ action, entityType, metadata, previousValue, newValue }) {
   const m = metadata || {};
   switch (action) {
-    case 'EXPORT':
+    case 'EXPORT': {
+      if (m.export === 'telegram_groups') {
+        return {
+          title: '📤 Data exported',
+          details: [
+            ['Export', 'Telegram'],
+            ...(m.brand ? [['Brand', m.brand]] : []),
+            ...(m.account_label || m.account
+              ? [['Account', m.account_label || m.account]]
+              : []),
+            ...(m.rows != null ? [['Rows', m.rows]] : []),
+          ],
+        };
+      }
       return {
         title: '📤 Data exported',
         details: [['Export', m.export || entityType], ...(m.rows != null ? [['Rows', m.rows]] : [])],
       };
+    }
     case 'DELETE':
     case 'USER_DELETE': {
       const v = previousValue || {};

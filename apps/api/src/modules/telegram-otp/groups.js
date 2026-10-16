@@ -234,7 +234,13 @@ router.get('/accounts/:id/export', requireExport, async (req, res, next) => {
       entityType: 'tg_account',
       entityId: detail.account.id,
       action: 'EXPORT',
-      metadata: { export: 'telegram_groups', account: detail.account.id, rows: rows.length },
+      metadata: {
+        export: 'telegram_groups',
+        account: detail.account.id,
+        brand: detail.account.brand || null,
+        account_label: detail.account.profile || detail.account.id,
+        rows: rows.length,
+      },
       userId: req.profile.id,
       req,
     });

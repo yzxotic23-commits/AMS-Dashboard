@@ -8,7 +8,7 @@
 | Daily encrypted backup (this folder) | `public` schema + `auth.users`, AES-256 encrypted | Google Shared Drive `AMS-Backups`, 30 days (at least the 7 newest are always kept). Nothing is stored on GitHub | This runbook, step B |
 | Audit log | Every export, delete, lock/role change, setting change, circuit-breaker trip | Permanent (`audit_logs`) | Audit Log page |
 
-The daily job (`.github/workflows/db-backup.yml`, 08:03 WIB; GitHub may start it later) runs a **restore drill** right after every
+The daily job (`.github/workflows/db-backup.yml`, 08:03 GMT +7; GitHub may start it later) runs a **restore drill** right after every
 backup, in the same job: it restores into an empty Postgres 17 and checks every table's row count.
 Backups are encrypted before they leave the runner; the passphrase lives only in GitHub secrets and the
 password manager. The encrypted file is then uploaded to the `AMS-Backups` Shared Drive, and backups older
@@ -16,7 +16,7 @@ than 30 days are moved to the Drive trash.
 
 - A red run, or a "backup FAILED" message in `#ams-alerts`, means today's backup is not trustworthy.
   Investigate the same day.
-- Every Monday 08:07 WIB, `backup-weekly-report.yml` posts a summary to `#ams-alerts`: days backed up out
+- Every Monday 08:07 GMT +7, `backup-weekly-report.yml` posts a summary to `#ams-alerts`: days backed up out
   of 7 (previous Monday to Sunday), and the newest file in Drive. It turns into "needs attention" if a day
   was missed or the newest backup is older than 36 hours. This catches the case where the daily job
   silently stopped running.

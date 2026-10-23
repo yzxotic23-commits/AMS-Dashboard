@@ -919,6 +919,9 @@ router.post('/:id/mark-strict', async (req, res, next) => {
 router.post('/:id/engine-disconnect', circuitBreaker('account_disconnect'), async (req, res, next) => {
   try {
     const { note, slot, loggedOut } = engineDisconnectSchema.parse(req.body || {});
+    if (loggedOut !== true) {
+      return res.json({ _skipped: true, reason: 'preview_down_not_logout' });
+    }
     const { data: current, error: fetchErr } = await supabaseAdmin
       .from('accounts')
       .select('*')

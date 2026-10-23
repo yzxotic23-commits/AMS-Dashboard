@@ -3,6 +3,8 @@ import { Activity, AlertCircle, ChevronLeft, ChevronRight, ExternalLink, Message
 import IconTooltip from './IconTooltip';
 import { useEngineStatus } from '../hooks/useEngineStatus';
 import { useFeedFlowRefresh } from '../hooks/useFeedFlowRefresh';
+import { useAllAccounts } from '../hooks/useOperatorAccounts';
+import { accountLooksDisconnected, isLiveEngineSlot, matchAccountForEngineSlot } from '../lib/engine-slot';
 
 const SLOT_PAGE_SIZE = 10;
 
@@ -39,16 +41,16 @@ function MetricTile({ label, value, sub, tone = 'default' }) {
   );
 }
 
-function slotState(slot) {
-  if (slot.feedingActive) return 'feeding';
+function slotState(slot, account) {
+  if (slot.feedingActive && !slot.loggedOut) return 'feeding';
   if (slot.linking) return 'linking';
-  // Saved session counts as online (preview socket may be off on Railway).
-  if (slot.connected || slot.authSaved) return 'online';
+  if (slot.loggedOut || accountLooksDisconnected(account)) return 'offline';
+  if (isLiveEngineSlot(slot)) return 'online';
   return 'offline';
 }
 
-function SlotBubble({ slot }) {
-  const state = slotState(slot);
+function SlotBubble({ slot, account }) {
+  const state = slotState(slot, account);
   const name = slot.label || `Account ${slot.slot + 1}`;
   const n = Number(slot.slot) + 1;
   const stateLabel = SLOT_STATE_LABEL[state];
@@ -81,6 +83,7 @@ function SlotBubble({ slot }) {
 /** Read-only engine overview — scan, link, start/stop live in the FeedFlow console. */
 export default function EngineStatusPanel() {
   const { data, isLoading, isError, isFetching } = useEngineStatus();
+  const { data: accounts = [] } = useAllAccounts();
   const { refresh, refreshing } = useFeedFlowRefresh();
   const [slotPage, setSlotPage] = useState(0);
 
@@ -102,10 +105,11 @@ export default function EngineStatusPanel() {
   const showLeadingEllipsis = hasMoreSlots && safePage > 0;
   const showTrailingEllipsis = hasMoreSlots && safePage < slotPages - 1;
 
-  // Prefer engine.slotsOnline; fall back to counting connected/authSaved slots
-  // so AMS stays in sync when preview sockets are intentionally offline.
-  const onlineFromSlots = slots.filter((s) => s.connected || s.authSaved).length;
-  const online = Math.max(engine?.slotsOnline ?? 0, onlineFromSlots);
+  const onlineFromSlots = slots.filter((s) => {
+    const state = slotState(s, matchAccountForEngineSlot(accounts, s));
+    return state === 'online' || state === 'feeding';
+  }).length;
+  const online = onlineFromSlots;
   const total = engine?.accountCount ?? slots.length;
   const feedingActive = engine?.slotsFeeding ?? 0;
   const successRate = feeding?.successRate ?? 0;
@@ -238,7 +242,11 @@ export default function EngineStatusPanel() {
                     </button>
                   )}
                   {visibleSlots.map((s) => (
-                    <SlotBubble key={s.slot} slot={s} />
+                    <SlotBubble
+                      key={s.slot}
+                      slot={s}
+                      account={matchAccountForEngineSlot(accounts, s)}
+                    />
                   ))}
                   {showTrailingEllipsis && (
                     <button

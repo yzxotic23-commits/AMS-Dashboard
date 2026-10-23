@@ -34,6 +34,20 @@ export function findEngineSlotForAccount(account, slots = []) {
   }) || null;
 }
 
+/** Ledger already knows this account left WhatsApp — do not trust a leftover engine socket. */
+export function accountLooksDisconnected(account) {
+  if (!account) return false;
+  if (account.status === 'LOGGED_OUT' || account.status === 'BANNED') return true;
+  return Boolean(account.disconnect_report);
+}
+
+/** Live WA socket only. Saved auth / leftover preview session is not Online. */
+export function isLiveEngineSlot(slot) {
+  if (!slot || slot.loggingOut || slot.loggedOut) return false;
+  if (slot.feedingActive) return true;
+  return Boolean(slot.connected);
+}
+
 /**
  * Live connection from engine slot — not a Feeding audit status.
  * Online = live/connected socket only. authSaved alone is NOT online (stale session
@@ -41,9 +55,29 @@ export function findEngineSlotForAccount(account, slots = []) {
  * @returns {'online'|'offline'|null}
  */
 export function liveSlotConnection(account, slots = []) {
+  if (accountLooksDisconnected(account)) return 'offline';
   const slot = findEngineSlotForAccount(account, slots);
   if (!slot) return null;
-  return slot.connected ? 'online' : 'offline';
+  return isLiveEngineSlot(slot) ? 'online' : 'offline';
+}
+
+/** FeedFlow Current Status Live pill — live session first, ledger is only a fallback. */
+export function slotLiveLabel(slot, account) {
+  if (!slot) {
+    if (accountLooksDisconnected(account)) {
+      return account?.disconnect_report ? 'Pending confirm' : 'Offline';
+    }
+    return 'Offline';
+  }
+  if (slot.feedingActive && !slot.loggedOut) return 'Feeding';
+  if (slot.linking) return 'Linking';
+  if (slot.loggedOut) return 'Offline';
+  if (isLiveEngineSlot(slot)) return 'Online';
+  if (accountLooksDisconnected(account)) {
+    return account?.disconnect_report ? 'Pending confirm' : 'Offline';
+  }
+  if (slot.authSaved) return 'Session saved';
+  return 'Offline';
 }
 
 /** Match AMS account to an offline engine slot row (for health sync). */

@@ -3,7 +3,7 @@ import { RefreshCw, Search } from 'lucide-react';
 import { useSite } from '../context/SiteContext';
 import { useEngineStatus } from '../hooks/useEngineStatus';
 import { useAllAccounts } from '../hooks/useOperatorAccounts';
-import { matchAccountForEngineSlot } from '../lib/engine-slot';
+import { matchAccountForEngineSlot, slotLiveLabel } from '../lib/engine-slot';
 import { CURRENT_STATUS } from '../lib/feeding-audit';
 import { SITES, getSiteChipClass } from '../lib/sites';
 
@@ -13,6 +13,7 @@ const STATUS_LABEL = {
   active: CURRENT_STATUS.ACTIVE,
   restrict_scan: CURRENT_STATUS.RESTRICTED_SCAN,
   restrict_chat_new: CURRENT_STATUS.RESTRICTED_CHAT_NEW,
+  logged_out: 'Logged out',
   banned: 'Banned',
 };
 
@@ -20,6 +21,7 @@ const STATUS_BADGE = {
   active: 'badge-success',
   restrict_scan: 'badge-warn',
   restrict_chat_new: 'badge-warn',
+  logged_out: 'badge-warn',
   banned: 'badge-danger',
 };
 
@@ -27,24 +29,17 @@ const LIVE_BADGE = {
   Feeding: 'badge-warn',
   Online: 'badge-success',
   Linking: 'badge-warn',
+  'Pending confirm': 'badge-warn',
   'Session saved': 'badge-default',
   Offline: 'badge-default',
 };
 
 function kindFromAccount(account) {
   if (account?.status === 'BANNED') return 'banned';
+  if (account?.status === 'LOGGED_OUT' || account?.disconnect_report) return 'logged_out';
   if (account?.restrict_kind === 'restrict_scan') return 'restrict_scan';
   if (account?.restrict_kind === 'restrict_chat_new') return 'restrict_chat_new';
   return 'active';
-}
-
-function slotLiveLabel(slot) {
-  if (!slot) return 'Offline';
-  if (slot.feedingActive) return 'Feeding';
-  if (slot.linking) return 'Linking';
-  if (slot.connected) return 'Online';
-  if (slot.authSaved) return 'Session saved';
-  return 'Offline';
 }
 
 /**
@@ -250,7 +245,7 @@ export default function FeedFlowAccountStatusPanel() {
               </thead>
               <tbody>
                 {pageRows.map((row) => {
-                  const liveLabel = slotLiveLabel(row.slot);
+                  const liveLabel = slotLiveLabel(row.slot, row.account);
                   const statusLabel = STATUS_LABEL[row.kind] || CURRENT_STATUS.ACTIVE;
                   return (
                     <tr key={`slot-${row.slot.slot}`}>

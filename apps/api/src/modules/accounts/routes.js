@@ -35,7 +35,7 @@ import {
   ANOMALY_FALSE_POSITIVE,
 } from '../../lib/anomalyEvent.js';
 import { assertDeviceSlotAvailable, DeviceSlotError } from '../../lib/deviceSlots.js';
-import { postWsafAuditRecord } from '../../lib/wsafBridge.js';
+import { dropWsafSessionForAccount, postWsafAuditRecord } from '../../lib/wsafBridge.js';
 import { accountInBrandScope, profileBrandScope } from '../../lib/accountBrand.js';
 import { accountInStaffScope, profileStaffScope } from '../../lib/accountStaff.js';
 import { parseTicketMeta } from '../../lib/ticketMeta.js';
@@ -991,6 +991,10 @@ router.post('/:id/engine-disconnect', circuitBreaker('account_disconnect'), asyn
       req,
     });
 
+    if (nextStatus === 'LOGGED_OUT') {
+      dropWsafSessionForAccount({ ...current, wsaf_slot: slot ?? current.wsaf_slot }).catch(() => {});
+    }
+
     res.status(201).json(data);
   } catch (e) {
     next(e);
@@ -1069,6 +1073,8 @@ router.post('/:id/report-disconnect', async (req, res, next) => {
       userId: req.profile.id,
       req,
     });
+
+    dropWsafSessionForAccount(current).catch(() => {});
 
     const [safeData] = sanitizeAccountsForRole([data], req.profile);
     res.status(201).json(safeData);
@@ -1167,6 +1173,7 @@ router.post('/:id/resolve-disconnect', async (req, res, next) => {
 
       data = updated;
       toLabel = nextStatus === 'BANNED' ? 'Banned' : 'Logged out';
+      dropWsafSessionForAccount(current).catch(() => {});
     } else {
       const label = STRICT_KIND_LABEL[outcome];
       nextStatus = current.status === 'LOGGED_OUT' ? 'IN_USE' : current.status;

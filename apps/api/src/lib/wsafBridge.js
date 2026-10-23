@@ -94,6 +94,36 @@ export async function postWsafDisconnect(slot) {
   });
 }
 
+export async function postWsafLogout(slot) {
+  return wsafRequest(`/api/logout/${slot}`, {
+    method: 'POST',
+    body: JSON.stringify({}),
+    timeout: 40_000,
+  });
+}
+
+/** Best-effort: drop the FeedFlow session so AMS logout is not contradicted by a leftover Online socket. */
+export async function dropWsafSessionForAccount(account) {
+  try {
+    let slot = account?.wsaf_slot;
+    if (slot == null) {
+      const status = await fetchWsafEngineStatus().catch(() => null);
+      const phone = String(account?.phone_number || '').replace(/\D/g, '');
+      if (!phone) return false;
+      const match = (status?.accounts || []).find((row) => {
+        const enginePhone = String(row.phone || '').replace(/\D/g, '');
+        return enginePhone && phone.endsWith(enginePhone.slice(-9));
+      });
+      if (!match) return false;
+      slot = match.slot;
+    }
+    await postWsafLogout(Number(slot));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function postWsafFeedingAction(path) {
   const data = await wsafRequest(path, {
     method: 'POST',

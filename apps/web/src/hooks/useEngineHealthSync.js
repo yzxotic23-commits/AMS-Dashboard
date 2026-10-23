@@ -55,12 +55,24 @@ export function useEngineHealthSync() {
         return;
       }
 
+      // Preview down + leftover auth is normal on Railway (no auto-reconnect).
+      // That is NOT a WhatsApp logout — do not open Pending confirmation.
       if (isLiveEngineSlot(slot) && !slot.loggedOut) {
+        offlineStrikes.current.delete(strikeKey);
+        return;
+      }
+      if (!slot.loggedOut && slot.authSaved) {
         offlineStrikes.current.delete(strikeKey);
         return;
       }
 
       const hardLogout = Boolean(slot.loggedOut);
+      const sessionGone = !slot.authSaved && !isLiveEngineSlot(slot);
+      if (!hardLogout && !sessionGone) {
+        offlineStrikes.current.delete(strikeKey);
+        return;
+      }
+
       const strikes = (offlineStrikes.current.get(strikeKey) || 0) + 1;
       offlineStrikes.current.set(strikeKey, strikes);
       if (!hardLogout && strikes < OFFLINE_STRIKES) return;
@@ -72,9 +84,10 @@ export function useEngineHealthSync() {
       try {
         await api.post(`/accounts/${account.id}/engine-disconnect`, {
           slot: Number(slot.slot),
+          loggedOut: hardLogout,
           note: hardLogout
             ? `Auto-detected by AMS: FeedFlow slot ${Number(slot.slot) + 1} WhatsApp session ended`
-            : `Auto-detected by AMS: FeedFlow slot ${Number(slot.slot) + 1} offline / logged out`,
+            : `Auto-detected by AMS: FeedFlow slot ${Number(slot.slot) + 1} session removed`,
         }, { headers: AUTOMATION_HEADERS });
         qc.invalidateQueries({ queryKey: ['accounts'] });
       } catch {

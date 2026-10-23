@@ -196,6 +196,7 @@ const reportDisconnectSchema = z.object({
 const engineDisconnectSchema = z.object({
   note: z.string().max(500).optional(),
   slot: z.number().int().optional().nullable(),
+  loggedOut: z.boolean().optional(),
 });
 
 const resolveDisconnectSchema = z.object({
@@ -917,7 +918,7 @@ router.post('/:id/mark-strict', async (req, res, next) => {
 // (even when Business did not self-report).
 router.post('/:id/engine-disconnect', circuitBreaker('account_disconnect'), async (req, res, next) => {
   try {
-    const { note, slot } = engineDisconnectSchema.parse(req.body || {});
+    const { note, slot, loggedOut } = engineDisconnectSchema.parse(req.body || {});
     const { data: current, error: fetchErr } = await supabaseAdmin
       .from('accounts')
       .select('*')
@@ -991,7 +992,7 @@ router.post('/:id/engine-disconnect', circuitBreaker('account_disconnect'), asyn
       req,
     });
 
-    if (nextStatus === 'LOGGED_OUT') {
+    if (nextStatus === 'LOGGED_OUT' && loggedOut === true) {
       dropWsafSessionForAccount({ ...current, wsaf_slot: slot ?? current.wsaf_slot }).catch(() => {});
     }
 

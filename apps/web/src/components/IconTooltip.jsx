@@ -7,11 +7,12 @@ const VIEW_PAD = 12;
  * Portal tooltip — stays above (flips below only near top of viewport).
  * Clamps horizontally so right-edge action tips are not clipped.
  */
-export default function IconTooltip({ label, children, rich = false }) {
+export default function IconTooltip({ label, children, rich = false, hideOnClick = false }) {
   const [open, setOpen] = useState(false);
   const [coords, setCoords] = useState({ top: 0, left: 0, place: 'above', shiftX: 0 });
   const anchorRef = useRef(null);
   const tipRef = useRef(null);
+  const ignoreFocusRef = useRef(false);
   const tipId = useId();
 
   const updatePosition = useCallback(() => {
@@ -40,11 +41,20 @@ export default function IconTooltip({ label, children, rich = false }) {
   }, []);
 
   const show = () => {
+    if (ignoreFocusRef.current) return;
     updatePosition();
     setOpen(true);
   };
 
   const hide = () => setOpen(false);
+
+  const onClickCapture = hideOnClick
+    ? () => {
+      hide();
+      ignoreFocusRef.current = true;
+      requestAnimationFrame(() => { ignoreFocusRef.current = false; });
+    }
+    : undefined;
 
   const onPointerUp = (e) => {
     if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return;
@@ -95,6 +105,7 @@ export default function IconTooltip({ label, children, rich = false }) {
         onMouseLeave={hide}
         onFocusCapture={show}
         onBlurCapture={hide}
+        onClickCapture={onClickCapture}
         onPointerUp={onPointerUp}
         aria-describedby={open ? tipId : undefined}
       >

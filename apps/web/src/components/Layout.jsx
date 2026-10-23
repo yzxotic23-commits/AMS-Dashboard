@@ -3,20 +3,23 @@ import { Navigate, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSite } from '../context/SiteContext';
 import { getSiteStripMessage, SITE_STRIP_PATHS } from '../lib/sites';
+import { pageHeadingFor } from '../lib/page-title';
 import { operatorSiteKey, siteOptionsForProfile } from '../lib/operator-scope';
 import { homePathForRole, isPathAllowedForRole } from '../lib/role-access';
-import { readSidebarOpenMap, writeSidebarOpenMap } from '../lib/sidebar-prefs';
+import { readSidebarCollapsed, readSidebarOpenMap, writeSidebarCollapsed, writeSidebarOpenMap } from '../lib/sidebar-prefs';
 import { useScrollRevealScrollbar } from '../hooks/useScrollRevealScrollbar';
 import { pathInGroup } from './SidebarNavGroup';
 import { useOptionalGovernanceDate } from '../context/GovernanceDateContext';
 import SiteSwitcher from './SiteSwitcher';
 import GovernanceDateControls from './GovernanceDateControls';
 import AppSidebar from './AppSidebar';
+import IconTooltip from './IconTooltip';
 import EngineBackgroundSync from './EngineBackgroundSync';
 import EngineLogoutWatcher from './EngineLogoutWatcher';
 import DisconnectBell from './DisconnectBell';
 import TicketBell from './TicketBell';
 import BusinessNoticeBell from './BusinessNoticeBell';
+import { PageHeaderPillsProvider } from './PageHeaderPills';
 
 /** AMS bridge sync only on pages that explicitly use FeedFlow engine — not global. */
 const AMS_BRIDGE_SYNC_PATHS = [
@@ -42,10 +45,10 @@ const NAV_SECTIONS = [
   ]},
 ];
 
-const SITE_STRIP_CLASS = {
-  all: 'site-context-strip site-context-strip--all',
-  my: 'site-context-strip site-context-strip--my',
-  pp: 'site-context-strip site-context-strip--pp',
+const SITE_CHIP_CLASS = {
+  all: 'site-context-chip site-context-chip--all',
+  my: 'site-context-chip site-context-chip--my',
+  pp: 'site-context-chip site-context-chip--pp',
 };
 
 export default function Layout({ authBooting = false }) {
@@ -60,6 +63,32 @@ export default function Layout({ authBooting = false }) {
   const scrollPaneRef = useScrollRevealScrollbar();
   const initialOpenRef = useRef(readSidebarOpenMap());
   const [openMap, setOpenMap] = useState(() => initialOpenRef.current);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(readSidebarCollapsed);
+  const [headerPillsEl, setHeaderPillsEl] = useState(null);
+
+  const toggleSidebarCollapsed = useCallback(() => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      writeSidebarCollapsed(next);
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    function onKey(e) {
+      if (!e.metaKey && !e.ctrlKey) return;
+      if (e.altKey || e.shiftKey || e.key.toLowerCase() !== 'b') return;
+      const el = e.target;
+      if (el instanceof HTMLElement) {
+        const tag = el.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable) return;
+      }
+      e.preventDefault();
+      toggleSidebarCollapsed();
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [toggleSidebarCollapsed]);
 
   const setGroupOpen = useCallback((section, open) => {
     setOpenMap((prev) => {
@@ -113,25 +142,40 @@ export default function Layout({ authBooting = false }) {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-ams-sidebar">
+    <div className="flex h-screen overflow-hidden bg-ams-canvas">
       <EngineLogoutWatcher />
       {amsBridgeSync ? <EngineBackgroundSync /> : null}
-      <AppSidebar
-        profile={profile}
-        pathname={location.pathname}
-        openMap={openMap}
-        initialOpenMap={initialOpenRef.current}
-        onGroupToggle={setGroupOpen}
-        onSignOut={handleSignOut}
-      />
+      <div className={`sidebar-rail${sidebarCollapsed ? ' sidebar-rail--collapsed' : ''}`}>
+        <AppSidebar
+          profile={profile}
+          pathname={location.pathname}
+          openMap={openMap}
+          initialOpenMap={initialOpenRef.current}
+          onGroupToggle={setGroupOpen}
+          onSignOut={handleSignOut}
+          collapsed={sidebarCollapsed}
+          onToggleCollapsed={toggleSidebarCollapsed}
+        />
+      </div>
 
-      <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden bg-ams-canvas">
-        <header className="app-header-sticky w-full shrink-0 bg-ams-canvas">
+      <div className="app-stage">
+        <PageHeaderPillsProvider slot={headerPillsEl}>
+        <header className="app-header-sticky w-full shrink-0">
           <div className="app-gutter app-header-toolbar pt-4 pb-3">
             <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
-              <div aria-hidden="true" />
+              <div className="app-header-lead">
+                <h1 className="app-header-title">{pageHeadingFor(location.pathname, profile?.role)}</h1>
+                <div ref={setHeaderPillsEl} className="app-header-pills" />
+              </div>
               <div className="header-toolbar-center">
                 {!SITE_SWITCHER_HIDDEN_PATHS.includes(location.pathname) && <SiteSwitcher />}
+                {showSiteBar && (
+                  <IconTooltip label={siteBar.sub} rich>
+                    <span className={SITE_CHIP_CLASS[site] || SITE_CHIP_CLASS.all} role="status">
+                      {site === 'all' ? 'All sites' : 'This site only'}
+                    </span>
+                  </IconTooltip>
+                )}
                 {isGovernance && <GovernanceDateControls />}
               </div>
               <div className="flex items-center justify-end gap-3">
@@ -147,21 +191,13 @@ export default function Layout({ authBooting = false }) {
               </div>
             </div>
           </div>
-          {showSiteBar && (
-            <div className={SITE_STRIP_CLASS[site]} role="status">
-              <div className="site-context-strip-inner">
-                <strong>Current Site: {siteBar.label}</strong>
-                <span>{siteBar.sub}</span>
-              </div>
-            </div>
-          )}
         </header>
 
         <div
           ref={scrollPaneRef}
-          className="main-scroll-pane flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-y-auto overflow-x-hidden bg-ams-canvas"
+          className="main-scroll-pane flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-y-auto overflow-x-hidden"
         >
-          <main className="flex w-full min-w-0 flex-1 flex-col bg-ams-canvas">
+          <main className="flex w-full min-w-0 flex-1 flex-col">
             <div className="content-column page-shell w-full flex-1">
               {authBooting ? (
                 <div className="flex flex-1 items-center justify-center py-24">
@@ -173,6 +209,7 @@ export default function Layout({ authBooting = false }) {
             </div>
           </main>
         </div>
+        </PageHeaderPillsProvider>
       </div>
     </div>
   );

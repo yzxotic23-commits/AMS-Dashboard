@@ -1,5 +1,22 @@
 const OPEN_KEY = 'ams-sidebar-open';
 const SCROLL_KEY = 'ams-sidebar-scroll';
+const COLLAPSED_KEY = 'ams-sidebar-collapsed';
+
+export function readSidebarCollapsed() {
+  try {
+    return localStorage.getItem(COLLAPSED_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function writeSidebarCollapsed(collapsed) {
+  try {
+    localStorage.setItem(COLLAPSED_KEY, collapsed ? '1' : '0');
+  } catch {
+    /* ignore */
+  }
+}
 
 export function readSidebarOpenMap() {
   try {

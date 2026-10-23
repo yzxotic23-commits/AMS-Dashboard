@@ -49,6 +49,30 @@ function staffDisplay(account) {
   return account?.staff || '—';
 }
 
+function formatLogoutWhen(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleString('en-GB', {
+    timeZone: 'Asia/Jakarta',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function pendingDisconnectLines(account) {
+  const report = account.disconnect_report || {};
+  const staff = staffDisplay(account);
+  const who = report.reported_by || (staff !== '—' ? staff : 'Business');
+  const what = report.source === 'engine_health'
+    ? 'Keep-alive session dropped'
+    : `${who} reported a disconnect`;
+  const assigned = staff !== '—' && staff !== who ? `Assigned to ${staff}` : null;
+  const when = formatLogoutWhen(report.logout_at || report.reported_at);
+  return { what, assigned, when, note: report.note || '' };
+}
+
 const STAFF_FILTER_UNASSIGNED = '__unassigned__';
 const STAFF_FILTER_SHARED = accountTypeLabel(ACCOUNT_TYPE_BRAND_SHARED);
 
@@ -1948,29 +1972,25 @@ export default function AccountsPage() {
       />
 
       {!isBusiness && pendingDisconnects.length > 0 && (
-        <div className="mb-4 rounded-lg border border-ams-warn/40 bg-ams-warn/10 px-4 py-3">
-          <p className="text-[13px] font-semibold text-ams-warn">
-            {pendingDisconnects.length} pending confirmation{pendingDisconnects.length === 1 ? '' : 's'} — action needed
-          </p>
-          <ul className="mt-2 space-y-2">
-            {pendingDisconnects.map((a) => (
-              <li key={a.id} className="flex flex-wrap items-center justify-between gap-2">
+        <div className="task-callout" role="region" aria-label="Pending confirmations">
+          <div className="task-callout-head">
+            <span className="task-callout-title">Pending confirmation</span>
+            <span className="badge badge-warn">
+              {pendingDisconnects.length} need{pendingDisconnects.length === 1 ? 's' : ''} action
+            </span>
+          </div>
+          <ul className="task-callout-list">
+            {pendingDisconnects.map((a) => {
+              const lines = pendingDisconnectLines(a);
+              return (
+              <li key={a.id} className="task-callout-row">
                 <div className="min-w-0">
-                  <p className="text-[13px]">
-                    <span className="font-semibold text-ams-ink">{a.account_name}</span>
-                    <span className="text-ams-muted">
-                      {' · '}
-                      {a.staff || isBrandSharedAccount(a)
-                        ? `Staff · ${staffDisplay(a)}`
-                        : (a.disconnect_report.reported_by || 'Business')}
-                      {' · '}
-                      {new Date(a.disconnect_report.reported_at).toLocaleString()}
-                    </span>
-                  </p>
-                  {a.disconnect_report.note ? (
-                    <p className="mt-0.5 text-[12px] text-ams-faint">
-                      “{a.disconnect_report.note}”
-                    </p>
+                  <p className="task-callout-name">{a.account_name}</p>
+                  <p className="task-callout-meta">{lines.what}</p>
+                  {lines.assigned ? <p className="task-callout-meta">{lines.assigned}</p> : null}
+                  <p className="task-callout-meta">Logged out {lines.when} GMT +7</p>
+                  {lines.note ? (
+                    <p className="task-callout-note">Note: “{lines.note}”</p>
                   ) : null}
                 </div>
                 <button
@@ -1981,7 +2001,8 @@ export default function AccountsPage() {
                   Review
                 </button>
               </li>
-            ))}
+              );
+            })}
           </ul>
         </div>
       )}

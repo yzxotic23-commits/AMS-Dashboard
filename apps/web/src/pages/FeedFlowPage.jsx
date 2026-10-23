@@ -20,7 +20,7 @@ export default function FeedFlowPage() {
             href={wsafConsoleUrl()}
             target="_blank"
             rel="noreferrer"
-            className="btn btn-primary btn-sm"
+            className="app-header-cta"
           >
             <ExternalLink size={14} />
             Open feeding console

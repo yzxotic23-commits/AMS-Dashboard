@@ -4,6 +4,7 @@ import HubTaskBadge from './HubTaskBadge';
 import RegisterNavBadge from './RegisterNavBadge';
 import DisconnectNavBadge from './DisconnectNavBadge';
 import TicketNavBadge from './TicketNavBadge';
+import IconTooltip from './IconTooltip';
 
 function pathInGroup(items, pathname) {
   return items.some(({ to, end }) => {
@@ -12,29 +13,37 @@ function pathInGroup(items, pathname) {
   });
 }
 
-function NavItem({ to, icon: Icon, label, end, badge, tag, nested }) {
-  return (
+function NavItem({ to, icon: Icon, label, end, badge, tag, nested, collapsed }) {
+  const link = (
     <NavLink
       to={to}
       end={end}
+      aria-label={collapsed ? label : undefined}
       className={({ isActive }) =>
-        `sidebar-link ${nested ? 'sidebar-link--nested' : ''} ${isActive ? 'sidebar-link-active' : ''}`
+        [
+          'sidebar-link',
+          nested && !collapsed ? 'sidebar-link--nested' : '',
+          collapsed ? 'sidebar-link--icon' : '',
+          isActive ? 'sidebar-link-active' : '',
+        ].filter(Boolean).join(' ')
       }
     >
-      <Icon size={nested ? 20 : 22} strokeWidth={1.75} className="shrink-0" />
-      <span className="min-w-0 flex-1 leading-snug">{label}</span>
-      {tag && <span className="sidebar-link-tag">{tag}</span>}
+      <Icon size={collapsed ? 22 : nested ? 20 : 22} strokeWidth={1.75} className="shrink-0" />
+      {!collapsed && <span className="min-w-0 flex-1 leading-snug">{label}</span>}
+      {!collapsed && tag && <span className="sidebar-link-tag">{tag}</span>}
       {badge === 'hub' && <HubTaskBadge />}
       {badge === 'reg' && <RegisterNavBadge />}
       {badge === 'disconnect' && <DisconnectNavBadge />}
       {badge === 'tickets' && <TicketNavBadge />}
-      {typeof badge === 'function' && badge() > 0 && (
+      {!collapsed && typeof badge === 'function' && badge() > 0 && (
         <span className="ml-auto shrink-0 rounded-full bg-ams-accent px-1.5 py-px text-[10px] font-semibold text-white">
           {badge()}
         </span>
       )}
     </NavLink>
   );
+  if (!collapsed) return link;
+  return <IconTooltip label={tag ? `${label} · ${tag}` : label}>{link}</IconTooltip>;
 }
 
 export default function SidebarNavGroup({
@@ -45,7 +54,18 @@ export default function SidebarNavGroup({
   open = false,
   onToggle,
   instant = false,
+  collapsed = false,
 }) {
+  if (collapsed) {
+    return (
+      <div className="sidebar-group sidebar-group--collapsed">
+        {items.map((item) => (
+          <NavItem key={item.to} {...item} collapsed />
+        ))}
+      </div>
+    );
+  }
+
   if (!collapsible) {
     return (
       <div className="sidebar-group">

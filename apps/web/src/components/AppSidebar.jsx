@@ -1,5 +1,6 @@
 import { memo, useEffect, useRef } from 'react';
-import { LogOut } from 'lucide-react';
+import { ChevronsLeft, ChevronsRight, LogOut } from 'lucide-react';
+import IconTooltip from './IconTooltip';
 import {
   LayoutGrid, Plus, RotateCcw, Globe, CreditCard, Table2,
   Ticket, LineChart, ScrollText, Zap, MessageSquare, Users, Smartphone, Search, ShieldCheck, UserX, KeyRound,
@@ -8,7 +9,7 @@ import { readSidebarScrollTop, writeSidebarScrollTop } from '../lib/sidebar-pref
 import SidebarNavGroup, { pathInGroup } from './SidebarNavGroup';
 
 const NAV = [
-  { section: 'FEEDING ENGINE', collapsible: false, items: [
+  { section: 'WHATSAPP FEED', collapsible: false, items: [
     { to: '/feedflow', icon: MessageSquare, label: 'FeedFlow', tag: 'Beta' },
   ]},
   { section: 'OPERATOR ACTIONS', collapsible: true, items: [
@@ -88,7 +89,7 @@ function groupIsOpen(section, items, pathname, openMap) {
   return openMap[section] === true;
 }
 
-function AppSidebar({ pathname, openMap, initialOpenMap, onGroupToggle, onSignOut, profile }) {
+function AppSidebar({ pathname, openMap, initialOpenMap, onGroupToggle, onSignOut, profile, collapsed, onToggleCollapsed }) {
   const nav = buildNav(profile);
   const navRef = useRef(null);
 
@@ -110,26 +111,48 @@ function AppSidebar({ pathname, openMap, initialOpenMap, onGroupToggle, onSignOu
   }, []);
 
   return (
-    <aside className="sidebar-shell flex h-full w-[var(--ams-sidebar-w)] shrink-0 flex-col">
-      <div className="flex items-center gap-3 px-7 pb-2 pt-8">
-        <div className="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-ams-accent">
+    <aside className={`sidebar-shell flex min-h-0 shrink-0 flex-col${collapsed ? ' sidebar-shell--collapsed' : ''}`}>
+      <div className="sidebar-brand">
+        <div className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full bg-ams-accent">
           <span className="text-sm font-bold text-white">A</span>
         </div>
-        <div className="min-w-0">
-          <div className="truncate text-sm font-normal text-white">AMS</div>
-          <div className="truncate text-[11px] text-ams-sidebar-text">Account Management</div>
-        </div>
+        {!collapsed && (
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-sm font-normal text-white">AMS</div>
+            <div className="truncate text-[11px] text-ams-sidebar-text">Account Management</div>
+          </div>
+        )}
+        <IconTooltip
+          label={`${collapsed ? 'Expand sidebar' : 'Collapse sidebar'} · ${/Mac|iPhone|iPad/.test(navigator.platform) ? '⌘B' : 'Ctrl+B'}`}
+          hideOnClick
+        >
+          <button
+            type="button"
+            className="sidebar-collapse-btn"
+            onClick={(e) => {
+              e.currentTarget.blur();
+              onToggleCollapsed();
+            }}
+            aria-expanded={!collapsed}
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {collapsed
+              ? <ChevronsRight size={16} strokeWidth={1.75} />
+              : <ChevronsLeft size={16} strokeWidth={1.75} />}
+          </button>
+        </IconTooltip>
       </div>
 
-      <nav ref={navRef} className="sidebar-nav min-h-0 flex-1 px-5 py-4">
+      <nav ref={navRef} className={`sidebar-nav min-h-0 flex-1 py-4${collapsed ? ' px-1.5' : ' px-5'}`}>
         {nav.length === 0 ? (
-          <div className="px-2 py-3 text-[11px] text-ams-sidebar-text/70">Loading menu…</div>
+          <div className="px-2 py-3 text-[11px] text-ams-sidebar-text/70">{collapsed ? '…' : 'Loading menu…'}</div>
         ) : nav.map((group) => (
           <SidebarNavGroup
             key={group.section}
             section={group.section}
             items={group.items}
             collapsible={group.collapsible}
+            collapsed={collapsed}
             pathname={pathname}
             open={group.collapsible
               ? groupIsOpen(group.section, group.items, pathname, openMap)
@@ -146,10 +169,18 @@ function AppSidebar({ pathname, openMap, initialOpenMap, onGroupToggle, onSignOu
       </nav>
 
       <div className="sidebar-footer shrink-0">
-        <button type="button" onClick={onSignOut} className="sidebar-footer-btn">
-          <LogOut size={20} strokeWidth={1.75} />
-          Sign out
-        </button>
+        {collapsed ? (
+          <IconTooltip label="Sign out">
+            <button type="button" onClick={onSignOut} className="sidebar-footer-btn sidebar-footer-btn--icon" aria-label="Sign out">
+              <LogOut size={20} strokeWidth={1.75} />
+            </button>
+          </IconTooltip>
+        ) : (
+          <button type="button" onClick={onSignOut} className="sidebar-footer-btn">
+            <LogOut size={20} strokeWidth={1.75} />
+            Sign out
+          </button>
+        )}
       </div>
     </aside>
   );

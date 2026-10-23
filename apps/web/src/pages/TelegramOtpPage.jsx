@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, Copy, KeyRound, Loader2, Search } from 'lucide-react';
+import { CheckCircle2, Copy, History, KeyRound, Loader2, Search } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import PageHead from '../components/PageHead';
 import DetailDialog from '../components/DetailDialog';
+import Drawer from '../components/Drawer';
 import IconTooltip from '../components/IconTooltip';
 import Toast from '../components/Toast';
 import TelegramGroupsTab from '../components/TelegramGroupsTab';
@@ -16,6 +17,19 @@ function formatAgo(iso) {
   if (mins < 60) return `${mins} min ago`;
   const hours = Math.round(mins / 60);
   return hours < 48 ? `${hours} h ago` : new Date(iso).toLocaleDateString();
+}
+
+function syncPillTone(iso) {
+  if (!iso) return 'page-meta-sync--stale';
+  const mins = (Date.now() - new Date(iso).getTime()) / 60000;
+  if (mins < 15) return 'page-meta-sync--fresh';
+  if (mins < 60) return 'page-meta-sync--ok';
+  return 'page-meta-sync--stale';
+}
+
+function syncPillLabel(iso) {
+  if (!iso) return 'Never synced';
+  return `Synced ${formatAgo(iso)}`;
 }
 
 function formatCountdown(ms) {
@@ -60,6 +74,25 @@ function PoolBadge({ account }) {
   return <span className="badge badge-default">GCS</span>;
 }
 
+const HISTORY_TONES = {
+  pending: { label: 'Waiting', pill: 'badge-warn' },
+  delivered: { label: 'Delivered', pill: 'badge-accent' },
+  logged_in: { label: 'Logged in', pill: 'badge-success' },
+  expired: { label: 'Expired', pill: 'badge-danger' },
+  cancelled: { label: 'Cancelled', pill: 'badge-default' },
+};
+
+function formatWhen(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleString('en-GB', {
+    timeZone: 'Asia/Jakarta',
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 const PAGE_TABS = [
   { id: 'otp', label: 'OTP' },
   { id: 'groups', label: 'Groups' },
@@ -79,6 +112,7 @@ export default function TelegramOtpPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [requestId, setRequestId] = useState(null);
+  const [historyAccount, setHistoryAccount] = useState(null);
   const [toast, setToast] = useState('');
   const [toastTone, setToastTone] = useState('default');
 
@@ -179,6 +213,12 @@ export default function TelegramOtpPage() {
     onError: (err) => notify(err.response?.data?.error || err.message || 'Request failed', 'error'),
   });
 
+  const { data: historyData, isLoading: historyLoading, isError: historyError } = useQuery({
+    queryKey: ['telegram-otp', 'history', historyAccount?.id],
+    queryFn: async () => (await api.get('/telegram-otp/history', { params: { account_id: historyAccount.id } })).data,
+    enabled: Boolean(historyAccount?.id),
+  });
+
   const cancelMut = useMutation({
     mutationFn: (id) => api.post(`/telegram-otp/requests/${id}/cancel`).then((r) => r.data),
     onSettled: () => {
@@ -216,13 +256,17 @@ export default function TelegramOtpPage() {
           ? 'Scan the groups of each GCS account and compare them with its brand’s master list.'
           : 'Request OTP, then log in within 5 minutes — Friday catches the code and shows it here.'}
         actions={tab === 'otp' ? (
-          <div className="page-meta-bubble">
-            <span className="font-semibold text-ams-ink">{accounts.length}</span>
-            <span>accounts ·</span>
-            <span className="font-semibold text-ams-success">{readyCount}</span>
-            <span>active · synced</span>
-            <span className="font-semibold text-ams-ink">{formatAgo(roster?.last_synced_at)}</span>
-          </div>
+          <>
+            <div className="page-meta-bubble">
+              <span className="font-semibold text-ams-ink">{accounts.length}</span>
+              <span>accounts ·</span>
+              <span className="font-semibold text-ams-success">{readyCount}</span>
+              <span>active</span>
+            </div>
+            <span className={`page-meta-sync ${syncPillTone(roster?.last_synced_at)}`}>
+              {syncPillLabel(roster?.last_synced_at)}
+            </span>
+          </>
         ) : null}
       />
 
@@ -299,7 +343,7 @@ export default function TelegramOtpPage() {
       {!isLoading && !isError && (
         <div className="data-panel card overflow-hidden">
           <div className="data-table-wrap">
-            <table className="data-table w-full">
+            <table className="data-table data-table--otp w-full">
               <thead>
                 <tr>
                   <th>Account</th>
@@ -336,24 +380,44 @@ export default function TelegramOtpPage() {
                     <td><PoolBadge account={a} /></td>
                     <td><StatusBadge status={a.status} /></td>
                     <td className="col-action">
-                      {isReady(a) ? (
-                        <button
-                          type="button"
-                          className="btn btn-secondary btn-sm justify-center"
-                          onClick={() => requestMut.mutate(a.id)}
-                          disabled={requestMut.isPending}
-                        >
-                          <KeyRound size={13} strokeWidth={2.25} />
-                          Request OTP
-                        </button>
-                      ) : (
-                        <IconTooltip label="Friday has no live session for this account.">
-                          <button type="button" className="btn btn-secondary btn-sm justify-center" disabled>
-                            <KeyRound size={13} strokeWidth={2.25} />
-                            Request OTP
+                      <div className="col-action-btns justify-center">
+                        {isReady(a) ? (
+                          <IconTooltip label="Request OTP" hideOnClick>
+                            <button
+                              type="button"
+                              className="table-icon-btn table-icon-btn--accent"
+                              onClick={() => requestMut.mutate(a.id)}
+                              disabled={requestMut.isPending}
+                              aria-label="Request OTP"
+                            >
+                              {requestMut.isPending && requestMut.variables === a.id
+                                ? <Loader2 size={15} strokeWidth={2} className="animate-spin" />
+                                : <KeyRound size={15} strokeWidth={2} />}
+                            </button>
+                          </IconTooltip>
+                        ) : (
+                          <IconTooltip label="Friday has no live session for this account.">
+                            <button
+                              type="button"
+                              className="table-icon-btn"
+                              disabled
+                              aria-label="Request OTP unavailable"
+                            >
+                              <KeyRound size={15} strokeWidth={2} />
+                            </button>
+                          </IconTooltip>
+                        )}
+                        <IconTooltip label="Request history">
+                          <button
+                            type="button"
+                            className="table-icon-btn"
+                            onClick={() => setHistoryAccount(a)}
+                            aria-label={`Request history for ${a.profile || a.id}`}
+                          >
+                            <History size={15} strokeWidth={2} />
                           </button>
                         </IconTooltip>
-                      )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -479,6 +543,48 @@ export default function TelegramOtpPage() {
           )}
         </div>
       </DetailDialog>
+
+      <Drawer
+        open={!!historyAccount}
+        title={`Request history · ${historyAccount?.profile || historyAccount?.id || ''}`}
+        onClose={() => setHistoryAccount(null)}
+        footer={(
+          <button type="button" className="btn btn-ghost flex-1" onClick={() => setHistoryAccount(null)}>Close</button>
+        )}
+      >
+        {historyAccount && (
+          <div className="space-y-3">
+            <div className="drawer-locked">
+              <div className="drawer-locked-label">Account</div>
+              <div className="text-sm font-semibold">{historyAccount.profile || historyAccount.id}</div>
+              <div className="font-mono text-[12px] text-ams-faint">{historyAccount.id}</div>
+            </div>
+            {historyLoading && <p className="text-sm text-ams-faint">Loading request history…</p>}
+            {historyError && <p className="text-sm text-ams-danger">Could not load request history.</p>}
+            {!historyLoading && !historyError && (historyData?.data || []).length === 0 && (
+              <p className="text-sm text-ams-faint">No OTP requests yet for this account.</p>
+            )}
+            {!historyLoading && (historyData?.data || []).map((row) => {
+              const tone = HISTORY_TONES[row.status] || HISTORY_TONES.cancelled;
+              return (
+                <div key={row.id} className="rounded-lg border border-ams-line px-3 py-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[13px] font-semibold text-ams-ink">{row.requested_by}</span>
+                    <span className={`badge ${tone.pill}`}>{tone.label}</span>
+                  </div>
+                  <p className="mt-1 text-[12px] text-ams-muted">
+                    {formatWhen(row.created_at)} GMT +7
+                    <span className="text-ams-faint"> · {formatAgo(row.created_at)}</span>
+                  </p>
+                  {row.logged_in_at && (
+                    <p className="mt-0.5 text-[12px] text-ams-success">Signed in {formatAgo(row.logged_in_at)}</p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Drawer>
 
       <Toast open={!!toast} message={toast} tone={toastTone} onClose={() => setToast('')} />
     </div>

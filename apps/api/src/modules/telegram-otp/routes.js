@@ -58,6 +58,20 @@ router.get('/accounts', async (req, res, next) => {
   }
 });
 
+function historyRequest(row) {
+  const who = row.profiles?.full_name || row.profiles?.username || 'Someone';
+  return {
+    id: row.id,
+    account_id: row.account_id,
+    status: row.logged_in_at ? 'logged_in' : row.status,
+    requested_by: who,
+    created_at: row.created_at,
+    delivered_at: row.delivered_at || null,
+    logged_in_at: row.logged_in_at || null,
+    expires_at: row.expires_at,
+  };
+}
+
 /** GET /telegram-otp/assignments — shooter owners and GCS currencies (with their brands) in the roster (for User management). */
 router.get('/assignments', requireRole('admin'), async (_req, res, next) => {
   try {
@@ -76,6 +90,30 @@ router.get('/assignments', requireRole('admin'), async (_req, res, next) => {
         brands: distinct(gcs.filter((r) => r.currency.toUpperCase() === currency).map((r) => r.brand)),
       })),
     });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** GET /telegram-otp/history?account_id= — who asked for a code, without exposing codes. */
+router.get('/history', async (req, res, next) => {
+  try {
+    const accountId = String(req.query.account_id || '').trim();
+    if (!accountId) return res.status(400).json({ error: 'account_id is required' });
+    const account = await loadAccount(accountId);
+    if (!account || !account.enabled) return res.status(404).json({ error: 'Telegram account not found' });
+    if (!isAssignedAccount(req.profile, account)) {
+      return res.status(403).json({ error: 'This account is not assigned to you' });
+    }
+    await purgeOtpRequests();
+    const { data, error } = await supabaseAdmin
+      .from('otp_requests')
+      .select('id, account_id, status, created_at, expires_at, delivered_at, logged_in_at, requested_by, profiles:requested_by (full_name, username)')
+      .eq('account_id', account.id)
+      .order('created_at', { ascending: false })
+      .limit(40);
+    if (error) throw error;
+    res.json({ data: (data || []).map(historyRequest), account });
   } catch (e) {
     next(e);
   }
@@ -172,6 +210,10 @@ router.post('/requests', async (req, res, next) => {
 });
 
 async function loadOwnRequest(req, res) {
+  if (!/^[0-9a-f-]{36}$/i.test(String(req.params.id || ''))) {
+    res.status(404).json({ error: 'Request not found' });
+    return null;
+  }
   const { data, error } = await supabaseAdmin
     .from('otp_requests')
     .select('*')

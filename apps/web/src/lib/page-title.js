@@ -19,9 +19,13 @@ const PAGE_TITLES = {
   '/settings/access': 'Network access',
 };
 
-export function pageTitleFor(pathname, role) {
+export function pageHeadingFor(pathname, role) {
   const path = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname;
-  if (path === '/accounts' && role === 'business') return 'AMS | Check Account Status';
-  const page = PAGE_TITLES[path];
-  return page ? `AMS | ${page}` : 'AMS';
+  if (path === '/accounts' && role === 'business') return 'Check Account Status';
+  return PAGE_TITLES[path] || '';
+}
+
+export function pageTitleFor(pathname, role) {
+  const heading = pageHeadingFor(pathname, role);
+  return heading ? `AMS | ${heading}` : 'AMS';
 }

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { bindAudioUnlock } from '../lib/alert-notify';
+import { bindAudioUnlock, ensureNotificationPermission } from '../lib/alert-notify';
 import { formatApiError } from '../lib/format-api-error';
 
 export default function LoginPage() {
@@ -19,6 +19,7 @@ export default function LoginPage() {
   async function handleSubmit(e) {
     e.preventDefault();
     bindAudioUnlock();
+    ensureNotificationPermission();
     setError('');
     setLoading(true);
     try {

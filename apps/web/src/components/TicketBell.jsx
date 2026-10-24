@@ -12,6 +12,7 @@ import {
   playTicketAlertSound,
   ensureNotificationPermission,
   notificationPermission,
+  registerAlertWorker,
   showDesktopNotification,
   setPendingTitleFlash,
   clearPendingTitleFlash,
@@ -91,6 +92,8 @@ export default function TicketBell() {
 
   useEffect(() => {
     bindAudioUnlock();
+    registerAlertWorker();
+    if (notificationPermission() === 'granted') setNotifPerm('granted');
   }, []);
 
   useEffect(() => () => clearPendingTitleFlash(), []);
@@ -244,6 +247,7 @@ export default function TicketBell() {
           aria-expanded={open}
           onClick={() => {
             bindAudioUnlock();
+            ensureNotificationPermission().then(setNotifPerm);
             setOpen((v) => !v);
           }}
         >

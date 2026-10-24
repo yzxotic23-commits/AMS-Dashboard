@@ -66,6 +66,7 @@ export function bindAudioUnlock() {
   audioUnlockBound = true;
   const unlock = () => {
     unlockAudioFromGesture();
+    requestNotificationPermissionOnGesture();
   };
   window.addEventListener('pointerdown', unlock, { capture: true });
   window.addEventListener('mousedown', unlock, { capture: true });
@@ -118,6 +119,18 @@ export function playTicketAlertSound() {
   }
 }
 
+let permissionAsked = false;
+let swRegisterPromise = null;
+
+/** Register the alert service worker so Chrome can show background notifications. */
+export function registerAlertWorker() {
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return Promise.resolve(null);
+  if (!swRegisterPromise) {
+    swRegisterPromise = navigator.serviceWorker.register('/sw.js').catch(() => null);
+  }
+  return swRegisterPromise;
+}
+
 export function notificationPermission() {
   if (typeof window === 'undefined' || !('Notification' in window)) return 'unsupported';
   return Notification.permission;
@@ -125,48 +138,79 @@ export function notificationPermission() {
 
 export async function ensureNotificationPermission() {
   if (typeof window === 'undefined' || !('Notification' in window)) return 'unsupported';
-  if (Notification.permission === 'granted') return 'granted';
+  if (Notification.permission === 'granted') {
+    registerAlertWorker();
+    return 'granted';
+  }
   if (Notification.permission === 'denied') return 'denied';
   try {
-    return await Notification.requestPermission();
+    permissionAsked = true;
+    const perm = await Notification.requestPermission();
+    if (perm === 'granted') registerAlertWorker();
+    return perm;
   } catch {
     return Notification.permission;
   }
 }
 
+/** Ask once on a user gesture (login click / first tap) so Chrome alerts work later. */
+export function requestNotificationPermissionOnGesture() {
+  if (permissionAsked) return;
+  if (notificationPermission() !== 'default') {
+    if (notificationPermission() === 'granted') registerAlertWorker();
+    return;
+  }
+  permissionAsked = true;
+  ensureNotificationPermission();
+}
+
 /**
- * Desktop notification — works while AMS tab is in the background.
- * tag replaces previous notification with same tag.
+ * Desktop notification — prefers the service worker so Chrome still shows
+ * it when the AMS tab is in the background or another window is focused.
  */
 export function showDesktopNotification({
   title,
   body,
   tag = 'ams-ticket',
+  url = '/tickets',
   onClick,
 }) {
   if (typeof window === 'undefined' || !('Notification' in window)) return null;
   if (Notification.permission !== 'granted') return null;
-  try {
-    const n = new Notification(title, {
-      body,
-      tag,
-      renotify: true,
-      requireInteraction: true,
-      silent: false,
-    });
-    n.onclick = () => {
-      try {
-        window.focus();
-      } catch {
-        /* ignore */
-      }
-      onClick?.();
-      n.close();
-    };
-    return n;
-  } catch {
-    return null;
+  const options = {
+    body,
+    tag,
+    renotify: true,
+    requireInteraction: true,
+    silent: false,
+    data: { url },
+  };
+
+  const viaConstructor = () => {
+    try {
+      const n = new Notification(title, options);
+      n.onclick = () => {
+        try {
+          window.focus();
+        } catch {
+          /* ignore */
+        }
+        onClick?.();
+        n.close();
+      };
+      return n;
+    } catch {
+      return null;
+    }
+  };
+
+  if (typeof navigator !== 'undefined' && navigator.serviceWorker) {
+    Promise.resolve(registerAlertWorker())
+      .then((reg) => (reg ? reg.showNotification(title, options) : viaConstructor()))
+      .catch(() => viaConstructor());
+    return true;
   }
+  return viaConstructor();
 }
 
 /** Flash document title while there are pending alerts and tab is hidden / always when count > 0. */
